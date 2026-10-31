@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+.expo/
+dist/
+web-build/
+
+# Java / Spring Boot / Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# IDEs & Editors
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Logs & Env
+*.log
+.env
+.env.*
+!.env.example
