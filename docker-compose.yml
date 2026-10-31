@@ -37,10 +37,10 @@ services:
       DB_USERNAME: ${POSTGRES_USER:-ordering}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       APP_JWT_SECRET: ${APP_JWT_SECRET:?set APP_JWT_SECRET in .env}
-      APP_ADMIN_USERNAME: ${APP_ADMIN_USERNAME:-admin}
+      APP_ADMIN_PHONE: ${APP_ADMIN_PHONE:?set APP_ADMIN_PHONE in .env}
       APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:?set APP_ADMIN_PASSWORD in .env}
       APP_CORS_ORIGINS: https://${APP_DOMAIN:?set APP_DOMAIN in .env}
-      APP_SEED_DEMO: ${APP_SEED_DEMO:-false}
+      APP_SEED_DEMO: ${APP_SEED_DEMO:-true}
       JAVA_OPTS: -XX:MaxRAMPercentage=75 -Duser.timezone=Asia/Ho_Chi_Minh
       TZ: Asia/Ho_Chi_Minh
     healthcheck:

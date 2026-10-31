@@ -1,40 +1,73 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import type { ComponentProps } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors } from '@/lib/theme';
+import { colors, radius } from '@/lib/theme';
+import { Txt } from './txt';
 
-type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
+type Variant = 'primary' | 'secondary' | 'soft' | 'ghost' | 'danger' | 'success' | 'dark';
+type IconName = ComponentProps<typeof Ionicons>['name'];
 
 interface Props {
   title: string;
-  onPress: () => void | Promise<void>;
+  onPress?: () => void;
   variant?: Variant;
-  small?: boolean;
+  size?: 'sm' | 'md' | 'lg';
+  icon?: IconName;
   disabled?: boolean;
   loading?: boolean;
   style?: StyleProp<ViewStyle>;
+  accessibilityLabel?: string;
 }
 
-const bg: Record<Variant, string> = { primary: colors.primary, secondary: '#FFEDD5', danger: colors.danger, ghost: 'transparent' };
-const fg: Record<Variant, string> = { primary: colors.primaryText, secondary: colors.primary, danger: colors.primaryText, ghost: colors.primary };
+const palette: Record<Variant, { bg: string; pressed: string; fg: string; border?: string }> = {
+  primary: { bg: colors.primary, pressed: colors.primaryPressed, fg: colors.white },
+  secondary: { bg: colors.white, pressed: colors.divider, fg: colors.text, border: colors.border },
+  soft: { bg: colors.primarySoft, pressed: '#FDE3D2', fg: colors.primaryText },
+  ghost: { bg: 'transparent', pressed: colors.divider, fg: colors.primary },
+  danger: { bg: colors.white, pressed: colors.dangerSoft, fg: colors.danger, border: colors.border },
+  success: { bg: colors.success, pressed: '#166534', fg: colors.white },
+  dark: { bg: colors.text, pressed: '#000', fg: colors.white },
+};
 
-export function Button({ title, onPress, variant = 'primary', small, disabled, loading, style }: Props) {
+export function Button({ title, onPress, variant = 'primary', size = 'md', icon, disabled, loading, style, accessibilityLabel }: Props) {
+  const p = palette[variant];
+  const h = size === 'sm' ? 38 : size === 'lg' ? 52 : 46;
+  const fs = size === 'sm' ? 13 : size === 'lg' ? 16 : 15;
   const off = disabled || loading;
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={() => { void onPress(); }}
+      accessibilityLabel={accessibilityLabel ?? title}
+      accessibilityState={{ disabled: !!off }}
       disabled={off}
-      style={({ pressed }) => [styles.base, small && styles.small, { backgroundColor: bg[variant] }, off && styles.off, pressed && styles.pressed, style]}>
-      {loading ? <ActivityIndicator color={fg[variant]} /> : <Text style={[styles.text, small && styles.textSmall, { color: fg[variant] }]}>{title}</Text>}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.base,
+        { height: h, backgroundColor: pressed ? p.pressed : p.bg, borderRadius: size === 'sm' ? 9 : radius.lg },
+        p.border ? { borderWidth: 1.5, borderColor: p.border } : null,
+        size === 'sm' ? { paddingHorizontal: 12 } : null,
+        off ? styles.disabled : null,
+        style,
+      ]}>
+      {loading ? <ActivityIndicator color={p.fg} /> : icon ? <Ionicons name={icon} size={fs + 3} color={p.fg} /> : null}
+      <Txt weight="bold" size={fs} color={p.fg} numberOfLines={1}>{title}</Txt>
+    </Pressable>
+  );
+}
+
+export function IconButton({ icon, onPress, label, color = colors.text, bg = 'transparent', size = 44 }: {
+  icon: IconName; onPress?: () => void; label: string; color?: string; bg?: string; size?: number;
+}) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={6}
+      style={({ pressed }) => [{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? colors.divider : bg }]}>
+      <Ionicons name={icon} size={Math.round(size * 0.5)} color={color} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  base: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10, alignItems: 'center', justifyContent: 'center', minHeight: 44 },
-  small: { paddingVertical: 6, paddingHorizontal: 12, minHeight: 34, borderRadius: 8 },
-  off: { opacity: 0.5 },
-  pressed: { opacity: 0.8 },
-  text: { fontSize: 16, fontWeight: '600' },
-  textSmall: { fontSize: 14 },
+  base: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 16 },
+  disabled: { opacity: 0.5 },
 });

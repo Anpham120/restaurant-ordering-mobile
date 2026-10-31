@@ -34,6 +34,8 @@ public class JwtService {
         this.ttlSeconds = ttlHours * 3600;
     }
 
+    public long ttlSeconds() { return ttlSeconds; }
+
     public String issue(User u) {
         try {
             String header = ENC.encodeToString("{\"alg\":\"HS256\",\"typ\":\"JWT\"}".getBytes(StandardCharsets.UTF_8));

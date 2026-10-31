@@ -1,18 +1,18 @@
 {
   "expo": {
-    "name": "Gọi món nhà hàng",
-    "slug": "mobile",
+    "name": "Atlas Restaurant",
+    "slug": "atlas-restaurant",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "restaurant",
+    "scheme": "atlas",
     "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/expo.icon"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#C2410C",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -21,7 +21,9 @@
     },
     "web": {
       "output": "single",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "name": "Atlas Restaurant",
+      "themeColor": "#C2410C"
     },
     "plugins": [
       "expo-router",
@@ -35,7 +37,7 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": true,
+      "typedRoutes": false,
       "reactCompiler": true
     }
   }

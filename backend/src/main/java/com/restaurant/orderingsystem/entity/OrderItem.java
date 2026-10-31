@@ -1,12 +1,16 @@
 package com.restaurant.orderingsystem.entity;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.*;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity @Table(name = "order_items") @Getter @Setter
 public class OrderItem {
@@ -14,7 +18,7 @@ public class OrderItem {
     @ManyToOne(optional = false, fetch = FetchType.LAZY) @JoinColumn(name = "order_id") private Order order;
     @ManyToOne(optional = false) @JoinColumn(name = "menu_item_id") private MenuItem menuItem;
     @Column(nullable = false) private int quantity;
+    /** Price charged when the order was placed. */
     @Column(name = "unit_price", nullable = false, precision = 12, scale = 2) private BigDecimal unitPrice;
-    @Column(length = 255) private String note;
-    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private OrderItemStatus status = OrderItemStatus.PENDING;
+    @Column(length = 200) private String note;
 }

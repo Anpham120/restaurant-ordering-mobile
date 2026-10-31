@@ -1,103 +1,128 @@
 #!/usr/bin/env node
-// Simple load test (Node >= 18, no dependencies).
-// Usage: node perf/load-test.js [baseUrl] [secondsPerScenario]
-const BASE = process.argv[2] || 'http://localhost:8080';
-const SECS = Number(process.argv[3] || 30);
+// Load test for the Atlas Restaurant API (Node >= 18, no dependencies).
+// Needs a running backend with the sample menu (APP_SEED_DEMO=true) and a manager account.
+// Usage: node perf/load-test.js <baseUrl> <managerPhone> <managerPassword> [secondsPerScenario]
+// It creates test staff/customer accounts and orders, so never point it at a production database.
+const [BASE = 'http://localhost:8080', ADMIN_PHONE = '0900000001', ADMIN_PASSWORD = 'Atlas@123', SECS_ARG = '30'] = process.argv.slice(2);
+const SECS = Number(SECS_ARG);
+const CUSTOMERS = 100;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const J = { 'Content-Type': 'application/json' };
+const headers = (token, body) => ({ ...(body ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: 'Bearer ' + token } : {}) });
 
+/** One timed request; ok = HTTP status below 400. */
 async function call(method, path, body, token) {
-  const headers = { ...(body ? J : {}), ...(token ? { Authorization: 'Bearer ' + token } : {}) };
   const t0 = performance.now();
-  let ok = false;
   try {
-    const res = await fetch(BASE + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    const res = await fetch(BASE + path, { method, headers: headers(token, body), body: body ? JSON.stringify(body) : undefined });
     await res.text();
-    ok = res.status < 400;
-    return { ms: performance.now() - t0, ok, status: res.status };
-  } catch { return { ms: performance.now() - t0, ok: false, status: 0 }; }
-}
-async function json(method, path, body, token) {
-  const res = await fetch(BASE + path, { method, headers: { ...(body ? J : {}), ...(token ? { Authorization: 'Bearer ' + token } : {}) }, body: body ? JSON.stringify(body) : undefined });
-  if (res.status >= 400) throw new Error(method + ' ' + path + ' -> ' + res.status);
-  return res.json();
+    return { ms: performance.now() - t0, ok: res.status < 400, status: res.status };
+  } catch {
+    return { ms: performance.now() - t0, ok: false, status: 0 };
+  }
 }
 
-function summarize(name, samples, seconds, extra = '') {
+async function json(method, path, body, token) {
+  const res = await fetch(BASE + path, { method, headers: headers(token, body), body: body ? JSON.stringify(body) : undefined });
+  const text = await res.text();
+  if (res.status >= 400) throw new Error(`${method} ${path} -> ${res.status} ${text}`);
+  return text ? JSON.parse(text) : null;
+}
+
+function summarize(name, samples, seconds) {
   const ms = samples.map(s => s.ms).sort((a, b) => a - b);
   const errors = samples.filter(s => !s.ok).length;
-  const avg = ms.reduce((a, b) => a + b, 0) / ms.length;
-  const p = q => ms[Math.min(ms.length - 1, Math.floor(ms.length * q))];
-  return { scenario: name + extra, requests: samples.length, avgMs: +avg.toFixed(1), p95Ms: +p(0.95).toFixed(1), maxMs: +ms[ms.length - 1].toFixed(1),
-    errorPct: +(100 * errors / samples.length).toFixed(2), rps: +(samples.length / seconds).toFixed(1) };
+  const pct = q => ms[Math.min(ms.length - 1, Math.floor(ms.length * q))];
+  return {
+    scenario: name, requests: samples.length,
+    avgMs: +(ms.reduce((a, b) => a + b, 0) / ms.length).toFixed(1), p95Ms: +pct(0.95).toFixed(1), maxMs: +ms[ms.length - 1].toFixed(1),
+    errorPct: +(100 * errors / samples.length).toFixed(2), rps: +(samples.length / seconds).toFixed(1),
+  };
 }
 
-// closed loop: N workers each send as fast as possible for `secs`
+/** N workers sending back-to-back requests for `secs` seconds. */
 async function closedLoop(n, secs, fn) {
   const end = Date.now() + secs * 1000, out = [];
   await Promise.all(Array.from({ length: n }, async (_, w) => { while (Date.now() < end) out.push(await fn(w)); }));
   return out;
 }
-// open loop: fixed arrival rate
+
+/** Requests started at a fixed rate, whatever the response time. */
 async function openLoop(rps, secs, fn) {
-  const end = Date.now() + secs * 1000, out = [], pending = [];
+  const end = Date.now() + secs * 1000, start = Date.now(), out = [], pending = [];
   let i = 0;
-  const start = Date.now();
   while (Date.now() < end) {
     pending.push(fn(i++).then(r => out.push(r)));
-    const next = start + (i * 1000) / rps;
-    await sleep(Math.max(0, next - Date.now()));
+    await sleep(Math.max(0, start + (i * 1000) / rps - Date.now()));
   }
   await Promise.all(pending);
   return out;
 }
 
 (async () => {
-  const login = async (u, p) => (await json('POST', '/api/auth/login', { username: u, password: p })).token;
-  const manager = await login('manager', 'manager123');
-  const kitchen = await login('kitchen', 'kitchen123');
-  const staff = await login('staff', 'staff123');
+  const run = Date.now().toString().slice(-6);
+  const admin = (await json('POST', '/api/auth/login', { login: ADMIN_PHONE, password: ADMIN_PASSWORD })).token;
+  // take orders all day while testing
+  const store = await json('GET', '/api/admin/settings', null, admin);
+  await json('PUT', '/api/admin/settings', { ...store, hotline: store.hotline, openTime: '00:00', closeTime: '23:59:59', acceptingOrders: true }, admin);
+
+  const staffPhone = '097' + run + '1', kitchenPhone = '097' + run + '2';
+  await json('POST', '/api/admin/staff', { fullName: 'Perf staff', phone: staffPhone, password: 'Passw0rd!', role: 'STAFF' }, admin);
+  const staff = (await json('POST', '/api/auth/login', { login: staffPhone, password: 'Passw0rd!' })).token;
+
+  const zone = (await json('GET', '/api/zones'))[0];
   const menu = await json('GET', '/api/menu');
-  const dish = menu[0].id;
-  const run = Date.now().toString(36);
-  const tables = [];
-  for (let i = 0; i < 120; i++) tables.push((await json('POST', '/api/admin/tables', { code: `L${run}-${i}`, seats: 4 }, manager)).qrToken);
-  const order = (qr) => call('POST', '/api/orders', { qrToken: qr, items: [{ menuItemId: dish, quantity: 1 }] });
+  const dish = menu.find(m => m.available) ;
+
+  console.error(`preparing ${CUSTOMERS} customers…`);
+  const customers = [];
+  for (let i = 0; i < CUSTOMERS; i++) {
+    const phone = '08' + run + String(i).padStart(2, '0');
+    const token = (await json('POST', '/api/auth/register', { fullName: 'Perf ' + i, phone, password: 'Passw0rd!' })).token;
+    const addr = await json('POST', '/api/me/addresses', { zoneId: zone.id, label: 'Nhà', recipientName: 'Perf ' + i, recipientPhone: phone, street: i + ' Lê Lợi', makeDefault: true }, token);
+    customers.push({ token, addressId: addr.id });
+  }
+  const placeOrder = async (c) => {
+    await call('PUT', `/api/me/cart/items/${dish.id}`, { quantity: 2 }, c.token);
+    return call('POST', '/api/me/orders', { addressId: c.addressId }, c.token);
+  };
+
   const results = [];
-  const warm = async () => { for (let i = 0; i < 200; i++) await call('GET', '/api/menu'); };
-  await warm();
+  for (let i = 0; i < 200; i++) await call('GET', '/api/menu'); // warm-up
 
-  console.error('PT01a GET /api/menu, 50 concurrent');
-  results.push(summarize('PT01a GET /api/menu (50 users)', await closedLoop(50, SECS, () => call('GET', '/api/menu')), SECS));
-  console.error('PT01b GET /api/menu, 100 concurrent');
-  results.push(summarize('PT01b GET /api/menu (100 users)', await closedLoop(100, SECS, () => call('GET', '/api/menu')), SECS));
+  console.error('PT01 menu');
+  results.push(summarize('PT01a Xem thực đơn – 50 người dùng', await closedLoop(50, SECS, () => call('GET', '/api/menu')), SECS));
+  results.push(summarize('PT01b Xem thực đơn – 100 người dùng', await closedLoop(100, SECS, () => call('GET', '/api/menu')), SECS));
 
-  console.error('PT02 POST /api/orders, 50 req/s');
-  results.push(summarize('PT02 POST /api/orders (50 req/s)', await openLoop(50, SECS, i => order(tables[i % 60])), SECS));
+  console.error('PT02 place orders');
+  results.push(summarize('PT02 Đặt hàng – 20 đơn/giây', await openLoop(20, SECS, i => placeOrder(customers[i % CUSTOMERS])), SECS));
 
-  console.error('PT03 PATCH order-items status, 30 req/s');
-  const orders = await Promise.all(tables.slice(60, 100).map(qr => json('POST', '/api/orders', { qrToken: qr, items: [{ menuItemId: dish, quantity: 1 }] })));
-  const itemIds = orders.map(o => o.items[0].id);
-  results.push(summarize('PT03 PATCH item status (30 req/s)', await openLoop(30, SECS,
-    i => call('PATCH', `/api/order-items/${itemIds[i % itemIds.length]}/status`, { status: i % 2 ? 'READY' : 'COOKING' }, kitchen)), SECS));
+  console.error('PT03 confirm orders');
+  const pending = (await json('GET', '/api/manage/orders?status=PENDING&size=100&sort=oldest', null, staff)).content.map(o => o.id);
+  const more = (await json('GET', '/api/manage/orders?status=PENDING&size=100&page=1&sort=oldest', null, staff)).content.map(o => o.id);
+  const ids = [...pending, ...more];
+  const confirmSecs = Math.min(SECS, Math.floor(ids.length / 10));
+  results.push(summarize('PT03 Nhân viên xác nhận đơn – 10 lượt/giây',
+    await openLoop(10, confirmSecs, i => call('PATCH', `/api/manage/orders/${ids[i % ids.length]}/status`, { status: 'CONFIRMED' }, staff)), confirmSecs));
 
-  console.error('PT04 mixed: 100 customers + 10 staff/kitchen');
-  const mixed = [];
-  const end = Date.now() + SECS * 1000;
-  const customers = Array.from({ length: 100 }, async (_, w) => {
-    const qr = tables[(w % 20) + 100];
+  console.error('PT04 mixed');
+  const mixed = [], end = Date.now() + SECS * 1000;
+  const shoppers = customers.map(async (c, w) => {
     while (Date.now() < end) {
       mixed.push(await call('GET', '/api/menu'));
-      if (Math.random() < 0.3) mixed.push(await order(qr));
-      await sleep(100 + Math.random() * 200);
+      mixed.push(await call('GET', `/api/menu/${menu[w % menu.length].id}`));
+      if (Math.random() < 0.1) mixed.push(await placeOrder(c));
+      await sleep(300 + Math.random() * 400);
     }
   });
-  const staffers = Array.from({ length: 10 }, async (_, w) => {
-    while (Date.now() < end) { mixed.push(await call('GET', '/api/orders?status=PENDING', null, w % 2 ? staff : kitchen)); await sleep(300); }
+  const board = Array.from({ length: 10 }, async () => {
+    while (Date.now() < end) {
+      mixed.push(await call('GET', '/api/manage/orders?status=PENDING&status=CONFIRMED&status=PREPARING&status=READY&status=DELIVERING&sort=oldest', null, staff));
+      await sleep(1000);
+    }
   });
-  await Promise.all([...customers, ...staffers]);
-  results.push(summarize('PT04 mixed (100 customers + 10 staff)', mixed, SECS));
+  await Promise.all([...shoppers, ...board]);
+  results.push(summarize('PT04 Hỗn hợp – 100 khách + 10 màn hình bảng đơn', mixed, SECS));
 
   console.table(results);
   console.log(JSON.stringify(results, null, 2));

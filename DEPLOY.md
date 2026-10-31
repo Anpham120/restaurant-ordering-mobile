@@ -1,6 +1,6 @@
 # Triển khai production
 
-Hệ thống chạy trên chính máy chủ này (163.61.182.201) tại **https://order.atlasplatform12.tech**. Jenkins tự test và deploy mỗi khi có commit lên `main`.
+Ứng dụng đặt món Atlas Restaurant chạy trên chính máy chủ này (163.61.182.201) tại **https://order.atlasplatform12.tech**. Jenkins tự test và deploy mỗi khi có commit lên `main`.
 
 ## Kiến trúc
 
@@ -25,7 +25,7 @@ Internet ──HTTPS──> nginx (host, certbot)
 
 | Khi nào | Các bước |
 |---|---|
-| Mọi nhánh / PR | `mvn verify`: 15 test, gồm test profile prod trên PostgreSQL thật (embedded). Sau đó `tsc`, `expo lint`, `expo export --platform web` |
+| Mọi nhánh / PR | `mvn verify`: 11 bộ test, gồm test profile prod trên PostgreSQL thật (embedded). Sau đó `tsc`, `expo lint`, `expo export --platform web` |
 | `main` | Thêm bước **Deploy production** (`scripts/deploy.sh`): backup DB → build image → chờ healthy → kiểm tra `/api/health`, `/api/menu`, trang web. Lỗi ở bất kỳ bước nào thì tự quay về image trước |
 | 3 giờ sáng (nhánh `main`) | Chỉ backup DB (`scripts/backup-db.sh nightly`) |
 
@@ -64,8 +64,8 @@ docker compose -p restaurant-ordering-system ps
 docker compose -p restaurant-ordering-system logs -f backend
 ```
 
-- **Tài khoản quản lý đầu tiên:** `admin`, mật khẩu là `APP_ADMIN_PASSWORD` trong `prod.env`. Đăng nhập xong nên tạo tài khoản riêng cho từng nhân viên trong tab *Nhân viên*.
-- **Dữ liệu mẫu:** `APP_SEED_DEMO=true` nạp thực đơn, bàn T1–T5 và voucher `WELCOME10` khi DB còn trống. Không tạo tài khoản demo có mật khẩu công khai vì đã có admin.
+- **Tài khoản quản lý đầu tiên:** đăng nhập bằng số điện thoại `APP_ADMIN_PHONE` (mặc định `0900000000`), mật khẩu là `APP_ADMIN_PASSWORD` trong `prod.env`. Đăng nhập xong nên tạo tài khoản riêng cho từng nhân viên trong mục *Nhân viên*.
+- **Dữ liệu mẫu:** `APP_SEED_DEMO=true` nạp thực đơn 19 món kèm ảnh, 8 khu vực giao và 2 mã giảm giá (`WELCOME10`, `FREESHIP`) khi DB còn trống. Không tạo tài khoản demo có mật khẩu công khai, vì đã có tài khoản quản lý.
 - **Đổi secret:** sửa `prod.env`, chạy `base64 -w0 prod.env > prod.env.b64`, cập nhật credential `ordering-prod-env`, rồi build lại `main` trong Jenkins. Riêng `POSTGRES_PASSWORD` chỉ có tác dụng khi volume DB được tạo lần đầu, nên muốn đổi thì phải đổi trong PostgreSQL trước.
 - **Khôi phục DB:**
   ```bash
@@ -73,4 +73,3 @@ docker compose -p restaurant-ordering-system logs -f backend
   gunzip -c /home/coder/ordering-backups/<file>.sql.gz | docker compose -p restaurant-ordering-system exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
   ```
 - **Quay lui code:** revert commit trên `main` rồi push, pipeline sẽ deploy lại bản cũ. Migration Flyway đã chạy không tự hoàn tác, nên phải khôi phục DB từ bản backup `pre-deploy`.
-- **In mã QR cho bàn:** tab *Bàn* của quản lý hiển thị link `https://order.atlasplatform12.tech/?table=<mã>` cho từng bàn. Tạo ảnh QR từ link đó rồi in.

@@ -13,6 +13,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.io.IOException;
 
@@ -21,9 +23,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * Boots the real "prod" profile against a real (embedded) PostgreSQL:
- * Flyway applies db/migration, Hibernate validates the schema, the first admin is bootstrapped,
- * demo seeding stays off, and a basic order flow works end to end.
+ * The real "prod" profile on a real (embedded) PostgreSQL: Flyway builds the schema, Hibernate validates every entity
+ * against it, the store row and first manager are bootstrapped, demo seeding stays off, database constraints hold,
+ * and an order goes from cart to delivered.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -40,8 +42,8 @@ class PostgresProdProfileTest {
         r.add("DB_USERNAME", () -> "postgres");
         r.add("DB_PASSWORD", () -> "");
         r.add("APP_JWT_SECRET", () -> "test-secret-that-is-definitely-longer-than-32-bytes");
-        r.add("APP_CORS_ORIGINS", () -> "https://app.example.com");
-        r.add("app.admin.username", () -> "boss");
+        r.add("APP_CORS_ORIGINS", () -> "https://order.example.com");
+        r.add("app.admin.phone", () -> "0911111111");
         r.add("app.admin.password", () -> "S3cure-pass!");
     }
 
@@ -52,42 +54,65 @@ class PostgresProdProfileTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired ObjectMapper om;
 
+    ResultActions call(String token, MockHttpServletRequestBuilder b, String body) throws Exception {
+        if (token != null) b = b.header("Authorization", "Bearer " + token);
+        if (body != null) b = b.contentType(MediaType.APPLICATION_JSON).content(body);
+        return mvc.perform(b);
+    }
+
+    String field(ResultActions r, String f) throws Exception { return om.readTree(r.andReturn().getResponse().getContentAsString()).get(f).asText(); }
+
     @Test
     void prodProfileOnPostgres() throws Exception {
         assertEquals(1, jdbc.queryForObject("select count(*) from flyway_schema_history where success and version = '1'", Integer.class));
-        assertEquals(1, jdbc.queryForObject("select count(*) from users", Integer.class));          // only the bootstrapped admin
-        assertEquals(0, jdbc.queryForObject("select count(*) from menu_items", Integer.class));     // no demo data in prod
+        assertEquals(13, jdbc.queryForObject("select count(*) from information_schema.tables where table_schema = 'public' and table_name <> 'flyway_schema_history'", Integer.class));
+        assertEquals(1, jdbc.queryForObject("select count(*) from users", Integer.class));
+        assertEquals(1, jdbc.queryForObject("select count(*) from store_settings", Integer.class));
+        assertEquals(0, jdbc.queryForObject("select count(*) from menu_items", Integer.class));
+        // open all day for the test, whatever time it runs
+        jdbc.update("update store_settings set open_time = '00:00', close_time = '23:59:59'");
 
-        mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("{\"username\":\"manager\",\"password\":\"manager123\"}"))
-                .andExpect(status().isUnauthorized());
-        String token = om.readTree(mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"username\":\"boss\",\"password\":\"S3cure-pass!\"}")).andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString()).get("token").asText();
-        String auth = "Bearer " + token;
+        String admin = field(call(null, post("/api/auth/login"), "{\"login\":\"0911111111\",\"password\":\"S3cure-pass!\"}").andExpect(status().isOk()), "token");
+        String zone = field(call(admin, post("/api/admin/zones"), "{\"name\":\"Quận 1\",\"deliveryFee\":15000,\"estimatedMinutes\":25,\"sortOrder\":0}")
+                .andExpect(status().isCreated()), "id");
+        String cat = field(call(admin, post("/api/admin/categories"), "{\"name\":\"Phở\",\"sortOrder\":1}").andExpect(status().isCreated()), "id");
+        String pho = field(call(admin, post("/api/admin/menu-items"), "{\"categoryId\":" + cat + ",\"name\":\"Phở bò\",\"price\":65000}")
+                .andExpect(status().isCreated()), "id");
+        call(admin, post("/api/admin/staff"), "{\"fullName\":\"NV\",\"phone\":\"0922222222\",\"password\":\"Passw0rd!\",\"role\":\"STAFF\"}").andExpect(status().isCreated());
+        call(admin, post("/api/admin/staff"), "{\"fullName\":\"Bếp\",\"phone\":\"0933333333\",\"password\":\"Passw0rd!\",\"role\":\"KITCHEN\"}").andExpect(status().isCreated());
+        String staff = field(call(null, post("/api/auth/login"), "{\"login\":\"0922222222\",\"password\":\"Passw0rd!\"}"), "token");
+        String kitchen = field(call(null, post("/api/auth/login"), "{\"login\":\"0933333333\",\"password\":\"Passw0rd!\"}"), "token");
 
-        long cat = om.readTree(mvc.perform(post("/api/admin/categories").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"Món chính\",\"sortOrder\":1}")).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).get("id").asLong();
-        long item = om.readTree(mvc.perform(post("/api/admin/menu-items").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"categoryId\":" + cat + ",\"name\":\"Phở bò\",\"price\":55000}")).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).get("id").asLong();
-        String qr = om.readTree(mvc.perform(post("/api/admin/tables").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"code\":\"T1\",\"seats\":4}")).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).get("qrToken").asText();
+        String customer = field(call(null, post("/api/auth/register"), "{\"fullName\":\"An\",\"phone\":\"0944444444\",\"password\":\"Passw0rd!\"}")
+                .andExpect(status().isCreated()), "token");
+        String addr = field(call(customer, post("/api/me/addresses"), "{\"zoneId\":" + zone + ",\"label\":\"Nhà\",\"recipientName\":\"An\","
+                + "\"recipientPhone\":\"0944444444\",\"street\":\"12 Nguyễn Huệ\",\"makeDefault\":true}").andExpect(status().isCreated()), "id");
+        call(customer, put("/api/me/cart/items/" + pho), "{\"quantity\":2}").andExpect(status().isOk());
+        String order = field(call(customer, post("/api/me/orders"), "{\"addressId\":" + addr + "}").andExpect(status().isCreated())
+                .andExpect(jsonPath("$.total").value(145000.0)), "id");
+        for (String[] s : new String[][]{{staff, "CONFIRMED"}, {kitchen, "PREPARING"}, {kitchen, "READY"}, {staff, "DELIVERING"}, {staff, "DELIVERED"}}) {
+            call(s[0], patch("/api/manage/orders/" + order + "/status"), "{\"status\":\"" + s[1] + "\"}").andExpect(status().isOk());
+        }
+        assertEquals(6, jdbc.queryForObject("select count(*) from order_status_history where order_id = " + order, Integer.class));
+        call(admin, get("/api/admin/dashboard"), null).andExpect(status().isOk()).andExpect(jsonPath("$.revenueToday").value(145000.0));
 
-        long order = om.readTree(mvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"qrToken\":\"" + qr + "\",\"items\":[{\"menuItemId\":" + item + ",\"quantity\":2}]}"))
-                .andExpect(status().isCreated()).andExpect(jsonPath("$.totalAmount").value(110000.0))
-                .andReturn().getResponse().getContentAsString()).get("id").asLong();
-        mvc.perform(post("/api/orders/" + order + "/payments").contentType(MediaType.APPLICATION_JSON).content("{\"method\":\"EWALLET\"}"))
-                .andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("PAID"));
-        mvc.perform(get("/api/admin/reports/revenue").header("Authorization", auth))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.totalRevenue").value(110000.0)).andExpect(jsonPath("$.topItems[0].name").value("Phở bò"));
+        // the database itself rejects broken data
+        assertEquals("23514", sqlState("update order_items set quantity = 0"));                      // check violation
+        assertEquals("23505", sqlState("update addresses set is_default = true where id = " + addr + "; insert into addresses(user_id, zone_id, label, recipient_name, recipient_phone, street, is_default, created_at) select user_id, zone_id, 'B', 'B', '0944444444', 'x', true, now() from addresses where id = " + addr));
+        assertEquals("23503", sqlState("delete from menu_items where id = " + pho));                   // FK: ordered dish
+        assertEquals("23514", sqlState("insert into store_settings(id, store_name, hotline, store_address, open_time, close_time, updated_at) values (2,'x','1','x','08:00','09:00',now())"));
 
-        // duplicate unique key -> 409 from Postgres too
-        mvc.perform(post("/api/admin/tables").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON).content("{\"code\":\"T1\",\"seats\":2}"))
-                .andExpect(status().isConflict());
-        // CORS only for the configured origin
-        mvc.perform(options("/api/menu").header("Origin", "https://evil.example").header("Access-Control-Request-Method", "GET"))
+        call(null, options("/api/menu").header("Origin", "https://evil.example").header("Access-Control-Request-Method", "GET"), null)
                 .andExpect(status().isForbidden());
-        mvc.perform(options("/api/menu").header("Origin", "https://app.example.com").header("Access-Control-Request-Method", "GET"))
-                .andExpect(status().isOk()).andExpect(header().string("Access-Control-Allow-Origin", "https://app.example.com"));
+        call(null, get("/h2-console"), null).andExpect(status().isNotFound());
+    }
+
+    private String sqlState(String sql) {
+        try {
+            jdbc.execute(sql);
+            return "no error";
+        } catch (org.springframework.dao.DataAccessException e) {
+            return ((java.sql.SQLException) e.getMostSpecificCause()).getSQLState();
+        }
     }
 }

@@ -1,20 +1,23 @@
 package com.restaurant.orderingsystem.entity;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.*;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
 
-@Entity @Table(name = "reviews", uniqueConstraints = @UniqueConstraint(columnNames = {"order_id", "menu_item_id"})) @Getter @Setter
+@Entity @Table(name = "reviews") @Getter @Setter
 public class Review {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
-    @ManyToOne(optional = false, fetch = FetchType.LAZY) @JoinColumn(name = "order_id") private Order order;
-    @ManyToOne(optional = false, fetch = FetchType.LAZY) @JoinColumn(name = "menu_item_id") private MenuItem menuItem;
+    @OneToOne(optional = false, fetch = FetchType.LAZY) @JoinColumn(name = "order_item_id", unique = true) private OrderItem orderItem;
     @Column(nullable = false) private int rating;
-    @Column(name = "comment", length = 500) private String comment;
+    @Column(length = 500) private String comment;
     @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;
     @PrePersist void onCreate() { createdAt = LocalDateTime.now(); }
 }

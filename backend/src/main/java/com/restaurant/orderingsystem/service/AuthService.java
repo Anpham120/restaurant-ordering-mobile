@@ -1,0 +1,85 @@
+package com.restaurant.orderingsystem.service;
+
+import com.restaurant.orderingsystem.dto.Dtos.*;
+import com.restaurant.orderingsystem.entity.Role;
+import com.restaurant.orderingsystem.entity.User;
+import com.restaurant.orderingsystem.exception.ApiException;
+import com.restaurant.orderingsystem.repository.UserRepository;
+import com.restaurant.orderingsystem.security.Caller;
+import com.restaurant.orderingsystem.security.JwtService;
+import com.restaurant.orderingsystem.security.LoginRateLimiter;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.Optional;
+
+@Service
+@RequiredArgsConstructor
+public class AuthService {
+    private final UserRepository users;
+    private final PasswordEncoder encoder;
+    private final JwtService jwt;
+    private final LoginRateLimiter limiter;
+
+    /** Customers sign up themselves; staff accounts are created by a manager. */
+    @Transactional
+    public AuthResponse register(RegisterRequest r) {
+        String email = normalizeEmail(r.email());
+        if (users.existsByPhone(r.phone())) throw ApiException.conflict("Số điện thoại đã được đăng ký");
+        if (email != null && users.existsByEmailIgnoreCase(email)) throw ApiException.conflict("Email đã được đăng ký");
+        User u = new User();
+        u.setFullName(r.fullName().trim());
+        u.setPhone(r.phone());
+        u.setEmail(email);
+        u.setPasswordHash(encoder.encode(r.password()));
+        u.setRole(Role.CUSTOMER);
+        return token(users.save(u));
+    }
+
+    @Transactional(readOnly = true)
+    public AuthResponse login(LoginRequest r, String ip) {
+        String login = r.login().trim();
+        limiter.check(login, ip);
+        Optional<User> found = login.contains("@") ? users.findByEmailIgnoreCase(login) : users.findByPhone(login.replaceAll("[\\s.]", ""));
+        User u = found.filter(x -> encoder.matches(r.password(), x.getPasswordHash())).orElse(null);
+        if (u == null) {
+            limiter.failed(login, ip);
+            throw ApiException.unauthorized("Sai số điện thoại/email hoặc mật khẩu");
+        }
+        if (!u.isActive()) throw ApiException.forbidden("Tài khoản đã bị khóa, vui lòng liên hệ cửa hàng");
+        limiter.succeeded(login, ip);
+        return token(u);
+    }
+
+    @Transactional(readOnly = true)
+    public UserResponse me() { return UserResponse.of(current()); }
+
+    @Transactional
+    public UserResponse updateProfile(ProfileRequest r) {
+        User u = current();
+        String email = normalizeEmail(r.email());
+        if (email != null && users.existsByEmailIgnoreCaseAndIdNot(email, u.getId())) throw ApiException.conflict("Email đã được dùng cho tài khoản khác");
+        u.setFullName(r.fullName().trim());
+        u.setEmail(email);
+        return UserResponse.of(u);
+    }
+
+    @Transactional
+    public void changePassword(ChangePasswordRequest r) {
+        User u = current();
+        if (!encoder.matches(r.currentPassword(), u.getPasswordHash())) throw ApiException.badRequest("Mật khẩu hiện tại không đúng");
+        if (r.currentPassword().equals(r.newPassword())) throw ApiException.badRequest("Mật khẩu mới phải khác mật khẩu cũ");
+        u.setPasswordHash(encoder.encode(r.newPassword()));
+    }
+
+    private User current() { return users.findById(Caller.id()).orElseThrow(() -> ApiException.unauthorized("Vui lòng đăng nhập")); }
+
+    private AuthResponse token(User u) {
+        return new AuthResponse(jwt.issue(u), LocalDateTime.now().plusSeconds(jwt.ttlSeconds()), UserResponse.of(u));
+    }
+
+    static String normalizeEmail(String email) { return email == null || email.isBlank() ? null : email.trim().toLowerCase(); }
+}

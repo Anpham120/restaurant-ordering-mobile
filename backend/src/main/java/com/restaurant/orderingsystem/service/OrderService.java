@@ -2,182 +2,258 @@ package com.restaurant.orderingsystem.service;
 
 import com.restaurant.orderingsystem.dto.Dtos.*;
 import com.restaurant.orderingsystem.entity.*;
-import com.restaurant.orderingsystem.exception.BadRequestException;
-import com.restaurant.orderingsystem.exception.NotFoundException;
+import com.restaurant.orderingsystem.exception.ApiException;
 import com.restaurant.orderingsystem.repository.*;
+import com.restaurant.orderingsystem.security.AuthUser;
+import com.restaurant.orderingsystem.security.Caller;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+/**
+ * Delivery order lifecycle (COD, no courier role – store staff deliver):
+ * <pre>
+ * PENDING  --staff-->   CONFIRMED --kitchen--> PREPARING --kitchen--> READY --staff--> DELIVERING --staff--> DELIVERED
+ *    |customer/staff        |staff                                                       |staff (failed delivery)
+ *    v                      v                                                            v
+ * CANCELLED              CANCELLED                                                   CANCELLED
+ * </pre>
+ * Every change is written to order_status_history with who did it and why.
+ */
 @Service
 @RequiredArgsConstructor
 public class OrderService {
-    public static final List<OrderStatus> OPEN = List.of(OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.COOKING, OrderStatus.SERVED);
-    private static final Map<OrderStatus, Set<OrderStatus>> TRANSITIONS = Map.of(
-            OrderStatus.PENDING, Set.of(OrderStatus.CONFIRMED, OrderStatus.COOKING, OrderStatus.CANCELLED),
-            OrderStatus.CONFIRMED, Set.of(OrderStatus.COOKING, OrderStatus.CANCELLED),
-            OrderStatus.COOKING, Set.of(OrderStatus.SERVED),
-            OrderStatus.SERVED, Set.of());
+    public static final List<OrderStatus> ACTIVE = List.of(OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PREPARING,
+            OrderStatus.READY, OrderStatus.DELIVERING);
+    static final int REVIEW_DAYS = 7;
+    private static final DateTimeFormatter CODE_DATE = DateTimeFormatter.ofPattern("yyMMdd");
 
     private final OrderRepository orders;
-    private final OrderItemRepository orderItems;
-    private final RestaurantTableRepository tables;
-    private final MenuItemRepository menuItems;
-    private final VoucherRepository vouchers;
     private final UserRepository users;
+    private final ReviewRepository reviews;
+    private final StoreService store;
+    private final AddressService addresses;
+    private final CartService cart;
+    private final VoucherService vouchers;
+
+    // ================================================================ checkout (customer)
+    @Transactional(readOnly = true)
+    public CheckoutPreview preview(CheckoutRequest r) { return compute(r).preview(); }
 
     @Transactional
-    public OrderResponse create(CreateOrderRequest req) {
-        RestaurantTable table = tables.findByQrToken(req.qrToken())
-                .orElseThrow(() -> new NotFoundException("Table not found for QR token"));
-        // A table has at most one open order: extra items go onto it.
-        Order order = orders.findFirstByTableIdAndStatusIn(table.getId(), OPEN).orElse(null);
-        if (order == null) {
-            order = new Order();
-            order.setTable(table);
-            order.setNote(req.note());
-            table.setStatus(TableStatus.OCCUPIED);
-        } else if (req.note() != null) {
-            order.setNote(req.note());
+    public OrderResponse place(CheckoutRequest r) {
+        Computed c = compute(r);
+        if (!c.preview().canPlace()) throw ApiException.badRequest(String.join(". ", c.preview().problems()));
+        Address a = c.address();
+        Order o = new Order();
+        o.setCustomer(users.getReferenceById(Caller.id()));
+        o.setZone(a.getZone());
+        o.setRecipientName(a.getRecipientName());
+        o.setRecipientPhone(a.getRecipientPhone());
+        o.setDeliveryStreet(a.getStreet());
+        o.setDeliveryNote(a.getNote());
+        o.setNote(CatalogService.blankToNull(r.note()));
+        o.setDeliveryFee(a.getZone().getDeliveryFee());
+        o.setVoucher(c.voucher());
+        o.setDiscountAmount(c.preview().discount());
+        for (CartItem line : c.lines()) {
+            OrderItem i = new OrderItem();
+            i.setOrder(o);
+            i.setMenuItem(line.getMenuItem());
+            i.setQuantity(line.getQuantity());
+            i.setUnitPrice(line.getMenuItem().getPrice());
+            i.setNote(line.getNote());
+            o.getItems().add(i);
         }
-        addItems(order, req.items());
-        if (req.voucherCode() != null && !req.voucherCode().isBlank()) {
-            attachVoucher(order, req.voucherCode());
-        }
-        recalc(order);
-        return toResponse(orders.save(order));
+        record(o, OrderStatus.PENDING, null);
+        o = orders.save(o);
+        cart.clear(Caller.id());
+        return toResponse(o);
+    }
+
+    private record Computed(CheckoutPreview preview, Address address, List<CartItem> lines, Voucher voucher) {}
+
+    private Computed compute(CheckoutRequest r) {
+        long uid = Caller.id();
+        List<String> problems = new ArrayList<>();
+        StoreSettings s = store.settings();
+        String closed = store.closedReason(s);
+        if (closed != null) problems.add(closed);
+
+        Address a = addresses.own(r.addressId());
+        if (!a.getZone().isActive()) problems.add("Cửa hàng tạm ngưng giao tới " + a.getZone().getName());
+
+        List<CartItem> lines = cart.lines(uid);
+        CartResponse view = CartService.view(lines);
+        if (lines.isEmpty()) problems.add("Giỏ hàng đang trống");
+        if (view.hasProblems()) problems.add("Giỏ hàng có món đã hết hoặc ngừng bán, vui lòng bỏ các món đó");
+        BigDecimal subtotal = view.subtotal();
+        if (!lines.isEmpty() && subtotal.compareTo(s.getMinOrderAmount()) < 0)
+            problems.add("Đơn tối thiểu " + Money.vnd(s.getMinOrderAmount()) + " (chưa tính phí giao)");
+
+        VoucherService.Check v = vouchers.check(r.voucherCode(), subtotal, uid);
+        if (v.error() != null) problems.add(v.error());
+        BigDecimal fee = Money.of(a.getZone().getDeliveryFee());
+        BigDecimal total = subtotal.subtract(v.discount()).add(fee);
+        CheckoutPreview p = new CheckoutPreview(view, AddressResponse.of(a), subtotal, fee,
+                v.voucher() == null ? null : v.voucher().getCode(), v.discount(), v.error(), Money.of(total),
+                a.getZone().getEstimatedMinutes(), problems.isEmpty(), problems);
+        return new Computed(p, a, lines, v.voucher());
+    }
+
+    // ================================================================ customer orders
+    @Transactional(readOnly = true)
+    public PageResponse<OrderResponse> myOrders(int page, int size) {
+        long uid = Caller.id();
+        Specification<Order> spec = (root, q, cb) -> cb.equal(root.get("customer").get("id"), uid);
+        return PageResponse.of(orders.findAll(spec, page(page, size, Sort.by("createdAt").descending())).map(this::toResponse));
+    }
+
+    @Transactional(readOnly = true)
+    public OrderResponse myOrder(Long id) { return toResponse(own(id)); }
+
+    @Transactional
+    public OrderResponse cancelByCustomer(Long id, String reason) {
+        Order o = own(id);
+        if (o.getStatus() != OrderStatus.PENDING) throw ApiException.badRequest("Cửa hàng đã xác nhận đơn, vui lòng gọi hotline nếu cần hủy");
+        o.setStatus(OrderStatus.CANCELLED);
+        record(o, OrderStatus.CANCELLED, "Khách hủy: " + reason.trim());
+        return toResponse(o);
     }
 
     @Transactional
-    public OrderResponse addItems(Long orderId, AddItemsRequest req) {
-        Order order = openOrder(orderId);
-        addItems(order, req.items());
-        recalc(order);
-        return toResponse(order);
+    public CartResponse reorder(Long id) { return cart.addAll(own(id).getItems()); }
+
+    Order own(Long id) {
+        Order o = find(id);
+        if (!o.getCustomer().getId().equals(Caller.id())) throw ApiException.notFound("Không tìm thấy đơn hàng");
+        return o;
     }
 
-    @Transactional
-    public OrderResponse applyVoucher(Long orderId, String code) {
-        Order order = openOrder(orderId);
-        attachVoucher(order, code);
-        recalc(order);
-        return toResponse(order);
+    // ================================================================ store side
+    @Transactional(readOnly = true)
+    public PageResponse<OrderResponse> search(List<OrderStatus> statuses, String q, LocalDate date, int page, int size, boolean oldestFirst) {
+        String needle = q == null ? "" : q.trim();
+        Long idFromCode = parseCode(needle);
+        Specification<Order> spec = (root, query, cb) -> {
+            List<Predicate> p = new ArrayList<>();
+            if (statuses != null && !statuses.isEmpty()) p.add(root.get("status").in(statuses));
+            if (date != null) {
+                p.add(cb.greaterThanOrEqualTo(root.get("createdAt"), date.atStartOfDay()));
+                p.add(cb.lessThan(root.get("createdAt"), date.plusDays(1).atStartOfDay()));
+            }
+            if (!needle.isEmpty()) {
+                List<Predicate> any = new ArrayList<>();
+                if (idFromCode != null) any.add(cb.equal(root.get("id"), idFromCode));
+                any.add(cb.like(root.get("recipientPhone"), "%" + needle.replaceAll("\\D", "") + "%"));
+                any.add(cb.like(cb.lower(root.get("recipientName")), "%" + needle.toLowerCase(Locale.ROOT) + "%"));
+                p.add(cb.or(any.toArray(Predicate[]::new)));
+            }
+            return cb.and(p.toArray(Predicate[]::new));
+        };
+        Sort sort = oldestFirst ? Sort.by("createdAt").ascending() : Sort.by("createdAt").descending();
+        return PageResponse.of(orders.findAll(spec, page(page, size, sort)).map(this::toResponse));
     }
 
     @Transactional(readOnly = true)
     public OrderResponse get(Long id) { return toResponse(find(id)); }
 
     @Transactional(readOnly = true)
-    public List<OrderResponse> list(OrderStatus status) {
-        List<Order> list = status == null ? orders.findAllByOrderByCreatedAtDesc()
-                : orders.findByStatusInOrderByCreatedAtAsc(List.of(status));
-        return list.stream().map(this::toResponse).toList();
+    public List<OrderResponse> kitchenQueue() {
+        return orders.findByStatusInOrderByCreatedAtAsc(List.of(OrderStatus.CONFIRMED, OrderStatus.PREPARING)).stream().map(this::toResponse).toList();
     }
 
     @Transactional
-    public OrderResponse updateStatus(Long id, OrderStatusRequest req) {
-        Order order = find(id);
-        OrderStatus to = req.status();
-        if (!TRANSITIONS.getOrDefault(order.getStatus(), Set.of()).contains(to)) {
-            throw new BadRequestException("Cannot change order status from " + order.getStatus() + " to " + to
-                    + (to == OrderStatus.COMPLETED ? " (COMPLETED is set by payment)" : ""));
-        }
-        if (req.staffId() != null) {
-            order.setStaff(users.findById(req.staffId()).orElseThrow(() -> new NotFoundException("Staff not found")));
-        }
-        order.setStatus(to);
-        if (to == OrderStatus.CANCELLED) {
-            order.getItems().forEach(i -> i.setStatus(OrderItemStatus.CANCELLED));
-            order.getTable().setStatus(TableStatus.FREE);
-            recalc(order);
-        }
-        return toResponse(order);
-    }
-
-    @Transactional
-    public OrderResponse updateItemStatus(Long itemId, OrderItemStatus status) {
-        OrderItem item = orderItems.findById(itemId).orElseThrow(() -> new NotFoundException("Order item not found"));
-        Order order = item.getOrder();
-        if (!OPEN.contains(order.getStatus())) throw new BadRequestException("Order is closed");
-        item.setStatus(status);
-        List<OrderItem> active = order.getItems().stream().filter(i -> i.getStatus() != OrderItemStatus.CANCELLED).toList();
-        boolean early = order.getStatus() == OrderStatus.PENDING || order.getStatus() == OrderStatus.CONFIRMED;
-        if (!active.isEmpty() && active.stream().allMatch(i -> i.getStatus() == OrderItemStatus.READY || i.getStatus() == OrderItemStatus.SERVED)) {
-            if (order.getStatus() != OrderStatus.SERVED) order.setStatus(OrderStatus.SERVED);
-        } else if (early && (status == OrderItemStatus.COOKING || status == OrderItemStatus.READY)) {
-            order.setStatus(OrderStatus.COOKING);
-        }
-        recalc(order);
-        return toResponse(order);
-    }
-
-    // ---- helpers ----
-    Order find(Long id) { return orders.findById(id).orElseThrow(() -> new NotFoundException("Order not found: " + id)); }
-
-    private Order openOrder(Long id) {
+    public OrderResponse changeStatus(Long id, OrderStatus to, String note) {
         Order o = find(id);
-        if (!OPEN.contains(o.getStatus())) throw new BadRequestException("Order is " + o.getStatus() + ", cannot be modified");
-        return o;
+        AuthUser user = Caller.require();
+        OrderStatus from = o.getStatus();
+        boolean staff = user.role() == Role.STAFF || user.role() == Role.MANAGER;
+        boolean kitchen = user.role() == Role.KITCHEN || user.role() == Role.MANAGER;
+        boolean allowed = switch (to) {
+            case CONFIRMED -> from == OrderStatus.PENDING && staff;
+            case PREPARING -> from == OrderStatus.CONFIRMED && kitchen;
+            case READY -> from == OrderStatus.PREPARING && kitchen;
+            case DELIVERING -> from == OrderStatus.READY && staff;
+            case DELIVERED -> from == OrderStatus.DELIVERING && staff;
+            case CANCELLED -> (from == OrderStatus.PENDING || from == OrderStatus.CONFIRMED || from == OrderStatus.DELIVERING) && staff;
+            case PENDING -> false;
+        };
+        if (!allowed) throw ApiException.badRequest("Không thể chuyển đơn từ \"" + label(from) + "\" sang \"" + label(to) + "\" với vai trò của bạn");
+        String reason = CatalogService.blankToNull(note);
+        if (to == OrderStatus.CANCELLED && reason == null) throw ApiException.badRequest("Vui lòng nhập lý do hủy đơn");
+        o.setStatus(to);
+        record(o, to, reason);
+        return toResponse(o);
     }
 
-    private void addItems(Order order, List<OrderItemRequest> reqs) {
-        for (OrderItemRequest r : reqs) {
-            MenuItem m = menuItems.findById(r.menuItemId()).orElseThrow(() -> new NotFoundException("Menu item not found: " + r.menuItemId()));
-            if (!m.isAvailable()) throw new BadRequestException("Menu item is not available: " + m.getName());
-            OrderItem oi = new OrderItem();
-            oi.setOrder(order);
-            oi.setMenuItem(m);
-            oi.setQuantity(r.quantity());
-            oi.setUnitPrice(m.getPrice());
-            oi.setNote(r.note());
-            order.getItems().add(oi);
-        }
-        // new items put a finished order back to cooking
-        if (order.getStatus() == OrderStatus.SERVED) order.setStatus(OrderStatus.COOKING);
+    // ================================================================ mapping
+    Order find(Long id) { return orders.findById(id).orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn hàng")); }
+
+    private void record(Order o, OrderStatus status, String note) {
+        OrderStatusHistory h = new OrderStatusHistory();
+        h.setOrder(o);
+        h.setStatus(status);
+        h.setChangedBy(Caller.user().map(u -> users.getReferenceById(u.id())).orElse(null));
+        h.setNote(note);
+        h.setChangedAt(LocalDateTime.now());
+        o.getHistory().add(h);
     }
 
-    private void attachVoucher(Order order, String code) {
-        Voucher v = vouchers.findByCodeIgnoreCase(code.trim()).orElseThrow(() -> new BadRequestException("Invalid voucher code"));
-        LocalDateTime now = LocalDateTime.now();
-        if (v.getStartAt() != null && now.isBefore(v.getStartAt())) throw new BadRequestException("Voucher is not active yet");
-        if (v.getEndAt() != null && now.isAfter(v.getEndAt())) throw new BadRequestException("Voucher has expired");
-        if (subtotal(order).compareTo(v.getMinOrder()) < 0) throw new BadRequestException("Order total is below the voucher minimum of " + v.getMinOrder());
-        if (v.getUsageLimit() != null) {
-            long used = orders.countByVoucherIdAndStatusNotAndIdNot(v.getId(), OrderStatus.CANCELLED, order.getId() == null ? -1L : order.getId());
-            if (used >= v.getUsageLimit()) throw new BadRequestException("Voucher usage limit reached");
-        }
-        order.setVoucher(v);
+    static String code(Order o) { return "DH" + o.getCreatedAt().format(CODE_DATE) + "-" + String.format("%04d", o.getId()); }
+
+    static Long parseCode(String s) {
+        String digits = s.toUpperCase(Locale.ROOT).replaceFirst("^#?DH\\d{6}-", "");
+        return digits.matches("\\d{1,12}") ? Long.valueOf(digits) : null;
     }
 
-    private BigDecimal subtotal(Order o) {
-        return o.getItems().stream().filter(i -> i.getStatus() != OrderItemStatus.CANCELLED)
-                .map(i -> i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    static BigDecimal subtotal(Order o) {
+        return Money.of(o.getItems().stream().map(i -> i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity()))).reduce(BigDecimal.ZERO, BigDecimal::add));
     }
 
-    void recalc(Order o) {
-        BigDecimal sub = subtotal(o);
-        BigDecimal discount = BigDecimal.ZERO;
-        Voucher v = o.getVoucher();
-        if (v != null) {
-            discount = v.getDiscountType() == DiscountType.PERCENT
-                    ? sub.multiply(v.getDiscountValue()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
-                    : v.getDiscountValue();
-        }
-        o.setTotalAmount(sub.subtract(discount).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP));
-    }
+    static BigDecimal total(Order o) { return Money.of(subtotal(o).subtract(o.getDiscountAmount()).add(o.getDeliveryFee())); }
 
     OrderResponse toResponse(Order o) {
-        List<OrderItemResponse> items = o.getItems().stream().map(i -> new OrderItemResponse(i.getId(), i.getMenuItem().getId(),
-                i.getMenuItem().getName(), i.getQuantity(), i.getUnitPrice(), i.getNote(), i.getStatus())).toList();
-        BigDecimal sub = subtotal(o).setScale(2, RoundingMode.HALF_UP);
-        return new OrderResponse(o.getId(), o.getTable().getId(), o.getTable().getCode(), o.getStaff() == null ? null : o.getStaff().getId(),
-                o.getVoucher() == null ? null : o.getVoucher().getCode(), o.getStatus(), o.getNote(), sub,
-                sub.subtract(o.getTotalAmount()), o.getTotalAmount(), o.getCreatedAt(), o.getUpdatedAt(), items);
+        Set<Long> reviewed = o.getStatus() == OrderStatus.DELIVERED ? reviews.reviewedItemIds(o.getId()) : Set.of();
+        LocalDateTime deliveredAt = o.getHistory().stream().filter(h -> h.getStatus() == OrderStatus.DELIVERED).map(OrderStatusHistory::getChangedAt).findFirst().orElse(null);
+        boolean reviewable = deliveredAt != null && deliveredAt.isAfter(LocalDateTime.now().minusDays(REVIEW_DAYS)) && reviewed.size() < o.getItems().size();
+        List<OrderItemResponse> items = o.getItems().stream().map(i -> new OrderItemResponse(i.getId(), i.getMenuItem().getId(), i.getMenuItem().getName(),
+                i.getMenuItem().getImageUrl(), i.getQuantity(), i.getUnitPrice(), Money.of(i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity()))),
+                i.getNote(), reviewed.contains(i.getId()))).toList();
+        List<StatusEvent> timeline = o.getHistory().stream()
+                .map(h -> new StatusEvent(h.getStatus(), h.getChangedAt(), h.getChangedBy() == null ? null : h.getChangedBy().getFullName(), h.getNote())).toList();
+        User c = o.getCustomer();
+        LocalDateTime eta = ACTIVE.contains(o.getStatus()) ? o.getCreatedAt().plusMinutes(o.getZone().getEstimatedMinutes()) : null;
+        return new OrderResponse(o.getId(), code(o), o.getStatus(), o.getCreatedAt(), o.getUpdatedAt(),
+                c.getId(), c.getFullName(), c.getPhone(),
+                o.getRecipientName(), o.getRecipientPhone(), o.getDeliveryStreet(), o.getZone().getName(), o.getDeliveryNote(), o.getNote(),
+                items, o.getItems().stream().mapToInt(OrderItem::getQuantity).sum(),
+                subtotal(o), o.getDeliveryFee(), o.getVoucher() == null ? null : o.getVoucher().getCode(), o.getDiscountAmount(), total(o),
+                o.getPaymentMethod(), o.getStatus() == OrderStatus.DELIVERED, eta,
+                o.getStatus() == OrderStatus.PENDING, reviewable, timeline);
     }
+
+    static String label(OrderStatus s) {
+        return switch (s) {
+            case PENDING -> "Chờ xác nhận";
+            case CONFIRMED -> "Đã xác nhận";
+            case PREPARING -> "Đang chuẩn bị";
+            case READY -> "Chờ giao";
+            case DELIVERING -> "Đang giao";
+            case DELIVERED -> "Đã giao";
+            case CANCELLED -> "Đã hủy";
+        };
+    }
+
+    private static PageRequest page(int page, int size, Sort sort) { return PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100), sort); }
 }

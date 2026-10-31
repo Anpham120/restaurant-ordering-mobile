@@ -1,96 +1,84 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Platform } from 'react-native';
 
-import { setAuthToken, setUnauthorizedHandler, type MenuItem, type User } from './api';
+import { api, setAuthToken, setUnauthorizedHandler, type AuthResponse, type Role, type User } from './api';
 
-export interface CartLine { menuItem: MenuItem; quantity: number; note: string }
+const KEY = 'atlas.session.v1';
 
-interface Persisted {
-  token: string | null; user: User | null; tableToken: string | null; tableCode: string | null; orderId: number | null;
-}
+interface Stored { token: string; user: User }
 
-interface SessionValue extends Persisted {
-  cart: CartLine[];
-  voucherCode: string;
-  setStaffSession: (token: string, user: User) => void;
+interface SessionValue {
+  ready: boolean;
+  user: User | null;
+  token: string | null;
+  login: (login: string, password: string) => Promise<User>;
+  register: (b: { fullName: string; phone: string; email?: string | null; password: string }) => Promise<User>;
   logout: () => void;
-  setTable: (token: string, code: string) => void;
-  leaveTable: () => void;
-  setOrderId: (id: number | null) => void;
-  addToCart: (item: MenuItem) => void;
-  setQuantity: (menuItemId: number, quantity: number) => void;
-  setLineNote: (menuItemId: number, note: string) => void;
-  clearCart: () => void;
-  setVoucherCode: (code: string) => void;
-}
-
-const KEY = 'restaurant-ordering.session';
-const EMPTY: Persisted = { token: null, user: null, tableToken: null, tableCode: null, orderId: null };
-
-function load(): Persisted {
-  try {
-    if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-      const raw = localStorage.getItem(KEY);
-      if (raw) return { ...EMPTY, ...(JSON.parse(raw) as Partial<Persisted>) };
-    }
-  } catch { /* storage unavailable */ }
-  return EMPTY;
-}
-
-function save(p: Persisted) {
-  try {
-    if (Platform.OS === 'web' && typeof localStorage !== 'undefined') localStorage.setItem(KEY, JSON.stringify(p));
-  } catch { /* storage unavailable */ }
+  setUser: (u: User) => void;
 }
 
 const Ctx = createContext<SessionValue | null>(null);
 
+/** Where each role lands after signing in. */
+export function homeFor(role: Role | undefined): '/' | '/store/orders' | '/store/kitchen' | '/admin' {
+  switch (role) {
+    case 'STAFF': return '/store/orders';
+    case 'KITCHEN': return '/store/kitchen';
+    case 'MANAGER': return '/admin';
+    default: return '/';
+  }
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
-  // Lazy init so the auth token is set before any child effect fires a request.
-  const [state, setState] = useState<Persisted>(() => {
-    const p = load();
-    setAuthToken(p.token);
-    return p;
-  });
-  const [cart, setCart] = useState<CartLine[]>([]);
-  const [voucherCode, setVoucherCode] = useState('');
+  const [ready, setReady] = useState(false);
+  const [state, setState] = useState<Stored | null>(null);
 
-  useEffect(() => { save(state); }, [state]);
-
-  const logout = useCallback(() => {
-    setAuthToken(null);
-    setState((s) => ({ ...s, token: null, user: null }));
+  const persist = useCallback((s: Stored | null) => {
+    setAuthToken(s?.token ?? null);
+    setState(s);
+    void (s ? AsyncStorage.setItem(KEY, JSON.stringify(s)) : AsyncStorage.removeItem(KEY)).catch(() => undefined);
   }, []);
 
   useEffect(() => {
-    setUnauthorizedHandler(logout);
+    let alive = true;
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(KEY);
+        if (raw && alive) {
+          const s = JSON.parse(raw) as Stored;
+          setAuthToken(s.token);
+          setState(s);
+          // refresh the profile (role or lock may have changed); a 401 logs out via the handler
+          api.me().then((u) => alive && persist({ token: s.token, user: u })).catch(() => undefined);
+        }
+      } catch { /* corrupt storage: start signed out */ }
+      if (alive) setReady(true);
+    })();
+    return () => { alive = false; };
+  }, [persist]);
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => persist(null));
     return () => setUnauthorizedHandler(null);
-  }, [logout]);
+  }, [persist]);
+
+  const accept = useCallback((r: AuthResponse) => { persist({ token: r.token, user: r.user }); return r.user; }, [persist]);
 
   const value = useMemo<SessionValue>(() => ({
-    ...state,
-    cart,
-    voucherCode,
-    setStaffSession: (token, user) => { setAuthToken(token); setState((s) => ({ ...s, token, user })); },
-    logout,
-    setTable: (tableToken, tableCode) => setState((s) => ({ ...s, tableToken, tableCode, orderId: s.tableToken === tableToken ? s.orderId : null })),
-    leaveTable: () => { setState((s) => ({ ...s, tableToken: null, tableCode: null, orderId: null })); setCart([]); setVoucherCode(''); },
-    setOrderId: (orderId) => setState((s) => ({ ...s, orderId })),
-    addToCart: (item) => setCart((c) => {
-      const found = c.find((l) => l.menuItem.id === item.id);
-      return found ? c.map((l) => (l === found ? { ...l, quantity: l.quantity + 1 } : l)) : [...c, { menuItem: item, quantity: 1, note: '' }];
-    }),
-    setQuantity: (id, quantity) => setCart((c) => (quantity <= 0 ? c.filter((l) => l.menuItem.id !== id) : c.map((l) => (l.menuItem.id === id ? { ...l, quantity } : l)))),
-    setLineNote: (id, note) => setCart((c) => c.map((l) => (l.menuItem.id === id ? { ...l, note } : l))),
-    clearCart: () => { setCart([]); setVoucherCode(''); },
-    setVoucherCode,
-  }), [state, cart, voucherCode, logout]);
+    ready,
+    user: state?.user ?? null,
+    token: state?.token ?? null,
+    login: async (login, password) => accept(await api.login(login, password)),
+    register: async (b) => accept(await api.register(b)),
+    logout: () => persist(null),
+    setUser: (u) => { if (state) persist({ token: state.token, user: u }); },
+  }), [ready, state, accept, persist]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
 export function useSession(): SessionValue {
   const v = useContext(Ctx);
-  if (!v) throw new Error('useSession must be used inside SessionProvider');
+  if (!v) throw new Error('useSession outside SessionProvider');
   return v;
 }

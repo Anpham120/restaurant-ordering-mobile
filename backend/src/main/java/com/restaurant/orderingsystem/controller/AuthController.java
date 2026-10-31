@@ -2,31 +2,36 @@ package com.restaurant.orderingsystem.controller;
 
 import com.restaurant.orderingsystem.dto.Dtos.*;
 import com.restaurant.orderingsystem.entity.*;
-import com.restaurant.orderingsystem.exception.*;
-import com.restaurant.orderingsystem.repository.*;
+import com.restaurant.orderingsystem.exception.ApiException;
+import com.restaurant.orderingsystem.security.Caller;
 import com.restaurant.orderingsystem.service.*;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+
 import java.time.LocalDate;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
 
 @RestController @RequestMapping("/api/auth") @RequiredArgsConstructor
 public class AuthController {
-    private final UserRepository users;
-    private final PasswordEncoder encoder;
-    private final com.restaurant.orderingsystem.security.JwtService jwt;
+    private final AuthService auth;
 
-    /** Verifies credentials and returns a signed JWT (send as Authorization: Bearer) plus the staff profile. */
+    @PostMapping("/register") @ResponseStatus(HttpStatus.CREATED)
+    public AuthResponse register(@Valid @RequestBody RegisterRequest r) { return auth.register(r); }
+
     @PostMapping("/login")
-    public LoginResponse login(@Valid @RequestBody LoginRequest req) {
-        User u = users.findByUsername(req.username()).filter(User::isActive)
-                .filter(x -> encoder.matches(req.password(), x.getPasswordHash()))
-                .orElseThrow(() -> new UnauthorizedException("Wrong username or password"));
-        return new LoginResponse(jwt.issue(u), UserResponse.of(u));
-    }
+    public AuthResponse login(@Valid @RequestBody LoginRequest r, HttpServletRequest req) { return auth.login(r, req.getRemoteAddr()); }
+
+    @GetMapping("/me")
+    public UserResponse me() { return auth.me(); }
+
+    @PutMapping("/profile")
+    public UserResponse profile(@Valid @RequestBody ProfileRequest r) { return auth.updateProfile(r); }
+
+    @PostMapping("/change-password") @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(@Valid @RequestBody ChangePasswordRequest r) { auth.changePassword(r); }
 }
