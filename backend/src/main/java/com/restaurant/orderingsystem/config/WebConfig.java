@@ -11,7 +11,13 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebConfig implements WebMvcConfigurer {
     private final com.restaurant.orderingsystem.security.AuthInterceptor authInterceptor;
 
-    public WebConfig(com.restaurant.orderingsystem.security.AuthInterceptor authInterceptor) { this.authInterceptor = authInterceptor; }
+    private final String[] allowedOrigins;
+
+    public WebConfig(com.restaurant.orderingsystem.security.AuthInterceptor authInterceptor,
+                     @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins}") String allowedOrigins) {
+        this.authInterceptor = authInterceptor;
+        this.allowedOrigins = java.util.Arrays.stream(allowedOrigins.split(",")).map(String::trim).filter(o -> !o.isEmpty()).toArray(String[]::new);
+    }
 
     @Override
     public void addInterceptors(org.springframework.web.servlet.config.annotation.InterceptorRegistry registry) {
@@ -20,7 +26,7 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/**").allowedOrigins("*").allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE").allowedHeaders("*");
+        registry.addMapping("/api/**").allowedOrigins(allowedOrigins).allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE").allowedHeaders("*");
     }
 
     @Bean

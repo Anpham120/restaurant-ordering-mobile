@@ -21,3 +21,6 @@ target/
 .env
 .env.*
 !.env.example
+
+# DB backups on the server
+backups/

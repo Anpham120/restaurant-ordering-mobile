@@ -11,9 +11,11 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/** Demo data for the in-memory H2 DB. Disabled in the "test" profile. */
+/** Demo data (menu, tables, demo accounts, voucher) on an empty DB. On when app.seed.demo=true; never in the "test" profile. */
 @Component
 @Profile("!test")
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "app.seed.demo", havingValue = "true")
+@org.springframework.core.annotation.Order(1)
 @RequiredArgsConstructor
 public class DataSeeder implements CommandLineRunner {
     private final CategoryRepository categories;
@@ -39,9 +41,13 @@ public class DataSeeder implements CommandLineRunner {
             t.setCode("T" + i); t.setSeats(i <= 3 ? 4 : 6);
             tables.save(t);
         }
-        user("manager", "manager123", "Quản lý", Role.MANAGER);
-        user("staff", "staff123", "Nhân viên A", Role.STAFF);
-        user("kitchen", "kitchen123", "Bếp trưởng", Role.KITCHEN);
+        // Demo accounts with well-known passwords only when no account exists yet
+        // (AdminBootstrap runs first, so a configured APP_ADMIN_PASSWORD suppresses them).
+        if (users.count() == 0) {
+            user("manager", "manager123", "Quản lý", Role.MANAGER);
+            user("staff", "staff123", "Nhân viên A", Role.STAFF);
+            user("kitchen", "kitchen123", "Bếp trưởng", Role.KITCHEN);
+        }
         Voucher v = new Voucher();
         v.setCode("WELCOME10"); v.setDiscountType(DiscountType.PERCENT); v.setDiscountValue(BigDecimal.TEN);
         v.setMinOrder(new BigDecimal("50000")); v.setEndAt(LocalDateTime.now().plusYears(1));

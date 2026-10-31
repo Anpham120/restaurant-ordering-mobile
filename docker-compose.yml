@@ -1,0 +1,65 @@
+# Production stack on this server: PostgreSQL + Spring Boot API + nginx serving the Expo web bundle.
+# The host nginx (deploy/nginx/order.atlasplatform12.tech.conf) terminates HTTPS and proxies
+#   /api/ -> 127.0.0.1:8084 (backend)   and   / -> 127.0.0.1:8085 (web).
+# Deployed by Jenkins (Jenkinsfile -> scripts/deploy.sh). Manual: docker compose up -d --build
+name: restaurant-ordering-system
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ordering}
+      POSTGRES_USER: ${POSTGRES_USER:-ordering}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      TZ: Asia/Ho_Chi_Minh
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # no published port: only the backend talks to it
+
+  backend:
+    build: ./backend
+    image: ordering-backend:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8084:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-ordering}
+      DB_USERNAME: ${POSTGRES_USER:-ordering}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      APP_JWT_SECRET: ${APP_JWT_SECRET:?set APP_JWT_SECRET in .env}
+      APP_ADMIN_USERNAME: ${APP_ADMIN_USERNAME:-admin}
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:?set APP_ADMIN_PASSWORD in .env}
+      APP_CORS_ORIGINS: https://${APP_DOMAIN:?set APP_DOMAIN in .env}
+      APP_SEED_DEMO: ${APP_SEED_DEMO:-false}
+      JAVA_OPTS: -XX:MaxRAMPercentage=75 -Duser.timezone=Asia/Ho_Chi_Minh
+      TZ: Asia/Ho_Chi_Minh
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080 && printf \"GET /api/health HTTP/1.0\\r\\n\\r\\n\" >&3 && grep -q UP <&3'"]
+      interval: 15s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/web.Dockerfile
+      args:
+        EXPO_PUBLIC_API_URL: https://${APP_DOMAIN}
+    image: ordering-web:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8085:80"
+
+volumes:
+  pgdata:

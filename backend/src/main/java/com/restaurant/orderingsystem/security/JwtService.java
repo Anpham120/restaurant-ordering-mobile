@@ -27,6 +27,9 @@ public class JwtService {
     private final ObjectMapper om = new ObjectMapper();
 
     public JwtService(@Value("${app.jwt.secret}") String secret, @Value("${app.jwt.ttl-hours:12}") long ttlHours) {
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException("app.jwt.secret (APP_JWT_SECRET) must be at least 32 bytes");
+        }
         this.key = secret.getBytes(StandardCharsets.UTF_8);
         this.ttlSeconds = ttlHours * 3600;
     }

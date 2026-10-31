@@ -7,6 +7,9 @@ Hệ thống gọi món nhà hàng: khách quét QR tại bàn để xem thực 
 | `backend/` | REST API: Java 21, Spring Boot 3.4.3, Spring Data JPA, H2, JWT |
 | `mobile/` | App Expo SDK 58 / React Native 0.88 / TypeScript / Expo Router (Android, iOS, web) |
 | `docs/` | Báo cáo BTL (`.docx`) và slide thuyết trình (`.pptx`) |
+| `deploy/`, `scripts/`, `docker-compose.yml`, `Jenkinsfile` | Triển khai production (Docker, nginx, Jenkins CI/CD), xem [DEPLOY.md](DEPLOY.md) |
+
+Bản production: **https://order.atlasplatform12.tech**
 
 ## Chạy backend
 
@@ -17,11 +20,10 @@ mvn spring-boot:run                       # http://localhost:8080
 mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=8099
 ```
 
-- CSDL H2 in-memory: dữ liệu mất khi tắt server. Xem dữ liệu tại `/h2-console` (JDBC URL `jdbc:h2:mem:restaurant_db`, user `sa`).
+- Môi trường dev dùng H2 in-memory, dữ liệu mất khi tắt server. Production dùng PostgreSQL (`SPRING_PROFILES_ACTIVE=prod`, xem [DEPLOY.md](DEPLOY.md)). Xem dữ liệu tại `/h2-console` (JDBC URL `jdbc:h2:mem:restaurant_db`, user `sa`).
 - Dữ liệu mẫu được tạo khi khởi động: 7 món, 5 bàn `T1`–`T5`, voucher `WELCOME10` (giảm 10%, đơn từ 50.000đ).
 - Tài khoản mẫu: `manager/manager123`, `staff/staff123`, `kitchen/kitchen123`.
 - Lấy mã QR của bàn: đăng nhập `manager`, gọi `GET /api/admin/tables` (trường `qrToken`).
-- Khi triển khai thật, đặt biến môi trường `APP_JWT_SECRET`, vì giá trị mặc định chỉ dùng cho môi trường dev.
 
 ## Chạy app mobile
 
@@ -37,7 +39,7 @@ Mở bằng Expo Go trên điện thoại cùng mạng LAN, hoặc nhấn `w` đ
 
 ```bash
 cd backend
-mvn test                                   # 14 test tích hợp (JUnit 5 + MockMvc)
+mvn verify                                 # 15 test: 14 test tích hợp H2 + 1 test profile prod trên PostgreSQL (Flyway)
 node perf/load-test.js http://localhost:8080 30   # đo tải, cần backend đang chạy với dữ liệu mẫu
 ```
 
