@@ -1,16 +1,16 @@
 # Cơ sở dữ liệu – Atlas Restaurant
 
-CSDL PostgreSQL cho ứng dụng đặt món giao tận nhà của một nhà hàng. Khách thanh toán bằng tiền mặt khi nhận hàng (COD) hoặc chuyển khoản VietQR (SePay tự xác nhận). Schema do Flyway quản lý: `backend/src/main/resources/db/migration/V1__init.sql` (lõi) và `V2__payments_options_notifications_promotions.sql` (thanh toán, tùy chọn món, thông báo, chương trình quảng bá). Hibernate chạy ở chế độ `ddl-auto=validate`: nếu entity lệch với schema thì app không khởi động.
+CSDL PostgreSQL cho ứng dụng đặt món giao tận nhà của một nhà hàng. Khách thanh toán bằng tiền mặt khi nhận hàng (COD) hoặc chuyển khoản VietQR (SePay tự xác nhận). Schema do Flyway quản lý: `backend/src/main/resources/db/migration/V1__init.sql` (lõi) `V2__payments_options_notifications_promotions.sql` (thanh toán, tùy chọn món, thông báo, chương trình quảng bá) và `V3__password_reset_and_marketing_rules.sql` (quên mật khẩu, thu hồi phiên đăng nhập, quy tắc gửi khuyến mãi). Hibernate chạy ở chế độ `ddl-auto=validate`: nếu entity lệch với schema thì app không khởi động.
 
 ![ERD](erd.png)
 
-**21 bảng, 31 khóa ngoại.** Bảng nào cũng có quan hệ với ít nhất một bảng khác, và cột khóa ngoại nào cũng có index (đã kiểm tra tự động trên PostgreSQL).
+**22 bảng, 32 khóa ngoại.** Bảng nào cũng có quan hệ với ít nhất một bảng khác, và cột khóa ngoại nào cũng có index (đã kiểm tra tự động trên PostgreSQL).
 
 ## Các bảng
 
 | Bảng | Ý nghĩa | Khóa | Quan hệ |
 |---|---|---|---|
-| `users` | Mọi tài khoản: khách hàng, nhân viên, bếp, quản lý | `id`; unique `phone`, `email` | 1–N `addresses`, `cart_items`, `favorites`, `orders` (khách), `order_status_history` (người đổi trạng thái), `store_settings` (người sửa) |
+| `users` | Mọi tài khoản: khách hàng, nhân viên, bếp, quản lý. `token_version` để thu hồi mọi phiên đăng nhập khi đổi/đặt lại mật khẩu; `must_change_password` sau khi quản lý cấp mật khẩu tạm; `marketing_opt_in` là đồng ý nhận khuyến mãi | `id`; unique `phone`, `email` | 1–N `addresses`, `cart_items`, `favorites`, `orders` (khách), `order_status_history` (người đổi trạng thái), `store_settings` (người sửa) |
 | `delivery_zones` | Khu vực (quận) nhận giao, phí ship và thời gian giao dự kiến | `id`; unique `name` | 1–N `addresses`, `orders` |
 | `addresses` | Sổ địa chỉ của khách, có một địa chỉ mặc định | `id` | N–1 `users` (xóa theo user), N–1 `delivery_zones` |
 | `categories` | Danh mục món | `id`; unique `name` | 1–N `menu_items` |
@@ -28,7 +28,8 @@ CSDL PostgreSQL cho ứng dụng đặt món giao tận nhà của một nhà h�
 | `bank_transactions` | Mọi giao dịch tiền vào tài khoản quán do SePay báo về, kể cả giao dịch không khớp đơn nào | `id`; unique `(provider, provider_txn_id)` | N–1 `payments` (có thể rỗng) |
 | `order_status_history` | Nhật ký đổi trạng thái: ai đổi, lúc nào, lý do. Màn hình theo dõi đơn hiển thị từ bảng này | `id` | N–1 `orders`, N–1 `users` |
 | `reviews` | Đánh giá 1–5 sao cho từng món trong đơn đã giao | `id`; unique `order_item_id` | 1–1 `order_items` |
-| `promotions` | Chương trình quảng bá hiển thị thành banner trong app, dẫn tới một món, một danh mục hoặc một mã giảm giá; có thời gian hiển thị | `id` | N–1 `menu_items`, `categories`, `vouchers` (đúng một tham chiếu tương ứng với `target_type`, kiểm tra bằng CHECK) |
+| `password_reset_tokens` | Mã OTP 6 số để đặt lại mật khẩu (chỉ lưu bản băm), hạn 10 phút, số lần nhập sai, thời điểm đã dùng | `id` | N–1 `users` (xóa theo) |
+| `promotions` | Chương trình quảng bá hiển thị thành banner trong app, dẫn tới một món, một danh mục hoặc một mã giảm giá; có thời gian hiển thị; `announce_at` (hẹn gửi thông báo sau giờ yên lặng) và `announced_at` (đã gửi) | `id` | N–1 `menu_items`, `categories`, `vouchers` (đúng một tham chiếu tương ứng với `target_type`, kiểm tra bằng CHECK) |
 | `notifications` | Thông báo trong app gửi khách: tiến trình đơn, thanh toán, chương trình mới | `id` | N–1 `users` (xóa theo), `orders`, `promotions` |
 | `store_settings` | Cài đặt cửa hàng, chỉ có đúng một dòng (`id = 1`): giờ mở cửa, hotline, đơn tối thiểu, bật/tắt nhận đơn, tài khoản nhận chuyển khoản, hạn thanh toán | `id` | N–1 `users` (người sửa gần nhất) |
 
@@ -70,6 +71,7 @@ Mọi ràng buộc dưới đây cũng được kiểm tra ở API. CSDL giữ v
 | Nhóm tùy chọn: tối thiểu không vượt tối đa | `CHECK (max_select >= min_select)` |
 | Chương trình chỉ tham chiếu đúng loại đích đã chọn | `CHECK` trên `target_type` và 3 khóa ngoại |
 | Tài khoản ngân hàng nhập đủ cả mã ngân hàng và số tài khoản | `CHECK` trong `store_settings` |
+| Mã đặt lại mật khẩu: tối đa 10 lần sai được ghi nhận, hạn sau thời điểm tạo | `CHECK` trong `password_reset_tokens` |
 
 ## Xóa dữ liệu
 

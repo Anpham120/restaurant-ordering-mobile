@@ -25,7 +25,7 @@ Internet ──HTTPS──> nginx (host, certbot)
 
 | Khi nào | Các bước |
 |---|---|
-| Mọi nhánh / PR | `mvn verify`: 19 bộ test, gồm test profile prod trên PostgreSQL thật (embedded). Sau đó `tsc`, `expo lint`, `expo export --platform web` |
+| Mọi nhánh / PR | `mvn verify`: 26 bộ test, gồm test profile prod trên PostgreSQL thật (embedded). Sau đó `tsc`, `expo lint`, `expo export --platform web` |
 | `main` | Thêm bước **Deploy production** (`scripts/deploy.sh`): backup DB → build image → chờ healthy → kiểm tra `/api/health`, `/api/menu`, trang web. Lỗi ở bất kỳ bước nào thì tự quay về image trước |
 | 3 giờ sáng (nhánh `main`) | Chỉ backup DB (`scripts/backup-db.sh nightly`) |
 
@@ -69,6 +69,21 @@ Khách chọn "Chuyển khoản VietQR". App hiện mã QR có sẵn số tiền
 4. Đăng nhập quản lý, vào *Cài đặt cửa hàng* và nhập mã ngân hàng (ví dụ `MB`, `VCB`), số tài khoản, tên chủ tài khoản. Chỉ khi đã nhập đủ, lựa chọn chuyển khoản mới hiện ra cho khách.
 
 Nếu khách chuyển sai nội dung, nhân viên vẫn xác nhận tay được: mở đơn → "Xác nhận đã nhận CK". Mọi giao dịch SePay báo về, kể cả giao dịch không khớp đơn nào, đều xem được ở *Quản lý → Thanh toán*. Đơn đã chuyển khoản mà sau đó bị hủy sẽ vào hàng "Chờ hoàn tiền".
+
+## Email (quên mật khẩu)
+
+Mã OTP đặt lại mật khẩu được gửi qua Gmail.
+
+1. Tạo một tài khoản Gmail riêng để gửi, ví dụ `atlasrestaurant.noreply@gmail.com`, và bật xác minh 2 bước.
+2. Tạo App Password tại https://myaccount.google.com/apppasswords (16 ký tự).
+3. Thêm vào `/home/coder/ordering-secrets/prod.env`:
+   ```
+   SMTP_USERNAME=atlasrestaurant.noreply@gmail.com
+   SMTP_PASSWORD=<app password>
+   ```
+4. Chạy `base64 -w0 prod.env > prod.env.b64`, cập nhật credential `ordering-prod-env` trong Jenkins, rồi deploy lại.
+
+Chưa cấu hình thì mã chỉ được ghi vào log backend. Khi đó khách không có email (hoặc chưa cấu hình SMTP) gọi hotline, quản lý vào *Khách hàng → Đặt lại mật khẩu* để cấp mật khẩu tạm. Khách phải đổi mật khẩu này ở lần đăng nhập sau.
 
 ## Vận hành
 

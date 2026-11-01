@@ -44,7 +44,7 @@ Mã giảm giá mẫu: `WELCOME10` (giảm 10%, tối đa 30.000đ, đơn từ 1
 
 ```bash
 cd backend
-mvn verify     # 19 bộ test, gồm 1 bộ chạy profile prod trên PostgreSQL thật (embedded)
+mvn verify     # 26 bộ test, gồm 1 bộ chạy profile prod trên PostgreSQL thật (embedded)
 node perf/load-test.js <baseUrl> <sđt quản lý> <mật khẩu> 30    # đo tải; tạo dữ liệu thử nên KHÔNG chạy vào CSDL production
 ```
 
@@ -54,10 +54,10 @@ node perf/load-test.js <baseUrl> <sđt quản lý> <mật khẩu> 30    # đo t�
 |---|---|---|
 | Công khai | `GET /api/store`, `/api/zones`, `/api/categories`, `/api/menu?categoryId=&q=`, `/api/menu/popular`, `/api/menu/{id}`, `/api/vouchers`, `/api/promotions` | Mọi người |
 | SePay | `POST /api/payments/sepay/webhook` (header `Authorization: Apikey <SEPAY_API_KEY>`) | SePay |
-| Tài khoản | `POST /api/auth/register`, `POST /api/auth/login` (`login` là số điện thoại hoặc email), `GET /api/auth/me`, `PUT /api/auth/profile`, `POST /api/auth/change-password` | Mọi người / đã đăng nhập |
+| Tài khoản | `POST /api/auth/register`, `POST /api/auth/login` (`login` là số điện thoại hoặc email), `POST /api/auth/forgot-password`, `POST /api/auth/reset-password`, `GET /api/auth/me`, `PUT /api/auth/profile` (gồm `marketingOptIn`), `POST /api/auth/change-password` (trả token mới, đăng xuất các thiết bị khác) | Mọi người / đã đăng nhập |
 | Khách hàng | `/api/me/addresses`, `/api/me/favorites`, `GET/DELETE /api/me/cart`, `POST /api/me/cart/items` (`menuItemId`, `quantity`, `note`, `optionIds`), `PATCH /api/me/cart/items/{lineId}`, `POST /api/me/checkout/preview`, `/api/me/orders` (`paymentMethod`: `COD` hoặc `BANK_TRANSFER`), `POST /api/me/orders/{id}/cancel`, `POST /api/me/orders/{id}/reorder`, `POST /api/me/reviews`, `/api/me/notifications` (`/unread-count`, `/{id}/read`, `/read-all`) | `CUSTOMER` |
 | Cửa hàng | `GET /api/manage/orders?status=&q=&date=&sort=oldest`, `PATCH /api/manage/orders/{id}/status`, `PATCH /api/manage/orders/{id}/confirm-transfer`, `GET /api/manage/kitchen/queue`, `PATCH /api/manage/menu-items/{id}/availability`, `PATCH /api/manage/store/accepting` | `STAFF`, `KITCHEN`, `MANAGER` |
-| Quản trị | `/api/admin/dashboard`, `/api/admin/reports/revenue`, `/api/admin/categories`, `/api/admin/menu-items`, `PUT /api/admin/menu-items/{id}/options`, `/api/admin/promotions` (+ `POST /{id}/announce`), `/api/admin/payments`, `PATCH /api/admin/payments/{id}/refunded`, `/api/admin/bank-transactions`, `/api/admin/zones`, `/api/admin/vouchers`, `/api/admin/staff`, `/api/admin/customers`, `/api/admin/users/{id}/active`, `/api/admin/reviews`, `/api/admin/settings` | `MANAGER` |
+| Quản trị | `/api/admin/dashboard`, `/api/admin/reports/revenue`, `/api/admin/categories`, `/api/admin/menu-items`, `PUT /api/admin/menu-items/{id}/options`, `/api/admin/promotions` (+ `POST /{id}/announce`), `/api/admin/payments`, `PATCH /api/admin/payments/{id}/refunded`, `/api/admin/bank-transactions`, `/api/admin/zones`, `/api/admin/vouchers`, `/api/admin/staff`, `/api/admin/customers`, `/api/admin/users/{id}/active`, `POST /api/admin/users/{id}/reset-password`, `/api/admin/reviews`, `/api/admin/settings` | `MANAGER` |
 
 Mã lỗi:
 - Thiếu token: **401**.
