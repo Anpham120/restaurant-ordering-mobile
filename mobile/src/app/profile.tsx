@@ -1,6 +1,6 @@
-import { Redirect } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { KeyboardScroll } from '@/components/keyboard';
 import { Button } from '@/components/button';
@@ -83,6 +83,10 @@ export default function ProfileScreen() {
           <Field label="Nhập lại mật khẩu mới" value={confirm} onChangeText={setConfirm} secureTextEntry autoComplete="new-password"
             error={mismatch ? 'Mật khẩu nhập lại không khớp' : null} />
           <Button title="Đổi mật khẩu" variant="dark" onPress={savePassword} loading={busy === 'password'} disabled={!current || next.length < 8 || next !== confirm} />
+          <Pressable accessibilityRole="link" hitSlop={8} style={{ alignSelf: 'center' }}
+            onPress={() => router.push({ pathname: '/forgot-password', params: { login: user.email ?? user.phone } })}>
+            <Txt weight="semibold" size={14} color={colors.primary}>Quên mật khẩu hiện tại?</Txt>
+          </Pressable>
           <Txt size={12} color={colors.muted}>Sau khi đổi, các thiết bị khác đang đăng nhập sẽ bị đăng xuất.</Txt>
         </Card>
       </KeyboardScroll>

@@ -9,6 +9,7 @@ import { Txt } from '@/components/txt';
 import { Card, ErrorBox, Field, Notice } from '@/components/ui';
 import { api, errorMessage, type Store } from '@/lib/api';
 import { useLoad, useNow } from '@/lib/hooks';
+import { useSession } from '@/lib/session';
 import { colors } from '@/lib/theme';
 import { useToast } from '@/lib/toast';
 
@@ -21,6 +22,8 @@ const RESEND_SECONDS = 60;
 export default function ForgotPasswordScreen() {
   const toast = useToast();
   const params = useLocalSearchParams<{ login?: string }>();
+  // opened from the profile while signed in: the reset revokes every session, so sign out here too
+  const { user, logout } = useSession();
   const store = useLoad<Store>(() => api.store());
   const now = useNow(1000);
   const [login, setLogin] = useState(typeof params.login === 'string' ? params.login : '');
@@ -61,6 +64,7 @@ export default function ForgotPasswordScreen() {
     try {
       const r = await api.resetPassword(login.trim(), code, password);
       toast.show(r.message || 'Đã đặt lại mật khẩu, vui lòng đăng nhập', 'success');
+      if (user) logout();
       toLogin(login.trim());
     } catch (e) { setError(errorMessage(e)); } finally { setBusy(null); }
   };

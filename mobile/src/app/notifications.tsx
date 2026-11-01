@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Redirect, router } from 'expo-router';
 import { useState, type ComponentProps } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
@@ -15,8 +15,8 @@ import { colors } from '@/lib/theme';
 import { useToast } from '@/lib/toast';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
-const KIND: Record<NotificationType, { icon: IconName; bg: string }> = {
-  ORDER: { icon: 'bicycle-outline', bg: colors.primary },
+const KIND: Record<NotificationType, { icon: IconName | 'moped'; bg: string }> = {
+  ORDER: { icon: 'moped', bg: colors.primary },
   PAYMENT: { icon: 'card-outline', bg: colors.success },
   PROMOTION: { icon: 'gift-outline', bg: colors.info },
 };
@@ -105,7 +105,9 @@ function List() {
           renderItem={({ item: n }) => (
             <Pressable accessibilityRole="button" accessibilityLabel={`${n.read ? '' : 'Chưa đọc. '}${n.title}`} onPress={() => void open(n)}
               style={({ pressed }) => [styles.row, !n.read && styles.unread, pressed && { opacity: 0.85 }]}>
-              <View style={[styles.icon, { backgroundColor: KIND[n.type].bg }]}><Ionicons name={KIND[n.type].icon} size={20} color={colors.white} /></View>
+              <View style={[styles.icon, { backgroundColor: KIND[n.type].bg }]}>{KIND[n.type].icon === 'moped'
+                ? <MaterialCommunityIcons name="moped" size={21} color={colors.white} />
+                : <Ionicons name={KIND[n.type].icon as IconName} size={20} color={colors.white} />}</View>
               <View style={{ flex: 1, gap: 3 }}>
                 <View style={styles.head}>
                   <Txt weight={n.read ? 'semibold' : 'extrabold'} size={15} style={{ flex: 1 }}>{n.title}</Txt>

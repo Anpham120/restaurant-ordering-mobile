@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState, type ComponentProps } from 'react';
 import { Linking, ScrollView, StyleSheet, TextInput, View } from 'react-native';
@@ -18,13 +18,13 @@ import { useToast } from '@/lib/toast';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
-const HERO: Record<OrderStatus, { icon: IconName; title: string }> = {
+const HERO: Record<OrderStatus, { icon: IconName | 'moped'; title: string }> = {
   AWAITING_PAYMENT: { icon: 'qr-code-outline', title: 'Chờ bạn chuyển khoản' },
   PENDING: { icon: 'hourglass-outline', title: 'Chờ cửa hàng xác nhận' },
   CONFIRMED: { icon: 'checkmark-done-outline', title: 'Cửa hàng đã nhận đơn' },
   PREPARING: { icon: 'flame-outline', title: 'Bếp đang chuẩn bị món' },
   READY: { icon: 'bag-check-outline', title: 'Món đã sẵn sàng, chờ giao' },
-  DELIVERING: { icon: 'bicycle-outline', title: 'Đơn đang được giao tới bạn' },
+  DELIVERING: { icon: 'moped', title: 'Đơn đang được giao tới bạn' },
   DELIVERED: { icon: 'happy-outline', title: 'Giao hàng thành công' },
   CANCELLED: { icon: 'close-circle-outline', title: 'Đơn hàng đã hủy' },
 };
@@ -69,7 +69,9 @@ function Tracking({ order, hotline, onChange, reload }: { order: Order; hotline:
         <Button title={`Thanh toán ngay · ${money(order.total)}`} icon="qr-code-outline" size="lg" onPress={() => router.push(`/pay/${order.id}`)} />
       ) : null}
       <View style={[styles.hero, { backgroundColor: cancelled ? colors.neutralText : order.status === 'DELIVERED' ? colors.success : order.status === 'AWAITING_PAYMENT' ? colors.warning : colors.primary }]}>
-        <View style={styles.heroIcon}><Ionicons name={hero.icon} size={28} color={colors.white} /></View>
+        <View style={styles.heroIcon}>{hero.icon === 'moped'
+          ? <MaterialCommunityIcons name="moped" size={30} color={colors.white} />
+          : <Ionicons name={hero.icon} size={28} color={colors.white} />}</View>
         <View style={{ flex: 1, gap: 2 }}>
           <Txt weight="extrabold" size={19} color={colors.white}>{hero.title}</Txt>
           <Txt size={14} color={colors.white} style={{ opacity: 0.92 }}>

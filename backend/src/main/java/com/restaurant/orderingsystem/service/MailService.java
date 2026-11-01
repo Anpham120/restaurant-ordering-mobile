@@ -29,6 +29,8 @@ public class MailService {
     @Value("${spring.mail.username:}") private String username;
     @Value("${app.mail.from:}") private String from;
     @Value("${app.mail.from-name:Atlas Restaurant}") private String fromName;
+    /** Write unsent mails (subject and body, which hold reset codes) to the log: development only, off in production. */
+    @Value("${app.mail.log-content:true}") private boolean logContent;
     private final List<Mail> outbox = Collections.synchronizedList(new ArrayList<>());
 
     public boolean enabled() { return username != null && !username.isBlank(); }
@@ -37,7 +39,8 @@ public class MailService {
     public void send(String to, String subject, String body) {
         if (!enabled()) {
             outbox.add(new Mail(to, subject, body));
-            log.info("[mail disabled] to={} subject={}\n{}", to, subject, body);
+            if (logContent) log.info("[mail disabled] to={} subject={}\n{}", to, subject, body);
+            else log.warn("[mail disabled] SMTP is not configured: a mail to {} was not sent (set SMTP_USERNAME / SMTP_PASSWORD)", to);
             return;
         }
         try {
