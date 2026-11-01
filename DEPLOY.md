@@ -1,6 +1,6 @@
 # Triển khai production
 
-Ứng dụng đặt món Atlas Restaurant chạy trên chính máy chủ này (163.61.182.201) tại **https://order.atlasplatform12.tech**. Jenkins tự test mọi nhánh, deploy **staging** khi có commit lên `develop` và deploy **production** khi có commit lên `main`.
+Ứng dụng đặt món Atlas Restaurant chạy trên chính máy chủ này (163.61.182.201) tại **https://order.atlasplatform12.tech**. Jenkins tự test mọi nhánh, chạy **staging tạm** (dựng, test, xóa) khi có commit lên `develop` và deploy **production** khi có commit lên `main`.
 
 ## Kiến trúc
 
@@ -18,22 +18,21 @@ Internet ──HTTPS──> nginx (host, certbot)
 | Đường dẫn trên host | Nội dung |
 |---|---|
 | `/home/coder/ordering-deploy` | Bản checkout `main` (production) mà Jenkins dùng để build và chạy. `.env` chỉ tồn tại trong lúc deploy |
-| `/home/coder/ordering-staging` | Bản checkout `develop` (staging), cùng cách làm |
+| `/home/coder/ordering-staging` | Bản checkout `develop` cho staging tạm. Không có `.env` lâu dài: script tự sinh rồi xóa |
 | `/home/coder/ordering-backups` | Bản dump DB: trước mỗi lần deploy và hằng đêm, giữ 30 bản mới nhất |
 | `/home/coder/ordering-secrets/prod.env` | `.env` production gốc (quyền 600). `prod.env.b64` là bản base64 để dán vào Jenkins (credential `ordering-prod-env`) |
-| `/home/coder/ordering-secrets/staging.env` | `.env` staging (mẫu: `staging.env.example`). `staging.env.b64` dán vào credential `ordering-staging-env` |
 
 ## Quy trình nhánh
 
 ```
 feature/xxx ──PR──> develop ──PR──> main
- (làm việc)        (CI + staging)   (CI + production)
+ (làm việc)        (CI + staging tạm) (CI + production)
 ```
 
 1. Tách nhánh tính năng từ `develop`: `git checkout develop && git pull && git checkout -b feature/ten-tinh-nang`.
 2. Đẩy nhánh lên GitHub: Jenkins chạy **CI** (test + kiểm tra mobile). Chưa deploy gì.
-3. Mở PR vào `develop`, CI xanh thì merge. Jenkins **deploy staging** để thử trên môi trường thật.
-4. Thử xong trên staging, mở PR `develop` → `main`. Merge thì Jenkins **deploy production**.
+3. Mở PR vào `develop`, CI xanh thì merge. Jenkins dựng **staging tạm**, chạy bộ smoke test rồi xóa sạch (giải phóng tài nguyên).
+4. Staging test đạt thì mở PR `develop` → `main`. Merge thì Jenkins **deploy production**.
 5. Không commit thẳng vào `main` và `develop`. Nên bật *Branch protection* trên GitHub cho cả hai: bắt buộc PR và CI xanh (check của Jenkins) trước khi merge.
 
 ## Pipeline (`Jenkinsfile`, job multibranch `ordering`)
@@ -41,25 +40,25 @@ feature/xxx ──PR──> develop ──PR──> main
 | Khi nào | Các bước |
 |---|---|
 | Mọi nhánh / PR | **CI**: `mvn verify` (26 bộ test, gồm test profile prod trên PostgreSQL thật), sau đó `tsc`, `expo lint`, `expo export --platform web` |
-| `develop` | CI + **Deploy staging** (`scripts/deploy.sh`, credential `ordering-staging-env`): build image → chờ healthy → kiểm tra `/api/health`, `/api/menu`, trang web. Không backup (dữ liệu dùng thử) |
+| `develop` | CI + **Staging test** (`scripts/staging-test.sh`): dựng stack riêng bằng `docker-compose.yml` và Dockerfile của production, chạy 13 kiểm tra (health, web, thực đơn, đăng ký và đăng nhập, sai mật khẩu, phân quyền 401/403…), rồi xóa container, volume, image và `.env`. Không cần credential |
 | `main` | CI + **Deploy production** (`scripts/deploy.sh`, credential `ordering-prod-env`): backup DB → build image → chờ healthy → kiểm tra. Lỗi ở bất kỳ bước nào thì tự quay về image trước |
 | `main`, khi thư mục `mobile/` có thay đổi | Sau khi deploy xong: **Build Android APK**, gửi yêu cầu build lên EAS (không chờ, 10–30 phút), Telegram báo link theo dõi. Lỗi bước này chỉ cảnh báo, không làm hỏng deploy |
 | 3 giờ sáng (nhánh `main`) | Chỉ backup DB (`scripts/backup-db.sh nightly`) |
 
-### Staging và production khác nhau thế nào
+### Staging tạm và production khác nhau thế nào
 
-Hai môi trường chạy chung máy, dùng chung `docker-compose.yml`, chỉ khác giá trị trong `.env`:
+Hai môi trường dùng chung máy chủ, `docker-compose.yml`, Dockerfile và Docker, nên image staging giống hệt production. Mọi thứ còn lại tách riêng:
 
-| | Production (`main`) | Staging (`develop`) |
+| | Production (`main`) | Staging tạm (`develop`) |
 |---|---|---|
-| Compose project / volume DB | `restaurant-ordering-system` | `ordering-staging` (volume riêng) |
-| Image | `ordering-backend`, `ordering-web` | `ordering-staging-backend`, `ordering-staging-web` |
+| Sống bao lâu | chạy liên tục | chỉ trong lúc test, xong là xóa |
+| Compose project / volume DB | `restaurant-ordering-system` | `ordering-staging`, DB trống mới mỗi lần |
 | Cổng (chỉ `127.0.0.1`) | backend 8084, web 8085 | backend 8184, web 8185 |
-| Địa chỉ | https://order.atlasplatform12.tech | không có domain; vào từ máy chủ hoặc SSH tunnel (xem `staging.env.example`) |
-| Dữ liệu | thật, backup trước mỗi lần deploy | mẫu (`APP_SEED_DEMO=true`, tài khoản demo `Atlas@123`), không backup |
-| Thanh toán, email | SePay, SMTP thật | tắt |
+| Secret (`.env`) | credential `ordering-prod-env` | sinh ngẫu nhiên mỗi lần, không lưu ở đâu |
+| Dữ liệu | thật, backup trước mỗi lần deploy | thực đơn mẫu (`APP_SEED_DEMO=true`); quản lý là tài khoản `APP_ADMIN_*` sinh ngẫu nhiên |
+| SePay, SMTP | thật | không có |
 
-Staging dùng khóa JWT và mật khẩu DB riêng, không dùng chung với production.
+Muốn tự thử bằng tay: trên máy chủ chạy `scripts/staging-test.sh keep` (dựng và để chạy), thử ở `http://127.0.0.1:8185`, xong chạy `scripts/staging-test.sh down`.
 
 Thông báo Telegram dùng chung bot và chat với dự án `rsm` (credential `telegram-bot-token`).
 
@@ -77,9 +76,8 @@ Tạo bản ghi A `order.atlasplatform12.tech` → `163.61.182.201`. Kiểm tra 
    - Branch Source GitHub: `https://github.com/Anpham120/restaurant-ordering-system`. Repo public nên không cần credential, nhưng chọn `github-branch-source` để tránh giới hạn số lần gọi API.
    - Build Configuration: *by Jenkinsfile*, Script Path `Jenkinsfile`.
    - Scan triggers: *Periodically if not otherwise run*, interval **1 minute**, giống job `rsm`.
-3. Lưu job. Jenkins quét nhánh, chạy build `main` (deploy production) và `develop` (deploy staging).
-4. Thêm credential thứ hai cho staging: Secret text, ID `ordering-staging-env`, nội dung `/home/coder/ordering-secrets/staging.env.b64`.
-5. Cho bước build APK: tạo token trên expo.dev (*Account settings → Access tokens*) rồi thêm credential Secret text, ID `expo-token`.
+3. Lưu job. Jenkins quét nhánh, chạy build `main` (deploy production) và `develop` (staging test).
+4. Cho bước build APK: tạo token trên expo.dev (*Account settings → Access tokens*) rồi thêm credential Secret text, ID `expo-token`.
    Làm một lần trước đó, trên máy có đăng nhập Expo: `cd mobile && npx eas-cli@latest init` (tạo project, ghi `projectId` vào `app.json`, nhớ commit) và `npx eas-cli@latest build -p android --profile preview` (lần đầu, để EAS tạo keystore; chế độ `--non-interactive` không tạo được keystore).
 
 ### 3. nginx + HTTPS (cần sudo)

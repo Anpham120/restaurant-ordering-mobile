@@ -18,7 +18,7 @@ echo "[deploy] commit $SHA -> $COMPOSE_PROJECT_NAME"
 # Make sure the database is up (first deploy creates it), then back it up:
 # a new version may run Flyway migrations that an image rollback cannot undo.
 docker compose up -d --wait db
-# (BACKUP_ENABLED=false in a disposable stack such as staging; its dumps must not push production backups out)
+# (BACKUP_ENABLED=false skips it for a disposable stack)
 [ "${BACKUP_ENABLED:-true}" = true ] && scripts/backup-db.sh pre-deploy
 
 # Keep the running images under ":previous" so a rollback does not depend on dangling image IDs.

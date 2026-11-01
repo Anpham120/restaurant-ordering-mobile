@@ -1,11 +1,11 @@
 // CI/CD for restaurant-ordering-system (Jenkins multibranch job "ordering", scans GitHub every minute).
 // Branch model:  feature/* ──PR──> develop ──PR──> main
 //   every branch / PR : CI = backend tests (incl. prod profile on PostgreSQL) + mobile typecheck, lint, web build
-//   develop           : CI + deploy to STAGING on this server (disposable data, no public domain)
+//   develop           : CI + disposable STAGING: build the stack, smoke-test it, remove it (nothing stays running)
 //   main              : CI + deploy to PRODUCTION on this server (DB backup first, automatic rollback on failure)
 //   main + mobile/ changed : after the deploy, queue an Android APK build on EAS (not waited for)
 //   nightly (main)    : DB backup only
-// Both deploys run the same scripts/deploy.sh; the stack is chosen by the credential (its .env) and the directory.
+// Production runs scripts/deploy.sh with the credential's .env; staging runs scripts/staging-test.sh with random secrets.
 // Maven and Node run in throwaway containers that share the Jenkins volume, so $WORKSPACE paths match.
 
 pipeline {
@@ -25,9 +25,10 @@ pipeline {
     environment {
         JENKINS_CONTAINER = 'jenkins'
         REPO_URL = 'https://github.com/Anpham120/restaurant-ordering-system.git'
-        // Deploy directories on the host: checkout of the branch + .env (written only during the deploy)
-        DEPLOY_DIR = '/home/coder/ordering-deploy'          // production = main
-        STAGING_DIR = '/home/coder/ordering-staging'        // staging = develop
+        // Deploy directory on the host: checkout of main + .env (written only during the deploy)
+        DEPLOY_DIR = '/home/coder/ordering-deploy'
+        // Checkout used by the disposable staging stack (its .env is generated and deleted by the script)
+        STAGING_DIR = '/home/coder/ordering-staging'
         BACKUP_DIR = '/home/coder/ordering-backups'
         TELEGRAM_CHAT_ID = '6822487436'
     }
@@ -64,13 +65,25 @@ pipeline {
             }
         }
 
-        stage('Deploy staging') {
+        // Disposable staging: same compose file and Dockerfiles as production, own project/ports/empty DB/random secrets,
+        // removed when the checks end (pass or fail). No credential is needed.
+        stage('Staging test') {
             when {
                 allOf { branch 'develop'; not { triggeredBy 'TimerTrigger' } }
             }
             steps {
-                // ordering-staging-env: the whole staging .env, base64 on one line (Secret text)
-                deployStack(env.STAGING_DIR, 'ordering-staging-env', 'develop')
+                sh '''
+                    docker run --rm --network host \
+                      -v /var/run/docker.sock:/var/run/docker.sock \
+                      -v "$STAGING_DIR:$STAGING_DIR" -w "$STAGING_DIR" \
+                      -e REPO_URL -e GIT_COMMIT \
+                      docker:27-cli \
+                      sh -c 'apk add -q --no-cache docker-cli-compose git curl bash \
+                        && git config --global --add safe.directory "$PWD" \
+                        && ([ -d .git ] || git init -q) \
+                        && git fetch -q "$REPO_URL" develop && git reset -q --hard "${GIT_COMMIT:-FETCH_HEAD}" \
+                        && scripts/staging-test.sh; rc=$?; chown -R 1000:1000 .; exit $rc'
+                '''
             }
         }
 
@@ -126,7 +139,7 @@ pipeline {
                     if (env.BRANCH_NAME == 'main') {
                         notifyTelegram("✅ [ordering] Đã deploy PRODUCTION https://order.atlasplatform12.tech")
                     } else if (env.BRANCH_NAME == 'develop') {
-                        notifyTelegram("✅ [ordering] Đã deploy STAGING (127.0.0.1:8185)")
+                        notifyTelegram("✅ [ordering] Staging test đạt (đã dọn sạch)")
                     }
                 }
             }
