@@ -41,7 +41,13 @@ rollback() {
   if [ "$HAVE_PREV" = 1 ]; then
     docker tag "$BACKEND:previous" "$BACKEND:latest"
     docker tag "$WEB:previous" "$WEB:latest"
-    docker compose up -d --no-deps --no-build --wait backend web || echo "[deploy] rollback failed too - check manually"
+    if docker compose up -d --no-deps --no-build --wait backend web; then
+      # the failed build is now untagged and unused: drop it, and the extra :previous tag (same image as :latest)
+      docker rmi "$BACKEND:previous" "$WEB:previous" >/dev/null 2>&1 || true
+      docker image prune -f >/dev/null 2>&1 || true
+    else
+      echo "[deploy] rollback failed too - check manually (images kept for inspection)"
+    fi
   else
     echo "[deploy] no previous images (first deploy) - nothing to roll back to"
   fi
