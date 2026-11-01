@@ -20,13 +20,15 @@ import java.util.Map;
 @RestController @RequestMapping("/api") @RequiredArgsConstructor
 public class PublicController {
     private final StoreService store;
-    private final ZoneService zones;
+    private final DeliveryService delivery;
     private final CatalogService catalog;
     private final VoucherService vouchers;
     private final PromotionService promotions;
 
     @GetMapping("/store") public StoreResponse store() { return store.info(); }
-    @GetMapping("/zones") public List<ZoneResponse> zones() { return zones.list(false); }
+    /** Distance, fee and estimate for a position, so the address form can show the price before saving. */
+    @GetMapping("/delivery/quote")
+    public DeliveryQuote deliveryQuote(@RequestParam java.math.BigDecimal lat, @RequestParam java.math.BigDecimal lng) { return delivery.quote(lat, lng); }
     @GetMapping("/categories") public List<CategoryResponse> categories() { return catalog.categories(false); }
     @GetMapping("/vouchers") public List<VoucherResponse> vouchers() { return vouchers.usable(); }
     @GetMapping("/promotions") public List<PromotionResponse> promotions() { return promotions.live(); }

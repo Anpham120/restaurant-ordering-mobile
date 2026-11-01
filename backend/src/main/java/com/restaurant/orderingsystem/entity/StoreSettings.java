@@ -31,5 +31,14 @@ public class StoreSettings {
     @Column(name = "bank_account", length = 19) private String bankAccount;
     @Column(name = "bank_holder", length = 80) private String bankHolder;
     @Column(name = "transfer_timeout_minutes", nullable = false) private int transferTimeoutMinutes = 15;
+    /** Restaurant position and distance-based delivery pricing (see DeliveryService). */
+    @Column(precision = 9, scale = 6) private BigDecimal latitude;
+    @Column(precision = 9, scale = 6) private BigDecimal longitude;
+    @Column(name = "delivery_base_km", nullable = false, precision = 4, scale = 1) private BigDecimal deliveryBaseKm = new BigDecimal("5.0");
+    @Column(name = "delivery_base_fee", nullable = false, precision = 12, scale = 2) private BigDecimal deliveryBaseFee = new BigDecimal("15000");
+    @Column(name = "delivery_extra_fee_per_km", nullable = false, precision = 12, scale = 2) private BigDecimal deliveryExtraFeePerKm = new BigDecimal("5000");
+    @Column(name = "delivery_max_km", nullable = false, precision = 4, scale = 1) private BigDecimal deliveryMaxKm = new BigDecimal("15.0");
+    @Column(name = "prep_minutes", nullable = false) private int prepMinutes = 15;
+    @Column(name = "minutes_per_km", nullable = false) private int minutesPerKm = 4;
     @PrePersist @PreUpdate void touch() { updatedAt = LocalDateTime.now(); }
 }

@@ -40,7 +40,9 @@ public class AdminBootstrap implements CommandLineRunner {
             StoreSettings s = new StoreSettings();
             s.setStoreName("Atlas Restaurant");
             s.setHotline("19001234");
-            s.setStoreAddress("123 Lê Lợi, Phường Bến Thành, Quận 1, TP.HCM");
+            s.setStoreAddress("Trường Đại học CMC - Cơ sở 2, Vạn Phúc Building, P. Tố Hữu, Hà Đông, Hà Nội");
+            s.setLatitude(new BigDecimal("20.983310"));
+            s.setLongitude(new BigDecimal("105.772724"));
             s.setOpenTime(LocalTime.of(7, 0));
             s.setCloseTime(LocalTime.of(22, 0));
             s.setMinOrderAmount(new BigDecimal("50000"));

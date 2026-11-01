@@ -44,6 +44,7 @@ public class OrderService {
     private final ReviewRepository reviews;
     private final StoreService store;
     private final AddressService addresses;
+    private final DeliveryService delivery;
     private final CartService cart;
     private final VoucherService vouchers;
     private final PaymentService payments;
@@ -60,13 +61,15 @@ public class OrderService {
         Address a = c.address();
         Order o = new Order();
         o.setCustomer(users.getReferenceById(Caller.id()));
-        o.setZone(a.getZone());
         o.setRecipientName(a.getRecipientName());
         o.setRecipientPhone(a.getRecipientPhone());
         o.setDeliveryStreet(a.getStreet());
         o.setDeliveryNote(a.getNote());
         o.setNote(CatalogService.blankToNull(r.note()));
-        o.setDeliveryFee(a.getZone().getDeliveryFee());
+        DeliveryQuote quote = c.quote();
+        o.setDeliveryFee(quote.deliveryFee());
+        o.setDistanceKm(quote.distanceKm());
+        o.setEstimatedMinutes(quote.estimatedMinutes());
         o.setVoucher(c.voucher());
         o.setDiscountAmount(c.preview().discount());
         for (CartItem line : c.lines()) {
@@ -99,7 +102,7 @@ public class OrderService {
         return toResponse(o);
     }
 
-    private record Computed(CheckoutPreview preview, Address address, List<CartItem> lines, Voucher voucher) {}
+    private record Computed(CheckoutPreview preview, Address address, DeliveryQuote quote, List<CartItem> lines, Voucher voucher) {}
 
     private Computed compute(CheckoutRequest r) {
         long uid = Caller.id();
@@ -109,7 +112,8 @@ public class OrderService {
         if (closed != null) problems.add(closed);
 
         Address a = addresses.own(r.addressId());
-        if (!a.getZone().isActive()) problems.add("Cửa hàng tạm ngưng giao tới " + a.getZone().getName());
+        DeliveryQuote quote = delivery.quote(s, a.getLatitude(), a.getLongitude());
+        if (!quote.deliverable()) problems.add(quote.message());
 
         List<CartItem> lines = cart.lines(uid);
         CartResponse view = CartService.view(lines);
@@ -124,12 +128,12 @@ public class OrderService {
         List<PaymentMethod> methods = store.paymentMethods(s);
         PaymentMethod method = r.paymentMethod() == null ? PaymentMethod.COD : r.paymentMethod();
         if (!methods.contains(method)) problems.add("Cửa hàng chưa hỗ trợ hình thức thanh toán này");
-        BigDecimal fee = Money.of(a.getZone().getDeliveryFee());
+        BigDecimal fee = Money.of(quote.deliveryFee());
         BigDecimal total = subtotal.subtract(v.discount()).add(fee);
-        CheckoutPreview p = new CheckoutPreview(view, AddressResponse.of(a), subtotal, fee,
+        CheckoutPreview p = new CheckoutPreview(view, AddressResponse.of(a, quote), subtotal, fee,
                 v.voucher() == null ? null : v.voucher().getCode(), v.discount(), v.error(), Money.of(total),
-                a.getZone().getEstimatedMinutes(), method, methods, problems.isEmpty(), problems);
-        return new Computed(p, a, lines, v.voucher());
+                quote.estimatedMinutes(), method, methods, problems.isEmpty(), problems);
+        return new Computed(p, a, quote, lines, v.voucher());
     }
 
     // ================================================================ customer orders
@@ -260,10 +264,10 @@ public class OrderService {
         List<StatusEvent> timeline = o.getHistory().stream()
                 .map(h -> new StatusEvent(h.getStatus(), h.getChangedAt(), h.getChangedBy() == null ? null : h.getChangedBy().getFullName(), h.getNote())).toList();
         User c = o.getCustomer();
-        LocalDateTime eta = ACTIVE.contains(o.getStatus()) ? o.getCreatedAt().plusMinutes(o.getZone().getEstimatedMinutes()) : null;
+        LocalDateTime eta = ACTIVE.contains(o.getStatus()) ? o.getCreatedAt().plusMinutes(o.getEstimatedMinutes()) : null;
         return new OrderResponse(o.getId(), code(o), o.getStatus(), o.getCreatedAt(), o.getUpdatedAt(),
                 c.getId(), c.getFullName(), c.getPhone(),
-                o.getRecipientName(), o.getRecipientPhone(), o.getDeliveryStreet(), o.getZone().getName(), o.getDeliveryNote(), o.getNote(),
+                o.getRecipientName(), o.getRecipientPhone(), o.getDeliveryStreet(), o.getDistanceKm(), o.getDeliveryNote(), o.getNote(),
                 items, o.getItems().stream().mapToInt(OrderItem::getQuantity).sum(),
                 subtotal(o), o.getDeliveryFee(), o.getVoucher() == null ? null : o.getVoucher().getCode(), o.getDiscountAmount(), total(o),
                 payments.toResponse(o.getPayment()), eta,

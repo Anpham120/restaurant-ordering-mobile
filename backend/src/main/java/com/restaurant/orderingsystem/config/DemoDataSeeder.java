@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Sample menu (photos from Wikimedia Commons, free licences), delivery zones and vouchers on an empty database.
+ * Sample menu (photos from Wikimedia Commons, free licences) and vouchers on an empty database.
  * Demo accounts and a few past orders are added only when no manager was configured (local development).
  */
 @Slf4j
@@ -32,7 +32,6 @@ public class DemoDataSeeder implements CommandLineRunner {
     private static final String W = "https://upload.wikimedia.org/wikipedia/commons/thumb/";
     private final CategoryRepository categories;
     private final MenuItemRepository menuItems;
-    private final DeliveryZoneRepository zones;
     private final VoucherRepository vouchers;
     private final UserRepository users;
     private final AddressRepository addresses;
@@ -46,18 +45,6 @@ public class DemoDataSeeder implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
         if (menuItems.count() > 0) return;
-        Map<String, DeliveryZone> z = new HashMap<>();
-        Object[][] zoneRows = {{"Quận 1", 15000, 25}, {"Quận 3", 15000, 30}, {"Quận 4", 20000, 30}, {"Quận 5", 20000, 35},
-                {"Quận 10", 20000, 35}, {"Phú Nhuận", 20000, 35}, {"Bình Thạnh", 22000, 40}, {"Quận 7", 25000, 45}};
-        for (int i = 0; i < zoneRows.length; i++) {
-            DeliveryZone d = new DeliveryZone();
-            d.setName((String) zoneRows[i][0]);
-            d.setDeliveryFee(BigDecimal.valueOf((Integer) zoneRows[i][1]));
-            d.setEstimatedMinutes((Integer) zoneRows[i][2]);
-            d.setSortOrder(i);
-            z.put(d.getName(), zones.save(d));
-        }
-
         Category pho = cat("Phở & Bún", 1, W + "5/52/Bowl_of_Meatball_pho.jpg/500px-Bowl_of_Meatball_pho.jpg");
         Category rice = cat("Cơm", 2, W + "b/b0/C%C6%A1m_T%E1%BA%A5m%2C_Da_Nang%2C_Vietnam.jpg/500px-C%C6%A1m_T%E1%BA%A5m%2C_Da_Nang%2C_Vietnam.jpg");
         Category rolls = cat("Món cuốn & Bánh", 3, W + "1/1a/Homemade_spring_rolls_%287010969349%29.jpg/500px-Homemade_spring_rolls_%287010969349%29.jpg");
@@ -106,11 +93,11 @@ public class DemoDataSeeder implements CommandLineRunner {
         promo("Giảm 20.000đ đơn từ 200.000đ", "Rủ cả nhà cùng đặt – nhập mã FREESHIP", "b/b0/C%C6%A1m_T%E1%BA%A5m%2C_Da_Nang%2C_Vietnam.jpg/500px-C%C6%A1m_T%E1%BA%A5m%2C_Da_Nang%2C_Vietnam.jpg", 3, p -> { p.setTargetType(PromotionTarget.VOUCHER); p.setVoucher(freeship); });
         promo("Giải nhiệt mùa hè", "Trà sữa, nước mía, nước cam ép – mát lạnh giao tận nơi", "a/a2/Bubble_Tea.png/500px-Bubble_Tea.png", 4, p -> { p.setTargetType(PromotionTarget.CATEGORY); p.setCategory(drinks); });
 
-        if (users.count() == 0) demoAccounts(z, m);
-        log.info("Demo data loaded: {} dishes, {} delivery zones", m.size(), z.size());
+        if (users.count() == 0) demoAccounts(m);
+        log.info("Demo data loaded: {} dishes", m.size());
     }
 
-    private void demoAccounts(Map<String, DeliveryZone> z, Map<String, MenuItem> m) {
+    private void demoAccounts(Map<String, MenuItem> m) {
         // local development: take orders around the clock so the app can be tried at any hour
         // demo receiving account (not a real one) so the VietQR transfer flow can be tried locally
         settings.findById(StoreSettings.ID).ifPresent(s -> {
@@ -122,8 +109,8 @@ public class DemoDataSeeder implements CommandLineRunner {
         user("Lê Văn Bếp", "0900000003", Role.KITCHEN);
         User an = user("Nguyễn Văn An", "0900000004", Role.CUSTOMER);
         Address a = new Address();
-        a.setUser(an); a.setZone(z.get("Quận 1")); a.setLabel("Nhà riêng"); a.setRecipientName(an.getFullName());
-        a.setRecipientPhone(an.getPhone()); a.setStreet("12 Nguyễn Huệ, P. Bến Nghé"); a.setDefaultAddress(true);
+        a.setUser(an); a.setLabel("Nhà riêng"); a.setRecipientName(an.getFullName());
+        a.setRecipientPhone(an.getPhone()); a.setStreet("135 Phan Đình Giót, La Khê, Hà Đông, Hà Nội"); a.setLatitude(new BigDecimal("20.962900")); a.setLongitude(new BigDecimal("105.769800")); a.setDefaultAddress(true);
         addresses.save(a);
         // two delivered orders from earlier days, so ratings, best sellers and reports have data
         pastOrder(an, staff, a, 3, List.of(new Object[]{m.get("Phở bò tái nạm"), 2, 5}, new Object[]{m.get("Gỏi cuốn tôm thịt"), 1, 4}));
@@ -133,8 +120,8 @@ public class DemoDataSeeder implements CommandLineRunner {
     private void pastOrder(User customer, User staff, Address a, int daysAgo, List<Object[]> lines) {
         LocalDateTime t = LocalDateTime.now().minusDays(daysAgo).withHour(12).withMinute(5);
         Order o = new Order();
-        o.setCustomer(customer); o.setZone(a.getZone()); o.setRecipientName(a.getRecipientName()); o.setRecipientPhone(a.getRecipientPhone());
-        o.setDeliveryStreet(a.getStreet()); o.setDeliveryFee(a.getZone().getDeliveryFee()); o.setStatus(OrderStatus.DELIVERED);
+        o.setCustomer(customer); o.setRecipientName(a.getRecipientName()); o.setRecipientPhone(a.getRecipientPhone());
+        o.setDeliveryStreet(a.getStreet()); o.setDeliveryFee(new BigDecimal("15000")); o.setDistanceKm(new BigDecimal("3.4")); o.setEstimatedMinutes(29); o.setStatus(OrderStatus.DELIVERED);
         o.setCreatedAt(t); o.setUpdatedAt(t.plusMinutes(38));
         for (Object[] l : lines) {
             OrderItem i = new OrderItem();

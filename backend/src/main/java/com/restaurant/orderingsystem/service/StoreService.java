@@ -59,6 +59,15 @@ public class StoreService {
         s.setBankHolder(holder == null ? null : java.text.Normalizer.normalize(holder, java.text.Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "").replace('đ', 'd').replace('Đ', 'D').toUpperCase(java.util.Locale.ROOT));
         if (r.transferTimeoutMinutes() != null) s.setTransferTimeoutMinutes(r.transferTimeoutMinutes());
+        if ((r.latitude() == null) != (r.longitude() == null)) throw ApiException.badRequest("Nhập đủ cả vĩ độ và kinh độ của cửa hàng");
+        if (r.latitude() != null) { s.setLatitude(r.latitude()); s.setLongitude(r.longitude()); }
+        if (r.deliveryBaseKm() != null) s.setDeliveryBaseKm(r.deliveryBaseKm());
+        if (r.deliveryBaseFee() != null) s.setDeliveryBaseFee(r.deliveryBaseFee());
+        if (r.deliveryExtraFeePerKm() != null) s.setDeliveryExtraFeePerKm(r.deliveryExtraFeePerKm());
+        if (r.deliveryMaxKm() != null) s.setDeliveryMaxKm(r.deliveryMaxKm());
+        if (s.getDeliveryMaxKm().compareTo(s.getDeliveryBaseKm()) < 0) throw ApiException.badRequest("Phạm vi giao tối đa phải lớn hơn hoặc bằng bán kính phí cơ bản");
+        if (r.prepMinutes() != null) s.setPrepMinutes(r.prepMinutes());
+        if (r.minutesPerKm() != null) s.setMinutesPerKm(r.minutesPerKm());
         s.setUpdatedBy(users.getReferenceById(Caller.id()));
         return toResponse(s);
     }
@@ -81,6 +90,8 @@ public class StoreService {
         String reason = closedReason(s);
         return new StoreResponse(s.getStoreName(), s.getHotline(), s.getStoreAddress(), s.getOpenTime(), s.getCloseTime(),
                 s.getMinOrderAmount(), s.isAcceptingOrders(), reason == null, reason,
-                paymentMethods(s), s.getBankCode(), s.getBankAccount(), s.getBankHolder(), s.getTransferTimeoutMinutes());
+                paymentMethods(s), s.getBankCode(), s.getBankAccount(), s.getBankHolder(), s.getTransferTimeoutMinutes(),
+                s.getLatitude(), s.getLongitude(), s.getDeliveryBaseKm(), s.getDeliveryBaseFee(), s.getDeliveryExtraFeePerKm(),
+                s.getDeliveryMaxKm(), s.getPrepMinutes(), s.getMinutesPerKm());
     }
 }

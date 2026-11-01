@@ -21,7 +21,6 @@ import java.util.Map;
 public class AdminController {
     private final ReportService reports;
     private final CatalogService catalog;
-    private final ZoneService zones;
     private final VoucherService vouchers;
     private final UserAdminService users;
     private final ReviewService reviews;
@@ -59,11 +58,6 @@ public class AdminController {
     @DeleteMapping("/promotions/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) public void deletePromotion(@PathVariable Long id) { promotions.delete(id); }
     @PostMapping("/promotions/{id}/announce") public AnnounceResponse announce(@PathVariable Long id) { return promotions.announce(id); }
 
-    // delivery zones
-    @GetMapping("/zones") public List<ZoneResponse> zones() { return zones.list(true); }
-    @PostMapping("/zones") @ResponseStatus(HttpStatus.CREATED) public ZoneResponse createZone(@Valid @RequestBody ZoneRequest r) { return zones.create(r); }
-    @PutMapping("/zones/{id}") public ZoneResponse updateZone(@PathVariable Long id, @Valid @RequestBody ZoneRequest r) { return zones.update(id, r); }
-    @DeleteMapping("/zones/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) public void deleteZone(@PathVariable Long id) { zones.delete(id); }
 
     // vouchers
     @GetMapping("/vouchers") public List<VoucherResponse> vouchers() { return vouchers.all(); }

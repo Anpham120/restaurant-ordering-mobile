@@ -22,11 +22,11 @@ public class AddressService {
     static final int MAX_ADDRESSES = 10;
     private final AddressRepository addresses;
     private final UserRepository users;
-    private final ZoneService zones;
+    private final DeliveryService delivery;
 
     @Transactional(readOnly = true)
     public List<AddressResponse> list() {
-        return addresses.findByUserIdOrderByDefaultAddressDescCreatedAtDesc(Caller.id()).stream().map(AddressResponse::of).toList();
+        return addresses.findByUserIdOrderByDefaultAddressDescCreatedAtDesc(Caller.id()).stream().map(this::view).toList();
     }
 
     @Transactional
@@ -41,7 +41,7 @@ public class AddressService {
             addresses.clearDefault(uid);
             a.setDefaultAddress(true);
         }
-        return AddressResponse.of(addresses.save(a));
+        return view(addresses.save(a));
     }
 
     @Transactional
@@ -49,14 +49,14 @@ public class AddressService {
         Address a = own(id);
         apply(a, r);
         if (r.makeDefault() && !a.isDefaultAddress()) makeDefault(a);
-        return AddressResponse.of(a);
+        return view(a);
     }
 
     @Transactional
     public AddressResponse setDefault(Long id) {
         Address a = own(id);
         if (!a.isDefaultAddress()) makeDefault(a);
-        return AddressResponse.of(a);
+        return view(a);
     }
 
     /** Orders keep their own copy of the delivery address, so deleting never touches order history. */
@@ -82,10 +82,13 @@ public class AddressService {
         a.setDefaultAddress(true);
     }
 
+    AddressResponse view(Address a) { return AddressResponse.of(a, delivery.quote(a.getLatitude(), a.getLongitude())); }
+
     private void apply(Address a, AddressRequest r) {
-        DeliveryZone z = zones.zone(r.zoneId());
-        if (!z.isActive()) throw ApiException.badRequest("Cửa hàng chưa giao tới khu vực " + z.getName());
-        a.setZone(z);
+        DeliveryQuote q = delivery.quote(r.latitude(), r.longitude());
+        if (!q.deliverable()) throw ApiException.badRequest(q.message());
+        a.setLatitude(r.latitude());
+        a.setLongitude(r.longitude());
         a.setLabel(r.label().trim());
         a.setRecipientName(r.recipientName().trim());
         a.setRecipientPhone(r.recipientPhone());

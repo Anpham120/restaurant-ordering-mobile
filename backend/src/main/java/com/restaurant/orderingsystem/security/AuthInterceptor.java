@@ -36,6 +36,7 @@ public class AuthInterceptor implements HandlerInterceptor {
             new Rule("*", "/api/admin/**", MANAGER),
             new Rule("*", "/api/manage/**", STORE),
             new Rule("*", "/api/me/**", CUSTOMER),
+            new Rule("*", "/api/geocode/**", ANY),
             new Rule("*", "/api/auth/me", ANY),
             new Rule("*", "/api/auth/profile", ANY),
             new Rule("*", "/api/auth/change-password", ANY));

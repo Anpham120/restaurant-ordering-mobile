@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Helpers shared by the API tests: users with tokens, JSON requests, a fresh menu/zone per test. */
+/** Helpers shared by the API tests: users with tokens, JSON requests, a fresh menu per test. */
 abstract class ApiTestBase {
     private static final AtomicLong SEQ = new AtomicLong(System.nanoTime() % 1_000_000);
 
@@ -33,7 +33,10 @@ abstract class ApiTestBase {
     @Autowired PasswordEncoder encoder;
 
     String manager, staff, kitchen, customer;
-    long zoneId, categoryId, pho, tea, archived;
+    long categoryId, pho, tea, archived;
+
+    /** About 1 km from the restaurant (Vạn Phúc Building, Hà Đông): inside the base radius, fee 15,000. */
+    static final String NEAR = "\"latitude\":20.990000,\"longitude\":105.780000";
 
     static String phone() { return "09" + String.format("%08d", SEQ.incrementAndGet() % 100_000_000); }
     static String uniq() { return Long.toString(SEQ.incrementAndGet(), 36); }
@@ -52,8 +55,6 @@ abstract class ApiTestBase {
         kitchen = tokenFor(Role.KITCHEN);
         customer = register();
 
-        zoneId = json(as(manager, post("/api/admin/zones"), "{\"name\":\"Q" + uniq() + "\",\"deliveryFee\":15000,\"estimatedMinutes\":30,\"sortOrder\":1}")
-                .andExpect(status().isCreated())).get("id").asLong();
         categoryId = json(as(manager, post("/api/admin/categories"), "{\"name\":\"C" + uniq() + "\",\"sortOrder\":1}")
                 .andExpect(status().isCreated())).get("id").asLong();
         pho = item("Pho" + uniq(), 65000, true, true);
@@ -89,8 +90,8 @@ abstract class ApiTestBase {
     }
 
     long address(String token) throws Exception {
-        return json(as(token, post("/api/me/addresses"), "{\"zoneId\":" + zoneId + ",\"label\":\"Nhà\",\"recipientName\":\"An\",\"recipientPhone\":\"0901234567\","
-                + "\"street\":\"12 Nguyễn Huệ\",\"makeDefault\":false}").andExpect(status().isCreated())).get("id").asLong();
+        return json(as(token, post("/api/me/addresses"), "{\"label\":\"Nhà\",\"recipientName\":\"An\",\"recipientPhone\":\"0901234567\","
+                + "\"street\":\"12 Nguyễn Huệ\"," + NEAR + ",\"makeDefault\":false}").andExpect(status().isCreated())).get("id").asLong();
     }
 
     ResultActions cart(String token, long itemId, int qty) throws Exception {

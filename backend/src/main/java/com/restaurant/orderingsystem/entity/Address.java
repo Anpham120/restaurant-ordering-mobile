@@ -16,11 +16,12 @@ import java.util.List;
 public class Address {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
     @ManyToOne(optional = false, fetch = FetchType.LAZY) @JoinColumn(name = "user_id") private User user;
-    @ManyToOne(optional = false) @JoinColumn(name = "zone_id") private DeliveryZone zone;
     @Column(nullable = false, length = 40) private String label;
     @Column(name = "recipient_name", nullable = false, length = 100) private String recipientName;
     @Column(name = "recipient_phone", nullable = false, length = 15) private String recipientPhone;
     @Column(nullable = false, length = 200) private String street;
+    @Column(precision = 9, scale = 6) private BigDecimal latitude;
+    @Column(precision = 9, scale = 6) private BigDecimal longitude;
     @Column(length = 200) private String note;
     @Column(name = "is_default", nullable = false) private boolean defaultAddress;
     @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;

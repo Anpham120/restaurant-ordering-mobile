@@ -28,7 +28,8 @@ class DeliveryFlowTest extends ApiTestBase {
         as(null, get("/api/menu").param("categoryId", String.valueOf(categoryId))).andExpect(jsonPath("$", hasSize(2)));
         as(null, get("/api/menu").param("q", "pho")).andExpect(jsonPath("$[*].name", everyItem(containsStringIgnoringCase("pho"))));
         as(null, get("/api/menu/" + archived)).andExpect(status().isNotFound());
-        as(null, get("/api/zones")).andExpect(jsonPath("$[?(@.id==" + zoneId + ")]").isNotEmpty());
+        as(null, get("/api/delivery/quote").param("lat", "20.99").param("lng", "105.78")).andExpect(jsonPath("$.deliverable").value(true))
+                .andExpect(jsonPath("$.deliveryFee").value(15000.0));
     }
 
     @Test
@@ -183,19 +184,22 @@ class DeliveryFlowTest extends ApiTestBase {
     @Test
     void addressBookDefaultsAndValidation() throws Exception {
         long first = address(customer);
-        long second = json(as(customer, post("/api/me/addresses"), "{\"zoneId\":" + zoneId + ",\"label\":\"Công ty\",\"recipientName\":\"An\","
-                + "\"recipientPhone\":\"0912345678\",\"street\":\"1 Lê Lợi\",\"makeDefault\":true}")).get("id").asLong();
+        long second = json(as(customer, post("/api/me/addresses"), "{\"label\":\"Công ty\",\"recipientName\":\"An\","
+                + "\"recipientPhone\":\"0912345678\",\"street\":\"1 Lê Lợi\"," + NEAR + ",\"makeDefault\":true}")).get("id").asLong();
         as(customer, get("/api/me/addresses")).andExpect(jsonPath("$[0].id").value(second)).andExpect(jsonPath("$[0].isDefault").value(true))
                 .andExpect(jsonPath("$[1].isDefault").value(false));
         as(customer, patch("/api/me/addresses/" + first + "/default")).andExpect(jsonPath("$.isDefault").value(true));
         as(customer, delete("/api/me/addresses/" + first)).andExpect(status().isNoContent());
         as(customer, get("/api/me/addresses")).andExpect(jsonPath("$", hasSize(1))).andExpect(jsonPath("$[0].isDefault").value(true));
-        as(customer, post("/api/me/addresses"), "{\"zoneId\":" + zoneId + ",\"label\":\"X\",\"recipientName\":\"A\",\"recipientPhone\":\"12ab\",\"street\":\"x\"}")
+        as(customer, post("/api/me/addresses"), "{\"label\":\"X\",\"recipientName\":\"A\",\"recipientPhone\":\"12ab\",\"street\":\"x\"," + NEAR + "}")
                 .andExpect(status().isBadRequest());
-        as(manager, put("/api/admin/zones/" + zoneId), "{\"name\":\"Off" + uniq() + "\",\"deliveryFee\":15000,\"estimatedMinutes\":30,\"sortOrder\":1,\"active\":false}")
-                .andExpect(status().isOk());
-        as(customer, post("/api/me/addresses"), "{\"zoneId\":" + zoneId + ",\"label\":\"X\",\"recipientName\":\"A\",\"recipientPhone\":\"0901234567\",\"street\":\"x\"}")
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error", containsString("chưa giao tới")));
+        // a position is required
+        as(customer, post("/api/me/addresses"), "{\"label\":\"X\",\"recipientName\":\"A\",\"recipientPhone\":\"0901234567\",\"street\":\"x\"}")
+                .andExpect(status().isBadRequest());
+        // Ho Chi Minh City is far outside the delivery radius
+        as(customer, post("/api/me/addresses"), "{\"label\":\"X\",\"recipientName\":\"A\",\"recipientPhone\":\"0901234567\",\"street\":\"x\","
+                + "\"latitude\":10.776900,\"longitude\":106.700900}")
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error", containsString("ngoài phạm vi giao")));
         as(register(), delete("/api/me/addresses/" + second)).andExpect(status().isNotFound());
     }
 
@@ -216,7 +220,6 @@ class DeliveryFlowTest extends ApiTestBase {
         setStatus(staff, id, "CONFIRMED", null);
         as(manager, delete("/api/admin/menu-items/" + pho)).andExpect(status().isConflict());
         as(manager, delete("/api/admin/menu-items/" + archived)).andExpect(status().isNoContent());
-        as(manager, delete("/api/admin/zones/" + zoneId)).andExpect(status().isConflict());
         as(manager, delete("/api/admin/categories/" + categoryId)).andExpect(status().isConflict());
 
         long staffId = json(as(staff, get("/api/auth/me"))).get("id").asLong();

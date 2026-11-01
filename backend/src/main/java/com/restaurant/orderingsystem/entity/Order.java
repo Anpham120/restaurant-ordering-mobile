@@ -17,7 +17,6 @@ import java.util.List;
 public class Order {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
     @ManyToOne(optional = false, fetch = FetchType.LAZY) @JoinColumn(name = "customer_id") private User customer;
-    @ManyToOne(optional = false) @JoinColumn(name = "zone_id") private DeliveryZone zone;
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "voucher_id") private Voucher voucher;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private OrderStatus status = OrderStatus.PENDING;
     @Column(name = "recipient_name", nullable = false, length = 100) private String recipientName;
@@ -26,6 +25,9 @@ public class Order {
     @Column(name = "delivery_note", length = 200) private String deliveryNote;
     @Column(length = 300) private String note;
     @Column(name = "delivery_fee", nullable = false, precision = 12, scale = 2) private BigDecimal deliveryFee;
+    /** Road distance estimate and delivery time promised when the order was placed. */
+    @Column(name = "distance_km", nullable = false, precision = 5, scale = 1) private BigDecimal distanceKm = BigDecimal.ZERO;
+    @Column(name = "estimated_minutes", nullable = false) private int estimatedMinutes = 30;
     @Column(name = "discount_amount", nullable = false, precision = 12, scale = 2) private BigDecimal discountAmount = BigDecimal.ZERO;
     @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;
     @Column(name = "updated_at", nullable = false) private LocalDateTime updatedAt;

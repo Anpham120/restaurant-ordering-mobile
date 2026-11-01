@@ -50,7 +50,9 @@ public final class Dtos {
     // =============================================================== store
     public record StoreResponse(String storeName, String hotline, String storeAddress, LocalTime openTime, LocalTime closeTime,
                                 BigDecimal minOrderAmount, boolean acceptingOrders, boolean openNow, String closedReason,
-                                List<PaymentMethod> paymentMethods, String bankCode, String bankAccount, String bankHolder, int transferTimeoutMinutes) {}
+                                List<PaymentMethod> paymentMethods, String bankCode, String bankAccount, String bankHolder, int transferTimeoutMinutes,
+                                BigDecimal latitude, BigDecimal longitude, BigDecimal deliveryBaseKm, BigDecimal deliveryBaseFee,
+                                BigDecimal deliveryExtraFeePerKm, BigDecimal deliveryMaxKm, int prepMinutes, int minutesPerKm) {}
     public record StoreSettingsRequest(@NotBlank @Size(max = 100) String storeName,
                                        @NotBlank @Pattern(regexp = "^[0-9]{8,15}$", message = "chỉ gồm 8–15 chữ số") String hotline,
                                        @NotBlank @Size(max = 200) String storeAddress,
@@ -60,33 +62,40 @@ public final class Dtos {
                                        @Size(max = 20) String bankCode,
                                        @Size(max = 19) @Pattern(regexp = "^[A-Za-z0-9]*$", message = "chỉ gồm chữ và số") String bankAccount,
                                        @Size(max = 80) String bankHolder,
-                                       @Min(5) @Max(120) Integer transferTimeoutMinutes) {}
+                                       @Min(5) @Max(120) Integer transferTimeoutMinutes,
+                                       // restaurant position and delivery pricing; null = leave unchanged
+                                       @DecimalMin("-90") @DecimalMax("90") @Digits(integer = 2, fraction = 6) BigDecimal latitude,
+                                       @DecimalMin("-180") @DecimalMax("180") @Digits(integer = 3, fraction = 6) BigDecimal longitude,
+                                       @DecimalMin(value = "0.5") @DecimalMax("99") @Digits(integer = 2, fraction = 1) BigDecimal deliveryBaseKm,
+                                       @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal deliveryBaseFee,
+                                       @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal deliveryExtraFeePerKm,
+                                       @DecimalMin(value = "0.5") @DecimalMax("99") @Digits(integer = 2, fraction = 1) BigDecimal deliveryMaxKm,
+                                       @Min(0) @Max(240) Integer prepMinutes,
+                                       @Min(1) @Max(30) Integer minutesPerKm) {}
     public record AcceptingRequest(boolean acceptingOrders) {}
 
-    // =============================================================== zones
-    public record ZoneRequest(@NotBlank @Size(max = 60) String name,
-                              @NotNull @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal deliveryFee,
-                              @Min(5) @Max(240) int estimatedMinutes,
-                              @Min(0) @Max(999) int sortOrder,
-                              Boolean active) {}
-    public record ZoneResponse(Long id, String name, BigDecimal deliveryFee, int estimatedMinutes, int sortOrder, boolean active) {
-        public static ZoneResponse of(DeliveryZone z) { return new ZoneResponse(z.getId(), z.getName(), z.getDeliveryFee(), z.getEstimatedMinutes(), z.getSortOrder(), z.isActive()); }
-    }
+    // =============================================================== delivery and addresses
+    /** Distance from the restaurant, delivery fee and estimate for a map position; deliverable=false carries the reason. */
+    public record DeliveryQuote(BigDecimal distanceKm, BigDecimal deliveryFee, int estimatedMinutes, boolean deliverable, String message) {}
+    /** One place found by the address search (OpenStreetMap), with its position. */
+    public record GeoPlace(String name, BigDecimal latitude, BigDecimal longitude) {}
 
-    // =============================================================== addresses
-    public record AddressRequest(@NotNull Long zoneId,
-                                 @NotBlank @Size(max = 40) String label,
+    public record AddressRequest(@NotBlank @Size(max = 40) String label,
                                  @NotBlank @Size(max = 100) String recipientName,
                                  @NotBlank @Pattern(regexp = PHONE, message = PHONE_MSG) String recipientPhone,
                                  @NotBlank @Size(max = 200) String street,
+                                 @NotNull @DecimalMin("-90") @DecimalMax("90") @Digits(integer = 2, fraction = 6) BigDecimal latitude,
+                                 @NotNull @DecimalMin("-180") @DecimalMax("180") @Digits(integer = 3, fraction = 6) BigDecimal longitude,
                                  @Size(max = 200) String note,
                                  boolean makeDefault) {}
-    public record AddressResponse(Long id, Long zoneId, String zoneName, BigDecimal deliveryFee, int estimatedMinutes, boolean zoneActive,
-                                  String label, String recipientName, String recipientPhone, String street, String note, boolean isDefault) {
-        public static AddressResponse of(Address a) {
-            DeliveryZone z = a.getZone();
-            return new AddressResponse(a.getId(), z.getId(), z.getName(), z.getDeliveryFee(), z.getEstimatedMinutes(), z.isActive(),
-                    a.getLabel(), a.getRecipientName(), a.getRecipientPhone(), a.getStreet(), a.getNote(), a.isDefaultAddress());
+    /** distanceKm, deliveryFee, estimatedMinutes and deliverable are computed from the position with the current pricing. */
+    public record AddressResponse(Long id, String label, String recipientName, String recipientPhone, String street, String note, boolean isDefault,
+                                  BigDecimal latitude, BigDecimal longitude, boolean hasLocation,
+                                  BigDecimal distanceKm, BigDecimal deliveryFee, int estimatedMinutes, boolean deliverable, String deliveryMessage) {
+        public static AddressResponse of(Address a, DeliveryQuote q) {
+            return new AddressResponse(a.getId(), a.getLabel(), a.getRecipientName(), a.getRecipientPhone(), a.getStreet(), a.getNote(), a.isDefaultAddress(),
+                    a.getLatitude(), a.getLongitude(), a.getLatitude() != null,
+                    q.distanceKm(), q.deliveryFee(), q.estimatedMinutes(), q.deliverable(), q.message());
         }
     }
 
@@ -159,7 +168,7 @@ public final class Dtos {
     public record StatusEvent(OrderStatus status, LocalDateTime at, String byName, String note) {}
     public record OrderResponse(Long id, String code, OrderStatus status, LocalDateTime createdAt, LocalDateTime updatedAt,
                                 Long customerId, String customerName, String customerPhone,
-                                String recipientName, String recipientPhone, String deliveryStreet, String zoneName, String deliveryNote,
+                                String recipientName, String recipientPhone, String deliveryStreet, BigDecimal distanceKm, String deliveryNote,
                                 String note, List<OrderItemResponse> items, int itemCount,
                                 BigDecimal subtotal, BigDecimal deliveryFee, String voucherCode, BigDecimal discount, BigDecimal total,
                                 PaymentResponse payment, LocalDateTime estimatedDeliveryAt,
@@ -185,9 +194,9 @@ public final class Dtos {
 
     public record DailyRevenue(LocalDate date, BigDecimal revenue, long orders) {}
     public record TopItem(Long menuItemId, String name, String imageUrl, long quantity, BigDecimal revenue) {}
-    public record ZoneRevenue(String zone, BigDecimal revenue, long orders) {}
+    public record DistanceRevenue(String band, BigDecimal revenue, long orders) {}
     public record RevenueReport(LocalDate from, LocalDate to, BigDecimal revenue, long deliveredOrders, long cancelledOrders,
-                                BigDecimal averageOrderValue, List<DailyRevenue> daily, List<TopItem> topItems, List<ZoneRevenue> byZone) {}
+                                BigDecimal averageOrderValue, List<DailyRevenue> daily, List<TopItem> topItems, List<DistanceRevenue> byDistance) {}
     public record DashboardResponse(BigDecimal revenueToday, BigDecimal revenueYesterday, long deliveredToday, long cancelledToday,
                                     long pendingOrders, long activeOrders, long awaitingPayment, long pendingRefunds, BigDecimal averageOrderValueToday,
                                     Double ratingAvg7d, long ratingCount7d, long newCustomersToday, boolean acceptingOrders,

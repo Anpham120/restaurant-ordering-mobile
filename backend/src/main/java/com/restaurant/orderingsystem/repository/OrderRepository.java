@@ -14,7 +14,6 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     long countByStatusIn(Collection<OrderStatus> statuses);
     long countByCustomerId(Long customerId);
     boolean existsByVoucherId(Long voucherId);
-    boolean existsByZoneId(Long zoneId);
     boolean existsByCustomerId(Long customerId);
     List<Order> findByStatusInOrderByCreatedAtAsc(Collection<OrderStatus> statuses);
     @Query("select distinct h.order from OrderStatusHistory h where h.status = :status and h.changedAt >= :from and h.changedAt < :to")

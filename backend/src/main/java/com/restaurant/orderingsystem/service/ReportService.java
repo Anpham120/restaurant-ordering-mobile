@@ -40,6 +40,13 @@ public class ReportService {
         return list.stream().filter(o -> o.getStatus() == OrderStatus.DELIVERED).map(o -> new Delivered(o, at.get(o.getId()))).toList();
     }
 
+    /** Delivered revenue is grouped by how far the order travelled. */
+    private static final String[] BANDS = {"Dưới 3 km", "3 – 5 km", "5 – 10 km", "Trên 10 km"};
+    private static int band(java.math.BigDecimal km) {
+        double d = km.doubleValue();
+        return d <= 3 ? 0 : d <= 5 ? 1 : d <= 10 ? 2 : 3;
+    }
+
     @Transactional(readOnly = true)
     public RevenueReport revenue(LocalDate from, LocalDate to) {
         if (to.isBefore(from)) throw ApiException.badRequest("Ngày kết thúc phải sau ngày bắt đầu");
@@ -47,10 +54,9 @@ public class ReportService {
         List<Delivered> list = delivered(from, to);
         BigDecimal revenue = sum(list);
         long cancelled = orders.findReachedStatusBetween(OrderStatus.CANCELLED, from.atStartOfDay(), to.plusDays(1).atStartOfDay()).size();
-        Map<String, List<Delivered>> byZone = list.stream().collect(Collectors.groupingBy(d -> d.order().getZone().getName(), TreeMap::new, Collectors.toList()));
+        Map<Integer, List<Delivered>> byBand = list.stream().collect(Collectors.groupingBy(d -> band(d.order().getDistanceKm()), TreeMap::new, Collectors.toList()));
         return new RevenueReport(from, to, revenue, list.size(), cancelled, avg(revenue, list.size()), daily(list, from, to), top(list, 10),
-                byZone.entrySet().stream().map(e -> new ZoneRevenue(e.getKey(), sum(e.getValue()), e.getValue().size()))
-                        .sorted(Comparator.comparing(ZoneRevenue::revenue).reversed()).toList());
+                byBand.entrySet().stream().map(e -> new DistanceRevenue(BANDS[e.getKey()], sum(e.getValue()), e.getValue().size())).toList());
     }
 
     @Transactional(readOnly = true)

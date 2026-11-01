@@ -64,8 +64,8 @@ class PostgresProdProfileTest {
 
     @Test
     void prodProfileOnPostgres() throws Exception {
-        assertEquals(3, jdbc.queryForObject("select count(*) from flyway_schema_history where success and version in ('1', '2', '3')", Integer.class));
-        assertEquals(22, jdbc.queryForObject("select count(*) from information_schema.tables where table_schema = 'public' and table_name <> 'flyway_schema_history'", Integer.class));
+        assertEquals(4, jdbc.queryForObject("select count(*) from flyway_schema_history where success and version in ('1', '2', '3', '4')", Integer.class));
+        assertEquals(21, jdbc.queryForObject("select count(*) from information_schema.tables where table_schema = 'public' and table_name <> 'flyway_schema_history'", Integer.class));
         assertEquals(1, jdbc.queryForObject("select count(*) from users", Integer.class));
         assertEquals(1, jdbc.queryForObject("select count(*) from store_settings", Integer.class));
         assertEquals(0, jdbc.queryForObject("select count(*) from menu_items", Integer.class));
@@ -73,8 +73,6 @@ class PostgresProdProfileTest {
         jdbc.update("update store_settings set open_time = '00:00', close_time = '23:59:59'");
 
         String admin = field(call(null, post("/api/auth/login"), "{\"login\":\"0911111111\",\"password\":\"S3cure-pass!\"}").andExpect(status().isOk()), "token");
-        String zone = field(call(admin, post("/api/admin/zones"), "{\"name\":\"Quận 1\",\"deliveryFee\":15000,\"estimatedMinutes\":25,\"sortOrder\":0}")
-                .andExpect(status().isCreated()), "id");
         String cat = field(call(admin, post("/api/admin/categories"), "{\"name\":\"Phở\",\"sortOrder\":1}").andExpect(status().isCreated()), "id");
         String pho = field(call(admin, post("/api/admin/menu-items"), "{\"categoryId\":" + cat + ",\"name\":\"Phở bò\",\"price\":65000}")
                 .andExpect(status().isCreated()), "id");
@@ -85,8 +83,8 @@ class PostgresProdProfileTest {
 
         String customer = field(call(null, post("/api/auth/register"), "{\"fullName\":\"An\",\"phone\":\"0944444444\",\"password\":\"Passw0rd!\"}")
                 .andExpect(status().isCreated()), "token");
-        String addr = field(call(customer, post("/api/me/addresses"), "{\"zoneId\":" + zone + ",\"label\":\"Nhà\",\"recipientName\":\"An\","
-                + "\"recipientPhone\":\"0944444444\",\"street\":\"12 Nguyễn Huệ\",\"makeDefault\":true}").andExpect(status().isCreated()), "id");
+        String addr = field(call(customer, post("/api/me/addresses"), "{\"label\":\"Nhà\",\"recipientName\":\"An\","
+                + "\"recipientPhone\":\"0944444444\",\"street\":\"12 Nguyễn Huệ\",\"latitude\":20.990000,\"longitude\":105.780000,\"makeDefault\":true}").andExpect(status().isCreated()), "id");
         call(customer, post("/api/me/cart/items"), "{\"menuItemId\":" + pho + ",\"quantity\":2}").andExpect(status().isOk());
         String order = field(call(customer, post("/api/me/orders"), "{\"addressId\":" + addr + "}").andExpect(status().isCreated())
                 .andExpect(jsonPath("$.total").value(145000.0)), "id");
@@ -100,7 +98,9 @@ class PostgresProdProfileTest {
         assertEquals("23514", sqlState("update order_items set quantity = 0"));                      // check violation
         assertEquals("23514", sqlState("update payments set status = 'PAID', paid_at = null"));          // paid needs paid_at
         assertEquals("23505", sqlState("insert into payments(order_id, method, amount, status, created_at, updated_at) select order_id, 'COD', 1, 'PENDING', now(), now() from payments")); // one payment per order
-        assertEquals("23505", sqlState("update addresses set is_default = true where id = " + addr + "; insert into addresses(user_id, zone_id, label, recipient_name, recipient_phone, street, is_default, created_at) select user_id, zone_id, 'B', 'B', '0944444444', 'x', true, now() from addresses where id = " + addr));
+        assertEquals("23505", sqlState("update addresses set is_default = true where id = " + addr + "; insert into addresses(user_id, label, recipient_name, recipient_phone, street, is_default, created_at) select user_id, 'B', 'B', '0944444444', 'x', true, now() from addresses where id = " + addr));
+        assertEquals("23514", sqlState("update addresses set latitude = 20.99, longitude = null"));      // a position is both coordinates or none
+        assertEquals("23514", sqlState("update store_settings set delivery_max_km = 1, delivery_base_km = 5"));   // radius smaller than the base radius
         assertEquals("23503", sqlState("delete from menu_items where id = " + pho));                   // FK: ordered dish
         assertEquals("23514", sqlState("insert into store_settings(id, store_name, hotline, store_address, open_time, close_time, updated_at) values (2,'x','1','x','08:00','09:00',now())"));
 
