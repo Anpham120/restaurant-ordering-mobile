@@ -3,6 +3,7 @@
 //   every branch / PR : CI = backend tests (incl. prod profile on PostgreSQL) + mobile typecheck, lint, web build
 //   develop           : CI + deploy to STAGING on this server (disposable data, no public domain)
 //   main              : CI + deploy to PRODUCTION on this server (DB backup first, automatic rollback on failure)
+//   main + mobile/ changed : after the deploy, queue an Android APK build on EAS (not waited for)
 //   nightly (main)    : DB backup only
 // Both deploys run the same scripts/deploy.sh; the stack is chosen by the credential (its .env) and the directory.
 // Maven and Node run in throwaway containers that share the Jenkins volume, so $WORKSPACE paths match.
@@ -83,6 +84,17 @@ pipeline {
             }
         }
 
+        // APK only when the app itself changed: backend-only releases do not need a new APK (it just calls the API),
+        // and the free EAS plan has a monthly build quota. Needs the Jenkins credential "expo-token" (Secret text).
+        stage('Build Android APK') {
+            when {
+                allOf { branch 'main'; not { triggeredBy 'TimerTrigger' }; changeset 'mobile/**' }
+            }
+            steps {
+                script { queueApkBuild() }
+            }
+        }
+
         stage('Nightly DB backup') {
             when {
                 allOf { branch 'main'; triggeredBy 'TimerTrigger' }
@@ -141,6 +153,28 @@ def deployStack(String dir, String credId, String branch) {
                     && scripts/deploy.sh; rc=$?; rm -f .env; chown -R 1000:1000 . "$BACKUP_DIR"; exit $rc'
             '''
         }
+    }
+}
+
+// Queue an EAS build (profile "preview" in mobile/eas.json) and report the link. The deploy has already succeeded,
+// so a failure here only sends a Telegram warning instead of failing the pipeline.
+def queueApkBuild() {
+    try {
+        withCredentials([string(credentialsId: 'expo-token', variable: 'EXPO_TOKEN')]) {
+            def out = sh(returnStdout: true, script: '''
+                docker run --rm --volumes-from "$JENKINS_CONTAINER" -w "$WORKSPACE/mobile" \
+                  --user "$(id -u):$(id -g)" -e HOME=/tmp -e CI=1 -e EXPO_TOKEN \
+                  node:22 \
+                  sh -c 'git config --global --add safe.directory "$WORKSPACE" \
+                    && npx --yes eas-cli@latest build -p android --profile preview --non-interactive --no-wait 2>&1'
+            ''')
+            echo out
+            def m = (out =~ /https:\/\/expo\.dev\/\S+\/builds\/\S+/)
+            notifyTelegram("📱 [ordering] Đã gửi build APK lên EAS\n" + (m.find() ? m.group(0) : 'https://expo.dev'))
+        }
+    } catch (err) {
+        echo "Build APK lỗi: ${err.message}"
+        notifyTelegram("⚠️ [ordering] Không gửi được build APK (xem log Jenkins). Production vẫn đã deploy.")
     }
 }
 

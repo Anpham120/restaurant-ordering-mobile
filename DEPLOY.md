@@ -43,6 +43,7 @@ feature/xxx ──PR──> develop ──PR──> main
 | Mọi nhánh / PR | **CI**: `mvn verify` (26 bộ test, gồm test profile prod trên PostgreSQL thật), sau đó `tsc`, `expo lint`, `expo export --platform web` |
 | `develop` | CI + **Deploy staging** (`scripts/deploy.sh`, credential `ordering-staging-env`): build image → chờ healthy → kiểm tra `/api/health`, `/api/menu`, trang web. Không backup (dữ liệu dùng thử) |
 | `main` | CI + **Deploy production** (`scripts/deploy.sh`, credential `ordering-prod-env`): backup DB → build image → chờ healthy → kiểm tra. Lỗi ở bất kỳ bước nào thì tự quay về image trước |
+| `main`, khi thư mục `mobile/` có thay đổi | Sau khi deploy xong: **Build Android APK**, gửi yêu cầu build lên EAS (không chờ, 10–30 phút), Telegram báo link theo dõi. Lỗi bước này chỉ cảnh báo, không làm hỏng deploy |
 | 3 giờ sáng (nhánh `main`) | Chỉ backup DB (`scripts/backup-db.sh nightly`) |
 
 ### Staging và production khác nhau thế nào
@@ -78,6 +79,8 @@ Tạo bản ghi A `order.atlasplatform12.tech` → `163.61.182.201`. Kiểm tra 
    - Scan triggers: *Periodically if not otherwise run*, interval **1 minute**, giống job `rsm`.
 3. Lưu job. Jenkins quét nhánh, chạy build `main` (deploy production) và `develop` (deploy staging).
 4. Thêm credential thứ hai cho staging: Secret text, ID `ordering-staging-env`, nội dung `/home/coder/ordering-secrets/staging.env.b64`.
+5. Cho bước build APK: tạo token trên expo.dev (*Account settings → Access tokens*) rồi thêm credential Secret text, ID `expo-token`.
+   Làm một lần trước đó, trên máy có đăng nhập Expo: `cd mobile && npx eas-cli@latest init` (tạo project, ghi `projectId` vào `app.json`, nhớ commit) và `npx eas-cli@latest build -p android --profile preview` (lần đầu, để EAS tạo keystore; chế độ `--non-interactive` không tạo được keystore).
 
 ### 3. nginx + HTTPS (cần sudo)
 ```bash
