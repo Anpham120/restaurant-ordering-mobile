@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { api, setAuthToken, setUnauthorizedHandler, type AuthResponse, type Role, type User } from './api';
+import { api, setAuthToken, setMustChangePasswordHandler, setUnauthorizedHandler, type AuthResponse, type Role, type User } from './api';
 
 const KEY = 'atlas.session.v1';
 
@@ -15,7 +15,14 @@ interface SessionValue {
   register: (b: { fullName: string; phone: string; email?: string | null; password: string }) => Promise<User>;
   logout: () => void;
   setUser: (u: User) => void;
+  /** Stores a token returned by the API (e.g. after changing the password). */
+  acceptAuth: (r: AuthResponse) => User;
+  /** Why the user was signed out (expired or revoked session); shown on the login screen. */
+  notice: string | null;
+  clearNotice: () => void;
 }
+
+export const SESSION_EXPIRED = 'Phiên đăng nhập đã hết hiệu lực, vui lòng đăng nhập lại.';
 
 const Ctx = createContext<SessionValue | null>(null);
 
@@ -32,6 +39,7 @@ export function homeFor(role: Role | undefined): '/' | '/store/orders' | '/store
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [state, setState] = useState<Stored | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const persist = useCallback((s: Stored | null) => {
     setAuthToken(s?.token ?? null);
@@ -58,11 +66,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [persist]);
 
   useEffect(() => {
-    setUnauthorizedHandler(() => persist(null));
-    return () => setUnauthorizedHandler(null);
+    // a 401 means the token expired or was revoked (password changed elsewhere, account locked)
+    setUnauthorizedHandler(() => { persist(null); setNotice(SESSION_EXPIRED); });
+    // a 403 "Vui lòng đổi mật khẩu…" means the stored profile is stale: flag it so the gate opens the set-password screen
+    setMustChangePasswordHandler(() => setState((s) => {
+      if (!s || s.user.mustChangePassword) return s;
+      const next = { token: s.token, user: { ...s.user, mustChangePassword: true } };
+      void AsyncStorage.setItem(KEY, JSON.stringify(next)).catch(() => undefined);
+      return next;
+    }));
+    return () => { setUnauthorizedHandler(null); setMustChangePasswordHandler(null); };
   }, [persist]);
 
-  const accept = useCallback((r: AuthResponse) => { persist({ token: r.token, user: r.user }); return r.user; }, [persist]);
+  const accept = useCallback((r: AuthResponse) => { persist({ token: r.token, user: r.user }); setNotice(null); return r.user; }, [persist]);
 
   const value = useMemo<SessionValue>(() => ({
     ready,
@@ -72,7 +88,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     register: async (b) => accept(await api.register(b)),
     logout: () => persist(null),
     setUser: (u) => { if (state) persist({ token: state.token, user: u }); },
-  }), [ready, state, accept, persist]);
+    acceptAuth: accept,
+    notice,
+    clearNotice: () => setNotice(null),
+  }), [ready, state, accept, persist, notice]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

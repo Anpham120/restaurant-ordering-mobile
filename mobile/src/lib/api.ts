@@ -9,7 +9,11 @@ export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUND_PENDING' | '
 export type PromotionTarget = 'NONE' | 'MENU_ITEM' | 'CATEGORY' | 'VOUCHER';
 export type NotificationType = 'ORDER' | 'PAYMENT' | 'PROMOTION';
 
-export interface User { id: number; fullName: string; phone: string; email: string | null; role: Role; active: boolean; createdAt: string }
+export interface User {
+  id: number; fullName: string; phone: string; email: string | null; role: Role; active: boolean; createdAt: string;
+  /** Set after a manager reset: only /api/auth/me and /api/auth/change-password work until the user picks a new password. */
+  mustChangePassword: boolean; marketingOptIn: boolean;
+}
 export interface AuthResponse { token: string; expiresAt: string; user: User }
 
 export interface Store {
@@ -125,6 +129,8 @@ export interface Promotion {
   id: number; title: string; subtitle: string | null; imageUrl: string; targetType: PromotionTarget;
   menuItemId: number | null; menuItemName: string | null; categoryId: number | null; categoryName: string | null; voucherId: number | null; voucherCode: string | null;
   startAt: string | null; endAt: string | null; sortOrder: number; active: boolean; live: boolean; notified: boolean;
+  /** Announcement postponed by the quiet hours (sent automatically then). */
+  announceAt: string | null; announcedAt: string | null;
 }
 export interface PromotionInput {
   title: string; subtitle?: string | null; imageUrl: string; targetType: PromotionTarget; menuItemId?: number | null; categoryId?: number | null;
@@ -134,6 +140,12 @@ export interface Notification {
   id: number; type: NotificationType; title: string; body: string; orderId: number | null; promotionId: number | null; read: boolean; createdAt: string;
 }
 export interface Count { count: number }
+/** Unread notifications: `count` (orders + payments) drives the red badge, `promotions` only a dot. */
+export interface Unread { count: number; promotions: number }
+export type NotificationCategory = 'ORDER' | 'PROMOTION';
+export interface Announce { sent: number; skipped: number; scheduledAt: string | null; message: string }
+export interface Message { message: string }
+export interface TempPassword { temporaryPassword: string }
 
 // =============================================================== transport
 export class ApiError extends Error {
@@ -143,7 +155,10 @@ export class ApiError extends Error {
 let authToken: string | null = null;
 let onUnauthorized: (() => void) | null = null;
 export function setAuthToken(token: string | null) { authToken = token; }
+let onMustChangePassword: (() => void) | null = null;
 export function setUnauthorizedHandler(fn: (() => void) | null) { onUnauthorized = fn; }
+/** Called on 403 "Vui lòng đổi mật khẩu…" (the account still has a temporary password). */
+export function setMustChangePasswordHandler(fn: (() => void) | null) { onMustChangePassword = fn; }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' };
@@ -162,6 +177,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   if (!res.ok) {
     const msg = (data as { error?: string } | null)?.error ?? `Lỗi ${res.status}`;
     if (res.status === 401 && authToken && onUnauthorized) onUnauthorized();
+    if (res.status === 403 && authToken && onMustChangePassword && /đổi mật khẩu/i.test(msg)) onMustChangePassword();
     throw new ApiError(res.status, msg);
   }
   return data as T;
@@ -193,8 +209,11 @@ export const api = {
   login: (login: string, password: string) => post<AuthResponse>('/api/auth/login', { login, password }),
   register: (b: { fullName: string; phone: string; email?: string | null; password: string }) => post<AuthResponse>('/api/auth/register', b),
   me: () => get<User>('/api/auth/me'),
-  updateProfile: (b: { fullName: string; email?: string | null }) => put<User>('/api/auth/profile', b),
-  changePassword: (currentPassword: string, newPassword: string) => post<void>('/api/auth/change-password', { currentPassword, newPassword }),
+  updateProfile: (b: { fullName: string; email?: string | null; marketingOptIn?: boolean }) => put<User>('/api/auth/profile', b),
+  /** Returns a fresh token; every other session of the account is signed out. */
+  changePassword: (currentPassword: string, newPassword: string) => post<AuthResponse>('/api/auth/change-password', { currentPassword, newPassword }),
+  forgotPassword: (login: string) => post<Message>('/api/auth/forgot-password', { login }),
+  resetPassword: (login: string, code: string, newPassword: string) => post<Message>('/api/auth/reset-password', { login, code, newPassword }),
 
   // public
   store: () => get<Store>('/api/store'),
@@ -228,8 +247,8 @@ export const api = {
   reorder: (id: number) => post<Cart>(`/api/me/orders/${id}/reorder`),
   review: (orderItemId: number, rating: number, comment?: string | null) => post<Review>('/api/me/reviews', { orderItemId, rating, comment: comment ?? null }),
   promotions: () => get<Promotion[]>('/api/promotions'),
-  notifications: (limit = 50) => get<Notification[]>(`/api/me/notifications?limit=${limit}`),
-  unreadCount: () => get<Count>('/api/me/notifications/unread-count'),
+  notifications: (limit = 50, category?: NotificationCategory) => get<Notification[]>(`/api/me/notifications${qs({ limit, category })}`),
+  unreadCount: () => get<Unread>('/api/me/notifications/unread-count'),
   readNotification: (id: number) => post<void>(`/api/me/notifications/${id}/read`),
   readAllNotifications: () => post<Count>('/api/me/notifications/read-all'),
 
@@ -264,7 +283,7 @@ export const api = {
   createPromotion: (b: PromotionInput) => post<Promotion>('/api/admin/promotions', b),
   updatePromotion: (id: number, b: PromotionInput) => put<Promotion>(`/api/admin/promotions/${id}`, b),
   deletePromotion: (id: number) => del(`/api/admin/promotions/${id}`),
-  announcePromotion: (id: number) => post<Count>(`/api/admin/promotions/${id}/announce`),
+  announcePromotion: (id: number) => post<Announce>(`/api/admin/promotions/${id}/announce`),
   adminZones: () => get<Zone[]>('/api/admin/zones'),
   createZone: (b: ZoneInput) => post<Zone>('/api/admin/zones', b),
   updateZone: (id: number, b: ZoneInput) => put<Zone>(`/api/admin/zones/${id}`, b),
@@ -279,6 +298,7 @@ export const api = {
   deleteStaff: (id: number) => del(`/api/admin/staff/${id}`),
   customers: (q: string, page = 0, size = 30) => get<Page<CustomerSummary>>(`/api/admin/customers${qs({ q, page, size })}`),
   setUserActive: (id: number, active: boolean) => patch<User>(`/api/admin/users/${id}/active`, { active }),
+  resetUserPassword: (id: number) => post<TempPassword>(`/api/admin/users/${id}/reset-password`),
   reviews: (limit = 100) => get<Review[]>(`/api/admin/reviews?limit=${limit}`),
   settings: () => get<Store>('/api/admin/settings'),
   updateSettings: (b: StoreSettingsInput) => put<Store>('/api/admin/settings', b),

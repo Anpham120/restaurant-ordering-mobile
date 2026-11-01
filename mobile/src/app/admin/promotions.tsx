@@ -8,7 +8,7 @@ import { Txt } from '@/components/txt';
 import { Badge, Card, Chip, Empty, ErrorBox, Field, FoodImage, Loading, SearchBox, Segmented, Toggle } from '@/components/ui';
 import { api, errorMessage, type Category, type MenuItem, type Promotion, type PromotionInput, type PromotionTarget, type Voucher } from '@/lib/api';
 import { confirmAction } from '@/lib/confirm';
-import { fullDateTime } from '@/lib/format';
+import { dateTime, fullDateTime, time } from '@/lib/format';
 import { useLoad } from '@/lib/hooks';
 import { colors, radius, shadow } from '@/lib/theme';
 import { useToast } from '@/lib/toast';
@@ -76,11 +76,11 @@ export default function AdminPromotions() {
     } catch (e) { toast.show(errorMessage(e), 'error'); } finally { setSaving(false); }
   };
   const announce = async (p: Promotion) => {
-    if (!(await confirmAction(`Gửi thông báo "${p.title}" tới tất cả khách hàng? Mỗi chương trình chỉ gửi được một lần.`, 'Gửi thông báo'))) return;
+    if (!(await confirmAction(`Gửi thông báo "${p.title}" tới khách hàng đã đồng ý nhận khuyến mãi? Mỗi chương trình chỉ gửi được một lần; trong giờ yên lặng thông báo sẽ được hẹn gửi sau.`, 'Gửi thông báo'))) return;
     setSending(p.id);
     try {
       const r = await api.announcePromotion(p.id);
-      toast.show(`Đã gửi thông báo tới ${r.count} khách hàng`, 'success');
+      toast.show(r.message, r.scheduledAt ? 'info' : 'success');
       await list.reload();
     } catch (e) { toast.show(errorMessage(e), 'error'); } finally { setSending(null); }
   };
@@ -107,6 +107,8 @@ export default function AdminPromotions() {
                     <Txt weight="bold" size={16}>{p.title}</Txt>
                     <Badge label={p.live ? 'Đang hiển thị' : p.active ? 'Ngoài thời gian' : 'Đã tắt'}
                       bg={p.live ? colors.successSoft : colors.neutralSoft} fg={p.live ? colors.success : colors.neutralText} />
+                    {p.notified || p.announcedAt ? <Badge label="Đã gửi" bg={colors.infoSoft} fg={colors.info} />
+                      : p.announceAt ? <Badge label={`Hẹn gửi ${time(p.announceAt)} ${dateTime(p.announceAt).slice(0, 5)}`} bg={colors.warningSoft} fg={colors.warningText} /> : null}
                   </View>
                   {p.subtitle ? <Txt size={13} color={colors.textSoft} numberOfLines={2}>{p.subtitle}</Txt> : null}
                   <Txt size={12} color={colors.muted}>
@@ -114,8 +116,10 @@ export default function AdminPromotions() {
                   </Txt>
                 </View>
                 <View style={styles.actions}>
-                  <Button title={p.notified ? 'Đã gửi thông báo' : 'Gửi thông báo'} size="sm" variant={p.notified ? 'secondary' : 'soft'}
-                    disabled={p.notified || !p.live} loading={sending === p.id} onPress={() => void announce(p)} />
+                  {p.notified || p.announcedAt || p.announceAt ? null : (
+                    <Button title="Gửi thông báo" size="sm" variant="soft" icon="megaphone-outline"
+                      disabled={!p.live} loading={sending === p.id} onPress={() => void announce(p)} />
+                  )}
                   <Button title="Sửa" size="sm" variant="secondary" onPress={() => edit(p)} />
                 </View>
               </View>

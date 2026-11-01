@@ -1,14 +1,14 @@
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { PhoneFrame } from '@/components/phone';
 import { Txt } from '@/components/txt';
-import { ErrorBox, Field, Segmented } from '@/components/ui';
-import { errorMessage } from '@/lib/api';
+import { ErrorBox, Field, Notice, Segmented } from '@/components/ui';
+import { errorMessage, type User } from '@/lib/api';
 import { homeFor, useSession } from '@/lib/session';
 import { colors } from '@/lib/theme';
 
@@ -16,9 +16,11 @@ const HERO = 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/Banh_Xeo
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
-  const { login, register } = useSession();
+  const { login, register, notice, clearNotice } = useSession();
+  const params = useLocalSearchParams<{ login?: string }>();
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [id, setId] = useState('');
+  const prefill = typeof params.login === 'string' ? params.login : '';
+  const [id, setId] = useState(prefill);
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -26,19 +28,21 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const done = (role: Parameters<typeof homeFor>[0]) => {
-    if (role === 'CUSTOMER' && router.canGoBack()) router.back();
-    else router.replace(homeFor(role));
+  const done = (u: User) => {
+    if (u.mustChangePassword) router.replace('/set-password');
+    else if (u.role === 'CUSTOMER' && router.canGoBack()) router.back();
+    else router.replace(homeFor(u.role));
   };
 
   const submit = async () => {
     setBusy(true);
     setError(null);
+    clearNotice();
     try {
       const u = mode === 'login'
         ? await login(id.trim(), password)
         : await register({ fullName: name.trim(), phone: phone.trim(), email: email.trim() || null, password });
-      done(u.role);
+      done(u);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -63,6 +67,7 @@ export default function LoginScreen() {
           <View style={[styles.sheet, { paddingBottom: insets.bottom + 24 }]}>
             <Segmented value={mode} onChange={(v) => { setMode(v); setError(null); }}
               options={[{ value: 'login', label: 'Đăng nhập' }, { value: 'register', label: 'Đăng ký' }]} />
+            {notice && !error ? <Notice icon="time-outline" tone="info" text={notice} /> : null}
             {error ? <ErrorBox message={error} /> : null}
             {mode === 'login' ? (
               <>
@@ -70,6 +75,10 @@ export default function LoginScreen() {
                   autoComplete="username" placeholder="0901 234 567" />
                 <Field label="Mật khẩu" value={password} onChangeText={setPassword} secureTextEntry autoComplete="current-password"
                   onSubmitEditing={() => { if (valid) void submit(); }} />
+                <Pressable accessibilityRole="link" hitSlop={8} style={styles.forgot}
+                  onPress={() => router.replace({ pathname: '/forgot-password', params: id.trim() ? { login: id.trim() } : {} })}>
+                  <Txt weight="semibold" size={14} color={colors.primary}>Quên mật khẩu?</Txt>
+                </Pressable>
               </>
             ) : (
               <>
@@ -96,5 +105,6 @@ const styles = StyleSheet.create({
   hero: { height: 300 },
   shade: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(28,25,23,0.45)' },
   brand: { position: 'absolute', left: 24, right: 24, bottom: 48, gap: 6 },
+  forgot: { alignSelf: 'flex-end', minHeight: 32, justifyContent: 'center', marginTop: -6 },
   sheet: { flex: 1, marginTop: -28, backgroundColor: colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, gap: 16 },
 });

@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import type { ComponentProps, ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
+import type { ComponentProps, ReactNode, Ref } from 'react';
+import {
+  ActivityIndicator, Pressable, StyleSheet, TextInput, View, type StyleProp, type TextInputInstance, type TextInputProps, type ViewStyle,
+} from 'react-native';
 
 import type { OrderStatus } from '@/lib/api';
 import { statusLabel, statusTone } from '@/lib/format';
@@ -23,11 +25,14 @@ export function SectionTitle({ children, right }: { children: ReactNode; right?:
   );
 }
 
-export function Field({ label, hint, error, style, ...input }: TextInputProps & { label?: string; hint?: string; error?: string | null }) {
+export function Field({ label, hint, error, style, ref, ...input }: TextInputProps & {
+  label?: string; hint?: string; error?: string | null; ref?: Ref<TextInputInstance>;
+}) {
   return (
     <View style={styles.field}>
       {label ? <Txt weight="semibold" size={14}>{label}</Txt> : null}
       <TextInput
+        ref={ref}
         placeholderTextColor={colors.faint}
         {...input}
         style={[styles.input, input.multiline && styles.inputMulti, error ? { borderColor: colors.danger } : null, style]}

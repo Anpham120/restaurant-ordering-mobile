@@ -82,10 +82,11 @@ export default function Home() {
             </View>
           </Pressable>
           {user?.role === 'CUSTOMER' ? (
-            <Pressable accessibilityRole="button" accessibilityLabel={unread.count ? `Thông báo, ${unread.count} chưa đọc` : 'Thông báo'} style={styles.call}
+            <Pressable accessibilityRole="button" accessibilityLabel={unread.count ? `Thông báo, ${unread.count} chưa đọc` : unread.promotions ? 'Thông báo, có khuyến mãi mới' : 'Thông báo'} style={styles.call}
               onPress={() => router.push('/notifications')}>
               <Ionicons name="notifications-outline" size={22} color={colors.text} />
-              {unread.count ? <View style={styles.badge}><Txt weight="bold" size={10} color={colors.white}>{unread.count > 9 ? '9+' : unread.count}</Txt></View> : null}
+              {unread.count ? <View style={styles.badge}><Txt weight="bold" size={10} color={colors.white}>{unread.count > 9 ? '9+' : unread.count}</Txt></View>
+                : unread.promotions ? <View style={styles.promoDot} /> : null}
             </Pressable>
           ) : data ? (
             <Pressable accessibilityRole="button" accessibilityLabel={`Gọi cửa hàng ${data.store.hotline}`} style={styles.call}
@@ -205,6 +206,7 @@ const styles = StyleSheet.create({
   addr: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
   pin: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   call: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  promoDot: { position: 'absolute', top: 10, right: 10, width: 9, height: 9, borderRadius: 5, backgroundColor: colors.primary, borderWidth: 1.5, borderColor: colors.white },
   badge: { position: 'absolute', top: 6, right: 4, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.white },
   codeBox: { borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.primary, backgroundColor: '#FFF7F2', borderRadius: 12, padding: 14, gap: 4, alignItems: 'center' },

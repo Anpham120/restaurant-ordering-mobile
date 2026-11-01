@@ -5,6 +5,7 @@ import { Page } from '@/components/backoffice';
 import { Button } from '@/components/button';
 import { EditorPanel, WithEditor } from '@/components/editor';
 import { ListRow } from '@/components/list-row';
+import { useResetPassword } from '@/components/reset-password';
 import { Txt } from '@/components/txt';
 import { Badge, Card, Chip, Empty, ErrorBox, Field, Loading } from '@/components/ui';
 import { api, errorMessage, type Role, type StaffInput, type User } from '@/lib/api';
@@ -22,6 +23,7 @@ export default function AdminStaff() {
   const toast = useToast();
   const { user } = useSession();
   const list = useLoad<User[]>(() => api.staff());
+  const pw = useResetPassword();
   const [form, setForm] = useState<Form | null>(null);
   const [saving, setSaving] = useState(false);
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => (f ? { ...f, [k]: v } : f));
@@ -67,12 +69,14 @@ export default function AdminStaff() {
               </View>
               <Badge label={roleLabel[u.role]} bg={u.role === 'MANAGER' ? colors.primarySoft : u.role === 'KITCHEN' ? colors.warningSoft : colors.infoSoft}
                 fg={u.role === 'MANAGER' ? colors.primaryText : u.role === 'KITCHEN' ? colors.warningText : colors.info} />
+              {u.mustChangePassword ? <Badge label="Chờ đổi mật khẩu" bg={colors.warningSoft} fg={colors.warningText} /> : null}
               {!u.active ? <Badge label="Đã khóa" bg={colors.dangerSoft} fg={colors.danger} /> : null}
             </ListRow>
           ))}
         </Card>}
         editor={<EditorPanel open={!!form} title={form?.id ? 'Sửa tài khoản' : 'Thêm nhân viên'} onClose={() => setForm(null)} onSave={save} saving={saving} canSave={valid}
           extra={current && current.id !== user?.id ? <>
+            <Button title="Đặt lại mật khẩu" variant="secondary" icon="key-outline" loading={pw.busy === current.id} onPress={() => void pw.reset(current)} />
             <Button title={current.active ? 'Khóa' : 'Mở khóa'} variant="secondary" onPress={() => void lock(current)} />
             <Button title="Xóa" variant="danger" onPress={() => void remove()} />
           </> : null}>
@@ -92,6 +96,7 @@ export default function AdminStaff() {
             </View>
           ) : null}
         </EditorPanel>} />
+      {pw.dialog}
     </Page>
   );
 }

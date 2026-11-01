@@ -27,7 +27,8 @@ const Ctx = createContext<CartValue | null>(null);
 /** The customer's server-side cart, shared by the menu, item and checkout screens. */
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user } = useSession();
-  const isCustomer = user?.role === 'CUSTOMER';
+  // no cart calls while a temporary password must be replaced (the API answers 403 until then)
+  const isCustomer = user?.role === 'CUSTOMER' && !user.mustChangePassword;
   const [cart, setCart] = useState<Cart>(EMPTY);
   const [voucherHint, setVoucherHint] = useState<string | null>(null);
 

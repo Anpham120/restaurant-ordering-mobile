@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import { Page } from '@/components/backoffice';
 import { Button } from '@/components/button';
 import { ListRow } from '@/components/list-row';
+import { useResetPassword } from '@/components/reset-password';
 import { Txt } from '@/components/txt';
 import { Badge, Card, Empty, ErrorBox, Loading, SearchBox } from '@/components/ui';
 import { api, errorMessage, type CustomerSummary, type Page as P } from '@/lib/api';
@@ -18,6 +19,7 @@ export default function AdminCustomers() {
   const [q, setQ] = useState('');
   const [page, setPage] = useState(0);
   const list = useLoad<P<CustomerSummary>>(() => api.customers(q.trim(), page, 30), [q, page]);
+  const pw = useResetPassword();
 
   const toggle = async (c: CustomerSummary) => {
     if (!(await confirmAction(`${c.active ? 'Khóa' : 'Mở khóa'} tài khoản ${c.fullName}?`, c.active ? 'Khóa' : 'Mở khóa'))) return;
@@ -38,6 +40,7 @@ export default function AdminCustomers() {
             <Txt size={13} color={colors.textSoft} style={{ width: 90 }}>{c.orderCount} đơn</Txt>
             <Txt size={13} color={colors.muted} style={{ width: 130 }}>Từ {dateTime(c.createdAt)}</Txt>
             {!c.active ? <Badge label="Đã khóa" bg={colors.dangerSoft} fg={colors.danger} /> : null}
+            <Button title="Đặt lại mật khẩu" size="sm" variant="secondary" icon="key-outline" loading={pw.busy === c.id} onPress={() => void pw.reset(c)} />
             <Button title={c.active ? 'Khóa' : 'Mở khóa'} size="sm" variant={c.active ? 'danger' : 'secondary'} onPress={() => void toggle(c)} />
           </ListRow>
         ))}
@@ -49,6 +52,7 @@ export default function AdminCustomers() {
           <Button title="Trang sau" size="sm" variant="secondary" disabled={page + 1 >= data.totalPages} onPress={() => setPage(page + 1)} />
         </View>
       ) : null}
+      {pw.dialog}
     </Page>
   );
 }
