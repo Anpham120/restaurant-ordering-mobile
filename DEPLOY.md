@@ -105,16 +105,22 @@ Nếu khách chuyển sai nội dung, nhân viên vẫn xác nhận tay được
 
 ## Email (quên mật khẩu)
 
-Mã OTP đặt lại mật khẩu được gửi qua Gmail.
+Mã OTP đặt lại mật khẩu được gửi qua SMTP (cổng 587, STARTTLS). Dùng được mọi nhà cung cấp SMTP; khuyến nghị **Brevo** (miễn phí 300 email/ngày). Gmail cũng được nhưng cần App Password và tài khoản đủ điều kiện.
 
-1. Tạo một tài khoản Gmail riêng để gửi, ví dụ `atlasrestaurant.noreply@gmail.com`, và bật xác minh 2 bước.
-2. Tạo App Password tại https://myaccount.google.com/apppasswords (16 ký tự).
+**Brevo:**
+1. Đăng ký tại https://app.brevo.com. Vào *Senders, Domains & dedicated IPs → Senders → Add a sender*, thêm một địa chỉ gửi và bấm xác nhận trong email Brevo gửi tới. Địa chỉ chưa xác minh thì Brevo từ chối gửi.
+2. Vào biểu tượng bánh răng → *SMTP & API → SMTP*: ghi lại **SMTP login** (dạng `xxxx@smtp-brevo.com`, khác địa chỉ đăng ký) và bấm *Generate a new SMTP key* để lấy key (chỉ hiện một lần).
 3. Thêm vào `/home/coder/ordering-secrets/prod.env`:
    ```
-   SMTP_USERNAME=atlasrestaurant.noreply@gmail.com
-   SMTP_PASSWORD=<app password>
+   SMTP_HOST=smtp-relay.brevo.com
+   SMTP_PORT=587
+   SMTP_USERNAME=<SMTP login>
+   SMTP_PASSWORD=<SMTP key>
+   MAIL_FROM=<địa chỉ gửi đã xác minh ở bước 1>
    ```
 4. Chạy `base64 -w0 prod.env > prod.env.b64`, cập nhật credential `ordering-prod-env` trong Jenkins, rồi deploy lại.
+
+**Gmail:** `SMTP_HOST=smtp.gmail.com`, `SMTP_USERNAME` là địa chỉ Gmail, `SMTP_PASSWORD` là App Password (https://myaccount.google.com/apppasswords, cần bật xác minh 2 bước), `MAIL_FROM` có thể bỏ trống.
 
 Chưa cấu hình thì mã chỉ được ghi vào log backend. Khi đó khách không có email (hoặc chưa cấu hình SMTP) gọi hotline, quản lý vào *Khách hàng → Đặt lại mật khẩu* để cấp mật khẩu tạm. Khách phải đổi mật khẩu này ở lần đăng nhập sau.
 

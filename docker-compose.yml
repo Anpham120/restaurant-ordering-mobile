@@ -45,8 +45,11 @@ services:
       APP_SEED_DEMO: ${APP_SEED_DEMO:-true}
       SEPAY_API_KEY: ${SEPAY_API_KEY:-}
       APP_PUBLIC_URL: ${APP_WEB_URL:-https://${APP_DOMAIN}}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
       JAVA_OPTS: -XX:MaxRAMPercentage=75 -Duser.timezone=Asia/Ho_Chi_Minh
       TZ: Asia/Ho_Chi_Minh
     healthcheck:
