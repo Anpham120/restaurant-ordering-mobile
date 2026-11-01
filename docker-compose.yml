@@ -1,6 +1,8 @@
-# Production stack on this server: PostgreSQL + Spring Boot API + nginx serving the Expo web bundle.
-# The host nginx (deploy/nginx/order.atlasplatform12.tech.conf) terminates HTTPS and proxies
-#   /api/ -> 127.0.0.1:8084 (backend)   and   / -> 127.0.0.1:8085 (web).
+# Stack on this server: PostgreSQL + Spring Boot API + nginx serving the Expo web bundle.
+# The same file runs two isolated stacks, told apart only by the values in .env:
+#   production (main)   defaults below; host nginx (deploy/nginx/order.atlasplatform12.tech.conf) terminates HTTPS and
+#                       proxies /api/ -> 127.0.0.1:8084 (backend) and / -> 127.0.0.1:8085 (web).
+#   staging (develop)   COMPOSE_PROJECT_NAME, IMAGE_PREFIX, BACKEND_PORT, WEB_PORT, APP_WEB_URL, APP_API_URL (see staging.env.example).
 # Deployed by Jenkins (Jenkinsfile -> scripts/deploy.sh). Manual: docker compose up -d --build
 name: restaurant-ordering-system
 
@@ -24,13 +26,13 @@ services:
 
   backend:
     build: ./backend
-    image: ordering-backend:latest
+    image: ${IMAGE_PREFIX:-ordering}-backend:latest
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     ports:
-      - "127.0.0.1:8084:8080"
+      - "127.0.0.1:${BACKEND_PORT:-8084}:8080"
     environment:
       SPRING_PROFILES_ACTIVE: prod
       DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-ordering}
@@ -39,10 +41,10 @@ services:
       APP_JWT_SECRET: ${APP_JWT_SECRET:?set APP_JWT_SECRET in .env}
       APP_ADMIN_PHONE: ${APP_ADMIN_PHONE:?set APP_ADMIN_PHONE in .env}
       APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:?set APP_ADMIN_PASSWORD in .env}
-      APP_CORS_ORIGINS: https://${APP_DOMAIN:?set APP_DOMAIN in .env}
+      APP_CORS_ORIGINS: ${APP_WEB_URL:-https://${APP_DOMAIN:?set APP_DOMAIN in .env}}
       APP_SEED_DEMO: ${APP_SEED_DEMO:-true}
       SEPAY_API_KEY: ${SEPAY_API_KEY:-}
-      APP_PUBLIC_URL: https://${APP_DOMAIN}
+      APP_PUBLIC_URL: ${APP_WEB_URL:-https://${APP_DOMAIN}}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       JAVA_OPTS: -XX:MaxRAMPercentage=75 -Duser.timezone=Asia/Ho_Chi_Minh
@@ -59,11 +61,11 @@ services:
       context: .
       dockerfile: deploy/web.Dockerfile
       args:
-        EXPO_PUBLIC_API_URL: https://${APP_DOMAIN}
-    image: ordering-web:latest
+        EXPO_PUBLIC_API_URL: ${APP_API_URL:-https://${APP_DOMAIN}}
+    image: ${IMAGE_PREFIX:-ordering}-web:latest
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8085:80"
+      - "127.0.0.1:${WEB_PORT:-8085}:80"
 
 volumes:
   pgdata:

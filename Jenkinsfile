@@ -1,7 +1,10 @@
 // CI/CD for restaurant-ordering-system (Jenkins multibranch job "ordering", scans GitHub every minute).
-//   every branch / PR : backend tests (incl. prod profile on PostgreSQL) + mobile typecheck, lint, web build
-//   main              : + deploy to production on this server (DB backup first, automatic rollback on failure)
+// Branch model:  feature/* ──PR──> develop ──PR──> main
+//   every branch / PR : CI = backend tests (incl. prod profile on PostgreSQL) + mobile typecheck, lint, web build
+//   develop           : CI + deploy to STAGING on this server (disposable data, no public domain)
+//   main              : CI + deploy to PRODUCTION on this server (DB backup first, automatic rollback on failure)
 //   nightly (main)    : DB backup only
+// Both deploys run the same scripts/deploy.sh; the stack is chosen by the credential (its .env) and the directory.
 // Maven and Node run in throwaway containers that share the Jenkins volume, so $WORKSPACE paths match.
 
 pipeline {
@@ -21,8 +24,9 @@ pipeline {
     environment {
         JENKINS_CONTAINER = 'jenkins'
         REPO_URL = 'https://github.com/Anpham120/restaurant-ordering-system.git'
-        // Deploy directory on the host: checkout of main + .env (written only during the deploy)
-        DEPLOY_DIR = '/home/coder/ordering-deploy'
+        // Deploy directories on the host: checkout of the branch + .env (written only during the deploy)
+        DEPLOY_DIR = '/home/coder/ordering-deploy'          // production = main
+        STAGING_DIR = '/home/coder/ordering-staging'        // staging = develop
         BACKUP_DIR = '/home/coder/ordering-backups'
         TELEGRAM_CHAT_ID = '6822487436'
     }
@@ -59,27 +63,23 @@ pipeline {
             }
         }
 
+        stage('Deploy staging') {
+            when {
+                allOf { branch 'develop'; not { triggeredBy 'TimerTrigger' } }
+            }
+            steps {
+                // ordering-staging-env: the whole staging .env, base64 on one line (Secret text)
+                deployStack(env.STAGING_DIR, 'ordering-staging-env', 'develop')
+            }
+        }
+
         stage('Deploy production') {
             when {
                 allOf { branch 'main'; not { triggeredBy 'TimerTrigger' } }
             }
             steps {
                 // ordering-prod-env: the whole production .env, base64 on one line (Secret text)
-                withCredentials([string(credentialsId: 'ordering-prod-env', variable: 'ENV_B64')]) {
-                    sh '''
-                        docker run --rm --network host \
-                          -v /var/run/docker.sock:/var/run/docker.sock \
-                          -v "$DEPLOY_DIR:$DEPLOY_DIR" -w "$DEPLOY_DIR" -v "$BACKUP_DIR:$BACKUP_DIR" \
-                          -e ENV_B64 -e BACKUP_DIR -e REPO_URL -e GIT_COMMIT \
-                          docker:27-cli \
-                          sh -c 'apk add -q --no-cache docker-cli-compose git curl bash \
-                            && git config --global --add safe.directory "$PWD" \
-                            && ([ -d .git ] || git init -q) \
-                            && git fetch -q "$REPO_URL" main && git reset -q --hard "${GIT_COMMIT:-FETCH_HEAD}" \
-                            && (umask 077; printf "%s" "$ENV_B64" | base64 -d > .env) \
-                            && scripts/deploy.sh; rc=$?; rm -f .env; chown -R 1000:1000 . "$BACKUP_DIR"; exit $rc'
-                    '''
-                }
+                deployStack(env.DEPLOY_DIR, 'ordering-prod-env', 'main')
             }
         }
 
@@ -110,10 +110,36 @@ pipeline {
         }
         success {
             script {
-                if (env.BRANCH_NAME == 'main' && !currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause')) {
-                    notifyTelegram("✅ [ordering] Đã deploy https://order.atlasplatform12.tech")
+                if (!currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause')) {
+                    if (env.BRANCH_NAME == 'main') {
+                        notifyTelegram("✅ [ordering] Đã deploy PRODUCTION https://order.atlasplatform12.tech")
+                    } else if (env.BRANCH_NAME == 'develop') {
+                        notifyTelegram("✅ [ordering] Đã deploy STAGING (127.0.0.1:8185)")
+                    }
                 }
             }
+        }
+    }
+}
+
+// Deploy one stack: check out `branch` into `dir`, write .env from the credential only for the duration of
+// scripts/deploy.sh (DB backup -> build -> health check -> rollback on failure).
+def deployStack(String dir, String credId, String branch) {
+    withCredentials([string(credentialsId: credId, variable: 'ENV_B64')]) {
+        withEnv(["TARGET_DIR=${dir}", "TARGET_BRANCH=${branch}"]) {
+            sh '''
+                docker run --rm --network host \
+                  -v /var/run/docker.sock:/var/run/docker.sock \
+                  -v "$TARGET_DIR:$TARGET_DIR" -w "$TARGET_DIR" -v "$BACKUP_DIR:$BACKUP_DIR" \
+                  -e ENV_B64 -e BACKUP_DIR -e REPO_URL -e GIT_COMMIT -e TARGET_BRANCH \
+                  docker:27-cli \
+                  sh -c 'apk add -q --no-cache docker-cli-compose git curl bash \
+                    && git config --global --add safe.directory "$PWD" \
+                    && ([ -d .git ] || git init -q) \
+                    && git fetch -q "$REPO_URL" "$TARGET_BRANCH" && git reset -q --hard "${GIT_COMMIT:-FETCH_HEAD}" \
+                    && (umask 077; printf "%s" "$ENV_B64" | base64 -d > .env) \
+                    && scripts/deploy.sh; rc=$?; rm -f .env; chown -R 1000:1000 . "$BACKUP_DIR"; exit $rc'
+            '''
         }
     }
 }

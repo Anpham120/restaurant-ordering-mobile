@@ -3,12 +3,12 @@
 # Usage (in the deploy directory, next to .env and docker-compose.yml): scripts/backup-db.sh [label]
 # Restore: gunzip -c FILE | docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
 set -euo pipefail
-export COMPOSE_PROJECT_NAME=restaurant-ordering-system
 
 LABEL=${1:-manual}
 BACKUP_DIR=${BACKUP_DIR:-/home/coder/ordering-backups}
 BACKUP_KEEP=${BACKUP_KEEP:-30}
 set -a; . ./.env; set +a
+export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-restaurant-ordering-system}
 
 if [ -z "$(docker compose ps -q db 2>/dev/null)" ]; then
   echo "[backup] db container not running (first deploy?) - nothing to back up"
