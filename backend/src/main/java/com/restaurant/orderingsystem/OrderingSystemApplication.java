@@ -7,6 +7,7 @@ import java.util.TimeZone;
 
 @SpringBootApplication
 @org.springframework.scheduling.annotation.EnableScheduling
+@org.springframework.scheduling.annotation.EnableAsync
 public class OrderingSystemApplication {
 
     static {

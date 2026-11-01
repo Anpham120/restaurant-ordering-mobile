@@ -44,21 +44,33 @@ public class NotificationService {
         if (msg != null) toCustomer(o, status == OrderStatus.PENDING ? NotificationType.PAYMENT : NotificationType.ORDER, msg[0], msg[1]);
     }
 
-    int broadcast(Promotion p) {
+    /** Frequency cap: a customer receives at most one promotional notification per {@code capHours}; opted-out customers none. */
+    int broadcast(Promotion p, int capHours) {
         String body = p.getSubtitle() == null ? "Xem chi tiết chương trình trong ứng dụng." : p.getSubtitle();
-        return notifications.broadcastPromotion(p.getTitle(), body, p.getId());
+        return notifications.broadcastPromotion(p.getTitle(), body, p.getId(), java.time.LocalDateTime.now().minusHours(capHours));
     }
 
+    private static final java.util.List<NotificationType> ORDER_TYPES = java.util.List.of(NotificationType.ORDER, NotificationType.PAYMENT);
+    private static final java.util.List<NotificationType> PROMO_TYPES = java.util.List.of(NotificationType.PROMOTION);
+
+    /** @param category null = all, "ORDER" = order + payment, "PROMOTION" = promotions */
     @Transactional(readOnly = true)
-    public List<NotificationResponse> mine(int limit) {
-        return notifications.findForUser(Caller.id(), PageRequest.of(0, Math.min(Math.max(limit, 1), 100))).stream()
+    public List<NotificationResponse> mine(int limit, String category) {
+        var page = PageRequest.of(0, Math.min(Math.max(limit, 1), 100));
+        List<Notification> list = category == null || category.isBlank() ? notifications.findForUser(Caller.id(), page)
+                : notifications.findForUserByTypes(Caller.id(), "PROMOTION".equalsIgnoreCase(category) ? PROMO_TYPES : ORDER_TYPES, page);
+        return list.stream()
                 .map(n -> new NotificationResponse(n.getId(), n.getType(), n.getTitle(), n.getBody(),
                         n.getOrder() == null ? null : n.getOrder().getId(), n.getPromotion() == null ? null : n.getPromotion().getId(),
                         n.isRead(), n.getCreatedAt())).toList();
     }
 
     @Transactional(readOnly = true)
-    public CountResponse unread() { return new CountResponse(notifications.countByUserIdAndReadFalse(Caller.id())); }
+    public UnreadResponse unread() {
+        long uid = Caller.id();
+        return new UnreadResponse(notifications.countByUserIdAndReadFalseAndTypeIn(uid, ORDER_TYPES),
+                notifications.countByUserIdAndReadFalseAndTypeIn(uid, PROMO_TYPES));
+    }
 
     @Transactional
     public void markRead(Long id) {

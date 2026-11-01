@@ -92,6 +92,22 @@ public class UserAdminService {
         return UserResponse.of(u);
     }
 
+    private static final String TEMP_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+
+    /** For customers without e-mail (or locked-out staff): a temporary password that must be changed at next login. */
+    @Transactional
+    public TempPasswordResponse resetPassword(Long id) {
+        User u = user(id);
+        if (u.getId().equals(Caller.id())) throw ApiException.badRequest("Hãy dùng chức năng đổi mật khẩu cho tài khoản của bạn");
+        java.security.SecureRandom rnd = new java.security.SecureRandom();
+        StringBuilder sb = new StringBuilder("Atlas-");
+        for (int i = 0; i < 6; i++) sb.append(TEMP_CHARS.charAt(rnd.nextInt(TEMP_CHARS.length())));
+        u.setPasswordHash(encoder.encode(sb.toString()));
+        u.setMustChangePassword(true);
+        u.setTokenVersion(u.getTokenVersion() + 1);
+        return new TempPasswordResponse(sb.toString());
+    }
+
     private User user(Long id) { return users.findById(id).orElseThrow(() -> ApiException.notFound("Không tìm thấy tài khoản")); }
 
     private void apply(User u, StaffRequest r) {

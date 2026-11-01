@@ -15,4 +15,5 @@ public interface PromotionRepository extends JpaRepository<Promotion, Long> {
     boolean existsByMenuItemId(Long id);
     boolean existsByCategoryId(Long id);
     boolean existsByVoucherId(Long id);
+    List<Promotion> findByAnnounceAtLessThanEqualAndAnnouncedAtIsNull(LocalDateTime now);
 }

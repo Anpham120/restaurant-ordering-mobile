@@ -64,8 +64,8 @@ class PostgresProdProfileTest {
 
     @Test
     void prodProfileOnPostgres() throws Exception {
-        assertEquals(2, jdbc.queryForObject("select count(*) from flyway_schema_history where success and version in ('1', '2')", Integer.class));
-        assertEquals(21, jdbc.queryForObject("select count(*) from information_schema.tables where table_schema = 'public' and table_name <> 'flyway_schema_history'", Integer.class));
+        assertEquals(3, jdbc.queryForObject("select count(*) from flyway_schema_history where success and version in ('1', '2', '3')", Integer.class));
+        assertEquals(22, jdbc.queryForObject("select count(*) from information_schema.tables where table_schema = 'public' and table_name <> 'flyway_schema_history'", Integer.class));
         assertEquals(1, jdbc.queryForObject("select count(*) from users", Integer.class));
         assertEquals(1, jdbc.queryForObject("select count(*) from store_settings", Integer.class));
         assertEquals(0, jdbc.queryForObject("select count(*) from menu_items", Integer.class));

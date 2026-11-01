@@ -64,15 +64,20 @@ public class AuthService {
         if (email != null && users.existsByEmailIgnoreCaseAndIdNot(email, u.getId())) throw ApiException.conflict("Email đã được dùng cho tài khoản khác");
         u.setFullName(r.fullName().trim());
         u.setEmail(email);
+        if (r.marketingOptIn() != null) u.setMarketingOptIn(r.marketingOptIn());
         return UserResponse.of(u);
     }
 
+    /** Signs the user out of every other device (token version bump) and returns a fresh token for this one. */
     @Transactional
-    public void changePassword(ChangePasswordRequest r) {
+    public AuthResponse changePassword(ChangePasswordRequest r) {
         User u = current();
         if (!encoder.matches(r.currentPassword(), u.getPasswordHash())) throw ApiException.badRequest("Mật khẩu hiện tại không đúng");
         if (r.currentPassword().equals(r.newPassword())) throw ApiException.badRequest("Mật khẩu mới phải khác mật khẩu cũ");
         u.setPasswordHash(encoder.encode(r.newPassword()));
+        u.setMustChangePassword(false);
+        u.setTokenVersion(u.getTokenVersion() + 1);
+        return token(u);
     }
 
     private User current() { return users.findById(Caller.id()).orElseThrow(() -> ApiException.unauthorized("Vui lòng đăng nhập")); }

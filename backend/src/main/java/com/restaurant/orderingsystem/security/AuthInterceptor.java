@@ -54,6 +54,12 @@ public class AuthInterceptor implements HandlerInterceptor {
                     .orElseThrow(() -> ApiException.unauthorized("Phiên đăng nhập không hợp lệ hoặc đã hết hạn"));
             var u = users.findById(c.userId()).filter(x -> x.isActive())
                     .orElseThrow(() -> ApiException.unauthorized("Tài khoản không còn hoạt động"));
+            if (u.getTokenVersion() != c.version())
+                throw ApiException.unauthorized("Phiên đăng nhập đã hết hiệu lực, vui lòng đăng nhập lại");
+            // a manager reset the password: only allow choosing a new one
+            String path = req.getRequestURI();
+            if (u.isMustChangePassword() && !path.equals("/api/auth/me") && !path.equals("/api/auth/change-password"))
+                throw ApiException.forbidden("Vui lòng đổi mật khẩu trước khi tiếp tục");
             req.setAttribute(ATTR, new AuthUser(u.getId(), u.getFullName(), u.getRole()));
         }
 

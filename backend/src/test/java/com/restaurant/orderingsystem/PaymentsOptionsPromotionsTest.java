@@ -194,13 +194,13 @@ class PaymentsOptionsPromotionsTest extends ApiTestBase {
         as(manager, delete("/api/admin/vouchers/" + voucher)).andExpect(status().isConflict());
 
         as(customer, post("/api/me/notifications/read-all")).andExpect(status().isOk());
-        as(manager, post("/api/admin/promotions/" + promo + "/announce")).andExpect(jsonPath("$.count", greaterThanOrEqualTo(1)));
+        as(manager, post("/api/admin/promotions/" + promo + "/announce")).andExpect(jsonPath("$.sent", greaterThanOrEqualTo(1)));
         as(manager, post("/api/admin/promotions/" + promo + "/announce")).andExpect(status().isConflict());
-        as(customer, get("/api/me/notifications/unread-count")).andExpect(jsonPath("$.count").value(1));
+        as(customer, get("/api/me/notifications/unread-count")).andExpect(jsonPath("$.count").value(0)).andExpect(jsonPath("$.promotions").value(1));
         JsonNode n = json(as(customer, get("/api/me/notifications")));
         org.junit.jupiter.api.Assertions.assertEquals("PROMOTION", n.get(0).get("type").asText());
         as(customer, post("/api/me/notifications/" + n.get(0).get("id").asLong() + "/read")).andExpect(status().isNoContent());
-        as(customer, get("/api/me/notifications/unread-count")).andExpect(jsonPath("$.count").value(0));
+        as(customer, get("/api/me/notifications/unread-count")).andExpect(jsonPath("$.promotions").value(0));
 
         long id = placeOrder(customer, null);
         setStatus(staff, id, "CONFIRMED", null).andExpect(status().isOk());

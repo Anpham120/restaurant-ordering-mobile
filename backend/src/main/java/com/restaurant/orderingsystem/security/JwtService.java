@@ -18,7 +18,7 @@ import java.util.Optional;
 /** Minimal HS256 JWT: header.payload.signature, claims sub (user id), role, exp. */
 @Service
 public class JwtService {
-    public record Claims(long userId, Role role) {}
+    public record Claims(long userId, Role role, int version) {}
 
     private static final Base64.Encoder ENC = Base64.getUrlEncoder().withoutPadding();
     private static final Base64.Decoder DEC = Base64.getUrlDecoder();
@@ -40,7 +40,8 @@ public class JwtService {
         try {
             String header = ENC.encodeToString("{\"alg\":\"HS256\",\"typ\":\"JWT\"}".getBytes(StandardCharsets.UTF_8));
             String payload = ENC.encodeToString(om.writeValueAsBytes(Map.of(
-                    "sub", String.valueOf(u.getId()), "role", u.getRole().name(), "exp", Instant.now().getEpochSecond() + ttlSeconds)));
+                    "sub", String.valueOf(u.getId()), "role", u.getRole().name(), "ver", u.getTokenVersion(),
+                    "exp", Instant.now().getEpochSecond() + ttlSeconds)));
             return header + "." + payload + "." + sign(header + "." + payload);
         } catch (Exception e) { throw new IllegalStateException(e); }
     }
@@ -52,7 +53,8 @@ public class JwtService {
             if (!MessageDigest.isEqual(sign(p[0] + "." + p[1]).getBytes(StandardCharsets.UTF_8), p[2].getBytes(StandardCharsets.UTF_8))) return Optional.empty();
             var node = om.readTree(DEC.decode(p[1]));
             if (node.get("exp").asLong() < Instant.now().getEpochSecond()) return Optional.empty();
-            return Optional.of(new Claims(node.get("sub").asLong(), Role.valueOf(node.get("role").asText())));
+            return Optional.of(new Claims(node.get("sub").asLong(), Role.valueOf(node.get("role").asText()),
+                    node.hasNonNull("ver") ? node.get("ver").asInt() : -1));
         } catch (Exception e) { return Optional.empty(); }
     }
 

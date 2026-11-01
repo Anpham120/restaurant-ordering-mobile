@@ -30,10 +30,20 @@ public final class Dtos {
     /** login = phone number or email. */
     public record LoginRequest(@NotBlank @Size(max = 120) String login, @NotBlank @Size(max = 72) String password) {}
     public record ChangePasswordRequest(@NotBlank String currentPassword, @NotBlank @Size(min = 8, max = 72) String newPassword) {}
-    public record ProfileRequest(@NotBlank @Size(max = 100) String fullName, @Email @Size(max = 120) String email) {}
+    public record ProfileRequest(@NotBlank @Size(max = 100) String fullName, @Email @Size(max = 120) String email, Boolean marketingOptIn) {}
+    public record ForgotPasswordRequest(@NotBlank @Size(max = 120) String login) {}
+    public record ResetPasswordRequest(@NotBlank @Size(max = 120) String login,
+                                       @NotBlank @Pattern(regexp = "^[0-9]{6}$", message = "gồm 6 chữ số") String code,
+                                       @NotBlank @Size(min = 8, max = 72) String newPassword) {}
+    public record MessageResponse(String message) {}
+    public record TempPasswordResponse(String temporaryPassword) {}
 
-    public record UserResponse(Long id, String fullName, String phone, String email, Role role, boolean active, LocalDateTime createdAt) {
-        public static UserResponse of(User u) { return new UserResponse(u.getId(), u.getFullName(), u.getPhone(), u.getEmail(), u.getRole(), u.isActive(), u.getCreatedAt()); }
+    public record UserResponse(Long id, String fullName, String phone, String email, Role role, boolean active, LocalDateTime createdAt,
+                               boolean mustChangePassword, boolean marketingOptIn) {
+        public static UserResponse of(User u) {
+            return new UserResponse(u.getId(), u.getFullName(), u.getPhone(), u.getEmail(), u.getRole(), u.isActive(), u.getCreatedAt(),
+                    u.isMustChangePassword(), u.isMarketingOptIn());
+        }
     }
     public record AuthResponse(String token, LocalDateTime expiresAt, UserResponse user) {}
 
@@ -205,7 +215,12 @@ public final class Dtos {
                                    Boolean active) {}
     public record PromotionResponse(Long id, String title, String subtitle, String imageUrl, PromotionTarget targetType,
                                     Long menuItemId, String menuItemName, Long categoryId, String categoryName, Long voucherId, String voucherCode,
-                                    LocalDateTime startAt, LocalDateTime endAt, int sortOrder, boolean active, boolean live, boolean notified) {}
+                                    LocalDateTime startAt, LocalDateTime endAt, int sortOrder, boolean active, boolean live, boolean notified,
+                                    LocalDateTime announceAt, LocalDateTime announcedAt) {}
+    /** Result of announcing a promotion: sent now, or scheduled for after the quiet hours. */
+    public record AnnounceResponse(long sent, long skipped, LocalDateTime scheduledAt, String message) {}
+    /** Unread notifications: order/payment ones drive the red badge; promotions only show a dot. */
+    public record UnreadResponse(long count, long promotions) {}
     public record NotificationResponse(Long id, NotificationType type, String title, String body, Long orderId, Long promotionId,
                                        boolean read, LocalDateTime createdAt) {}
     public record CountResponse(long count) {}

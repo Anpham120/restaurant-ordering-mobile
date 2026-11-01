@@ -57,7 +57,7 @@ public class AdminController {
     @PostMapping("/promotions") @ResponseStatus(HttpStatus.CREATED) public PromotionResponse createPromotion(@Valid @RequestBody PromotionRequest r) { return promotions.create(r); }
     @PutMapping("/promotions/{id}") public PromotionResponse updatePromotion(@PathVariable Long id, @Valid @RequestBody PromotionRequest r) { return promotions.update(id, r); }
     @DeleteMapping("/promotions/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) public void deletePromotion(@PathVariable Long id) { promotions.delete(id); }
-    @PostMapping("/promotions/{id}/announce") public CountResponse announce(@PathVariable Long id) { return promotions.announce(id); }
+    @PostMapping("/promotions/{id}/announce") public AnnounceResponse announce(@PathVariable Long id) { return promotions.announce(id); }
 
     // delivery zones
     @GetMapping("/zones") public List<ZoneResponse> zones() { return zones.list(true); }
@@ -80,6 +80,7 @@ public class AdminController {
     public PageResponse<CustomerSummary> customers(@RequestParam(required = false) String q, @RequestParam(defaultValue = "0") int page,
                                                    @RequestParam(defaultValue = "20") int size) { return users.customers(q, page, size); }
     @PatchMapping("/users/{id}/active") public UserResponse active(@PathVariable Long id, @Valid @RequestBody ActiveRequest r) { return users.setActive(id, r.active()); }
+    @PostMapping("/users/{id}/reset-password") public TempPasswordResponse resetPassword(@PathVariable Long id) { return users.resetPassword(id); }
 
     // reviews & settings
     @GetMapping("/reviews") public List<ReviewResponse> reviews(@RequestParam(defaultValue = "50") int limit) { return reviews.latest(limit); }

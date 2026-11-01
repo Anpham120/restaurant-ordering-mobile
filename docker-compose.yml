@@ -43,6 +43,8 @@ services:
       APP_SEED_DEMO: ${APP_SEED_DEMO:-true}
       SEPAY_API_KEY: ${SEPAY_API_KEY:-}
       APP_PUBLIC_URL: https://${APP_DOMAIN}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       JAVA_OPTS: -XX:MaxRAMPercentage=75 -Duser.timezone=Asia/Ho_Chi_Minh
       TZ: Asia/Ho_Chi_Minh
     healthcheck:

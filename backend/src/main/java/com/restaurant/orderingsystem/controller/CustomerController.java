@@ -59,8 +59,11 @@ public class CustomerController {
     @PostMapping("/reviews") @ResponseStatus(HttpStatus.CREATED) public ReviewResponse review(@Valid @RequestBody ReviewRequest r) { return reviews.create(r); }
 
     // notifications
-    @GetMapping("/notifications") public List<NotificationResponse> notifications(@RequestParam(defaultValue = "50") int limit) { return notifications.mine(limit); }
-    @GetMapping("/notifications/unread-count") public CountResponse unread() { return notifications.unread(); }
+    @GetMapping("/notifications")
+    public List<NotificationResponse> notifications(@RequestParam(defaultValue = "50") int limit, @RequestParam(required = false) String category) {
+        return notifications.mine(limit, category);
+    }
+    @GetMapping("/notifications/unread-count") public UnreadResponse unread() { return notifications.unread(); }
     @PostMapping("/notifications/{id}/read") @ResponseStatus(HttpStatus.NO_CONTENT) public void read(@PathVariable Long id) { notifications.markRead(id); }
     @PostMapping("/notifications/read-all") public CountResponse readAll() { return notifications.markAllRead(); }
 }

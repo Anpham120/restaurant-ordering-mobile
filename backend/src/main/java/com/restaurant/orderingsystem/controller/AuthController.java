@@ -19,6 +19,7 @@ import java.util.Map;
 @RestController @RequestMapping("/api/auth") @RequiredArgsConstructor
 public class AuthController {
     private final AuthService auth;
+    private final PasswordResetService reset;
 
     @PostMapping("/register") @ResponseStatus(HttpStatus.CREATED)
     public AuthResponse register(@Valid @RequestBody RegisterRequest r) { return auth.register(r); }
@@ -32,6 +33,17 @@ public class AuthController {
     @PutMapping("/profile")
     public UserResponse profile(@Valid @RequestBody ProfileRequest r) { return auth.updateProfile(r); }
 
-    @PostMapping("/change-password") @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void changePassword(@Valid @RequestBody ChangePasswordRequest r) { auth.changePassword(r); }
+    @PostMapping("/change-password")
+    public AuthResponse changePassword(@Valid @RequestBody ChangePasswordRequest r) { return auth.changePassword(r); }
+
+    @PostMapping("/forgot-password")
+    public MessageResponse forgot(@Valid @RequestBody ForgotPasswordRequest r, HttpServletRequest req) {
+        return new MessageResponse(reset.requestCode(r.login(), req.getRemoteAddr()));
+    }
+
+    @PostMapping("/reset-password")
+    public MessageResponse reset(@Valid @RequestBody ResetPasswordRequest r) {
+        reset.reset(r.login(), r.code(), r.newPassword());
+        return new MessageResponse("Đã đặt lại mật khẩu, vui lòng đăng nhập bằng mật khẩu mới");
+    }
 }

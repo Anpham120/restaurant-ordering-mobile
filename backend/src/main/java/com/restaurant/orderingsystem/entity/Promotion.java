@@ -25,6 +25,9 @@ public class Promotion {
     @Column(name = "end_at") private LocalDateTime endAt;
     @Column(name = "sort_order", nullable = false) private int sortOrder;
     @Column(name = "is_active", nullable = false) private boolean active = true;
+    /** Announcement requested during quiet hours: sent automatically at this time. */
+    @Column(name = "announce_at") private LocalDateTime announceAt;
+    @Column(name = "announced_at") private LocalDateTime announcedAt;
     @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;
     @PrePersist void onCreate() { createdAt = LocalDateTime.now(); }
 }

@@ -43,7 +43,10 @@ class DeliveryFlowTest extends ApiTestBase {
         as(t, get("/api/auth/me")).andExpect(jsonPath("$.phone").value(p));
         as(t, put("/api/auth/profile"), "{\"fullName\":\"Lan Nguyễn\",\"email\":\"\"}").andExpect(jsonPath("$.fullName").value("Lan Nguyễn"));
         as(t, post("/api/auth/change-password"), "{\"currentPassword\":\"wrong\",\"newPassword\":\"NewPassw0rd\"}").andExpect(status().isBadRequest());
-        as(t, post("/api/auth/change-password"), "{\"currentPassword\":\"Passw0rd!\",\"newPassword\":\"NewPassw0rd\"}").andExpect(status().isNoContent());
+        String fresh = json(as(t, post("/api/auth/change-password"), "{\"currentPassword\":\"Passw0rd!\",\"newPassword\":\"NewPassw0rd\"}")
+                .andExpect(status().isOk())).get("token").asText();
+        as(t, get("/api/auth/me")).andExpect(status().isUnauthorized());          // other sessions are signed out
+        as(fresh, get("/api/auth/me")).andExpect(status().isOk());
         login(p, "NewPassw0rd");
         // 5 wrong attempts lock this login for 10 minutes
         for (int i = 0; i < 5; i++) send(post("/api/auth/login"), "{\"login\":\"" + p + "\",\"password\":\"bad\"}").andExpect(status().isUnauthorized());

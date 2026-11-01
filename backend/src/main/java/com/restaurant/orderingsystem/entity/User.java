@@ -21,6 +21,11 @@ public class User {
     @Column(name = "password_hash", nullable = false, length = 100) private String passwordHash;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private Role role;
     @Column(name = "is_active", nullable = false) private boolean active = true;
+    /** Carried by every JWT; incremented on password change/reset so older sessions stop working. */
+    @Column(name = "token_version", nullable = false) private int tokenVersion;
+    @Column(name = "must_change_password", nullable = false) private boolean mustChangePassword;
+    /** Accepts promotional notifications (order and payment notifications are always sent). */
+    @Column(name = "marketing_opt_in", nullable = false) private boolean marketingOptIn = true;
     @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;
     @PrePersist void onCreate() { createdAt = LocalDateTime.now(); }
 }
