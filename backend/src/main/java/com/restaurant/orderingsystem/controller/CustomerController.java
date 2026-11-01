@@ -24,6 +24,7 @@ public class CustomerController {
     private final CartService cart;
     private final OrderService orders;
     private final ReviewService reviews;
+    private final NotificationService notifications;
 
     // addresses
     @GetMapping("/addresses") public List<AddressResponse> addresses() { return addresses.list(); }
@@ -40,7 +41,8 @@ public class CustomerController {
 
     // cart
     @GetMapping("/cart") public CartResponse cart() { return cart.get(); }
-    @PutMapping("/cart/items/{menuItemId}") public CartResponse putCart(@PathVariable Long menuItemId, @Valid @RequestBody CartItemRequest r) { return cart.put(menuItemId, r); }
+    @PostMapping("/cart/items") public CartResponse addToCart(@Valid @RequestBody AddToCartRequest r) { return cart.add(r); }
+    @PatchMapping("/cart/items/{lineId}") public CartResponse updateLine(@PathVariable Long lineId, @Valid @RequestBody CartLineRequest r) { return cart.update(lineId, r); }
     @DeleteMapping("/cart") public CartResponse clearCart() { return cart.clear(); }
 
     // checkout & orders
@@ -54,4 +56,10 @@ public class CustomerController {
 
     // reviews
     @PostMapping("/reviews") @ResponseStatus(HttpStatus.CREATED) public ReviewResponse review(@Valid @RequestBody ReviewRequest r) { return reviews.create(r); }
+
+    // notifications
+    @GetMapping("/notifications") public List<NotificationResponse> notifications(@RequestParam(defaultValue = "50") int limit) { return notifications.mine(limit); }
+    @GetMapping("/notifications/unread-count") public CountResponse unread() { return notifications.unread(); }
+    @PostMapping("/notifications/{id}/read") @ResponseStatus(HttpStatus.NO_CONTENT) public void read(@PathVariable Long id) { notifications.markRead(id); }
+    @PostMapping("/notifications/read-all") public CountResponse readAll() { return notifications.markAllRead(); }
 }

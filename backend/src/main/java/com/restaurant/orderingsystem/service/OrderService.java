@@ -21,19 +21,20 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /**
- * Delivery order lifecycle (COD, no courier role – store staff deliver):
+ * Delivery order lifecycle (no courier role – store staff deliver):
  * <pre>
+ * AWAITING_PAYMENT --transfer received (SePay)--> PENDING   (bank transfer only; expires → CANCELLED)
  * PENDING  --staff-->   CONFIRMED --kitchen--> PREPARING --kitchen--> READY --staff--> DELIVERING --staff--> DELIVERED
  *    |customer/staff        |staff                                                       |staff (failed delivery)
  *    v                      v                                                            v
  * CANCELLED              CANCELLED                                                   CANCELLED
  * </pre>
- * Every change is written to order_status_history with who did it and why.
+ * Every change goes through {@link OrderEvents}: history row, payment side effects, customer notification.
  */
 @Service
 @RequiredArgsConstructor
 public class OrderService {
-    public static final List<OrderStatus> ACTIVE = List.of(OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PREPARING,
+    public static final List<OrderStatus> ACTIVE = List.of(OrderStatus.AWAITING_PAYMENT, OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PREPARING,
             OrderStatus.READY, OrderStatus.DELIVERING);
     static final int REVIEW_DAYS = 7;
     private static final DateTimeFormatter CODE_DATE = DateTimeFormatter.ofPattern("yyMMdd");
@@ -45,6 +46,8 @@ public class OrderService {
     private final AddressService addresses;
     private final CartService cart;
     private final VoucherService vouchers;
+    private final PaymentService payments;
+    private final OrderEvents events;
 
     // ================================================================ checkout (customer)
     @Transactional(readOnly = true)
@@ -73,9 +76,24 @@ public class OrderService {
             i.setQuantity(line.getQuantity());
             i.setUnitPrice(line.getMenuItem().getPrice());
             i.setNote(line.getNote());
+            for (MenuOption opt : line.getOptions()) {
+                OrderItemOption io = new OrderItemOption();
+                io.setOrderItem(i);
+                io.setOption(opt);
+                io.setPriceDelta(opt.getPriceDelta());
+                i.getOptions().add(io);
+            }
             o.getItems().add(i);
         }
-        record(o, OrderStatus.PENDING, null);
+        boolean transfer = c.preview().paymentMethod() == PaymentMethod.BANK_TRANSFER;
+        o.setStatus(transfer ? OrderStatus.AWAITING_PAYMENT : OrderStatus.PENDING);
+        OrderEvents.record(o, o.getStatus(), null, users.getReferenceById(Caller.id()));
+        Payment pay = new Payment();
+        pay.setOrder(o);
+        pay.setMethod(c.preview().paymentMethod());
+        pay.setAmount(c.preview().total());
+        if (transfer) pay.setExpiresAt(LocalDateTime.now().plusMinutes(store.settings().getTransferTimeoutMinutes()));
+        o.setPayment(pay);
         o = orders.save(o);
         cart.clear(Caller.id());
         return toResponse(o);
@@ -103,11 +121,14 @@ public class OrderService {
 
         VoucherService.Check v = vouchers.check(r.voucherCode(), subtotal, uid);
         if (v.error() != null) problems.add(v.error());
+        List<PaymentMethod> methods = store.paymentMethods(s);
+        PaymentMethod method = r.paymentMethod() == null ? PaymentMethod.COD : r.paymentMethod();
+        if (!methods.contains(method)) problems.add("Cửa hàng chưa hỗ trợ hình thức thanh toán này");
         BigDecimal fee = Money.of(a.getZone().getDeliveryFee());
         BigDecimal total = subtotal.subtract(v.discount()).add(fee);
         CheckoutPreview p = new CheckoutPreview(view, AddressResponse.of(a), subtotal, fee,
                 v.voucher() == null ? null : v.voucher().getCode(), v.discount(), v.error(), Money.of(total),
-                a.getZone().getEstimatedMinutes(), problems.isEmpty(), problems);
+                a.getZone().getEstimatedMinutes(), method, methods, problems.isEmpty(), problems);
         return new Computed(p, a, lines, v.voucher());
     }
 
@@ -125,9 +146,9 @@ public class OrderService {
     @Transactional
     public OrderResponse cancelByCustomer(Long id, String reason) {
         Order o = own(id);
-        if (o.getStatus() != OrderStatus.PENDING) throw ApiException.badRequest("Cửa hàng đã xác nhận đơn, vui lòng gọi hotline nếu cần hủy");
-        o.setStatus(OrderStatus.CANCELLED);
-        record(o, OrderStatus.CANCELLED, "Khách hủy: " + reason.trim());
+        if (o.getStatus() != OrderStatus.PENDING && o.getStatus() != OrderStatus.AWAITING_PAYMENT)
+            throw ApiException.badRequest("Cửa hàng đã xác nhận đơn, vui lòng gọi hotline nếu cần hủy");
+        events.change(o, OrderStatus.CANCELLED, "Khách hủy: " + reason.trim(), Caller.id());
         return toResponse(o);
     }
 
@@ -187,28 +208,17 @@ public class OrderService {
             case DELIVERING -> from == OrderStatus.READY && staff;
             case DELIVERED -> from == OrderStatus.DELIVERING && staff;
             case CANCELLED -> (from == OrderStatus.PENDING || from == OrderStatus.CONFIRMED || from == OrderStatus.DELIVERING) && staff;
-            case PENDING -> false;
+            case PENDING, AWAITING_PAYMENT -> false;
         };
         if (!allowed) throw ApiException.badRequest("Không thể chuyển đơn từ \"" + label(from) + "\" sang \"" + label(to) + "\" với vai trò của bạn");
         String reason = CatalogService.blankToNull(note);
         if (to == OrderStatus.CANCELLED && reason == null) throw ApiException.badRequest("Vui lòng nhập lý do hủy đơn");
-        o.setStatus(to);
-        record(o, to, reason);
+        events.change(o, to, reason, user.id());
         return toResponse(o);
     }
 
     // ================================================================ mapping
     Order find(Long id) { return orders.findById(id).orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn hàng")); }
-
-    private void record(Order o, OrderStatus status, String note) {
-        OrderStatusHistory h = new OrderStatusHistory();
-        h.setOrder(o);
-        h.setStatus(status);
-        h.setChangedBy(Caller.user().map(u -> users.getReferenceById(u.id())).orElse(null));
-        h.setNote(note);
-        h.setChangedAt(LocalDateTime.now());
-        o.getHistory().add(h);
-    }
 
     static String code(Order o) { return "DH" + o.getCreatedAt().format(CODE_DATE) + "-" + String.format("%04d", o.getId()); }
 
@@ -217,8 +227,15 @@ public class OrderService {
         return digits.matches("\\d{1,12}") ? Long.valueOf(digits) : null;
     }
 
+    /** Price of one unit of the line: base price plus the chosen options, all as charged when ordering. */
+    static BigDecimal unitPrice(OrderItem i) {
+        return i.getOptions().stream().map(OrderItemOption::getPriceDelta).reduce(i.getUnitPrice(), BigDecimal::add);
+    }
+
+    static BigDecimal lineTotal(OrderItem i) { return Money.of(unitPrice(i).multiply(BigDecimal.valueOf(i.getQuantity()))); }
+
     static BigDecimal subtotal(Order o) {
-        return Money.of(o.getItems().stream().map(i -> i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity()))).reduce(BigDecimal.ZERO, BigDecimal::add));
+        return Money.of(o.getItems().stream().map(OrderService::lineTotal).reduce(BigDecimal.ZERO, BigDecimal::add));
     }
 
     static BigDecimal total(Order o) { return Money.of(subtotal(o).subtract(o.getDiscountAmount()).add(o.getDeliveryFee())); }
@@ -228,8 +245,9 @@ public class OrderService {
         LocalDateTime deliveredAt = o.getHistory().stream().filter(h -> h.getStatus() == OrderStatus.DELIVERED).map(OrderStatusHistory::getChangedAt).findFirst().orElse(null);
         boolean reviewable = deliveredAt != null && deliveredAt.isAfter(LocalDateTime.now().minusDays(REVIEW_DAYS)) && reviewed.size() < o.getItems().size();
         List<OrderItemResponse> items = o.getItems().stream().map(i -> new OrderItemResponse(i.getId(), i.getMenuItem().getId(), i.getMenuItem().getName(),
-                i.getMenuItem().getImageUrl(), i.getQuantity(), i.getUnitPrice(), Money.of(i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity()))),
-                i.getNote(), reviewed.contains(i.getId()))).toList();
+                i.getMenuItem().getImageUrl(), i.getQuantity(),
+                i.getOptions().stream().map(x -> new ChosenOption(x.getOption().getId(), x.getOption().getGroup().getName(), x.getOption().getName(), x.getPriceDelta())).toList(),
+                Money.of(unitPrice(i)), lineTotal(i), i.getNote(), reviewed.contains(i.getId()))).toList();
         List<StatusEvent> timeline = o.getHistory().stream()
                 .map(h -> new StatusEvent(h.getStatus(), h.getChangedAt(), h.getChangedBy() == null ? null : h.getChangedBy().getFullName(), h.getNote())).toList();
         User c = o.getCustomer();
@@ -239,12 +257,13 @@ public class OrderService {
                 o.getRecipientName(), o.getRecipientPhone(), o.getDeliveryStreet(), o.getZone().getName(), o.getDeliveryNote(), o.getNote(),
                 items, o.getItems().stream().mapToInt(OrderItem::getQuantity).sum(),
                 subtotal(o), o.getDeliveryFee(), o.getVoucher() == null ? null : o.getVoucher().getCode(), o.getDiscountAmount(), total(o),
-                o.getPaymentMethod(), o.getStatus() == OrderStatus.DELIVERED, eta,
-                o.getStatus() == OrderStatus.PENDING, reviewable, timeline);
+                payments.toResponse(o.getPayment()), eta,
+                o.getStatus() == OrderStatus.PENDING || o.getStatus() == OrderStatus.AWAITING_PAYMENT, reviewable, timeline);
     }
 
     static String label(OrderStatus s) {
         return switch (s) {
+            case AWAITING_PAYMENT -> "Chờ thanh toán";
             case PENDING -> "Chờ xác nhận";
             case CONFIRMED -> "Đã xác nhận";
             case PREPARING -> "Đang chuẩn bị";

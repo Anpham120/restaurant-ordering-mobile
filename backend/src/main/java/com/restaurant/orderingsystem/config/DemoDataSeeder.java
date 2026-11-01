@@ -39,6 +39,7 @@ public class DemoDataSeeder implements CommandLineRunner {
     private final OrderRepository orders;
     private final ReviewRepository reviews;
     private final StoreSettingsRepository settings;
+    private final PromotionRepository promotions;
     private final PasswordEncoder encoder;
 
     @Override
@@ -84,8 +85,26 @@ public class DemoDataSeeder implements CommandLineRunner {
         put(m, dessert, "Chè xoài", "Xoài cát, nước cốt dừa, bột báng.", 30000, "2/2a/Ch%C3%A8_xo%C3%A0i.jpg/500px-Ch%C3%A8_xo%C3%A0i.jpg");
         put(m, dessert, "Bánh flan", "Bánh flan trứng gà, caramel, cà phê.", 25000, "5/58/Cremecaramel.jpg/500px-Cremecaramel.jpg");
 
-        voucher("WELCOME10", "Giảm 10% đơn đầu tiên, tối đa 30.000đ", DiscountType.PERCENT, 10, 30000, 100000, null, 1);
-        voucher("FREESHIP", "Giảm 20.000đ cho đơn từ 200.000đ", DiscountType.AMOUNT, 20000, null, 200000, null, null);
+        // options (size, topping…)
+        String[][] bowl = {{"Tô thường", "0"}, {"Tô lớn", "15000"}};
+        group(m.get("Phở bò tái nạm"), "Size", 1, 1, bowl);
+        group(m.get("Phở bò tái nạm"), "Thêm", 0, 3, new String[][]{{"Trứng chần", "5000"}, {"Thêm thịt bò", "20000"}, {"Quẩy", "5000"}});
+        group(m.get("Bún bò Huế"), "Size", 1, 1, bowl);
+        group(m.get("Bún bò Huế"), "Thêm", 0, 2, new String[][]{{"Chả cua", "10000"}, {"Giò heo", "15000"}});
+        group(m.get("Hủ tiếu Nam Vang"), "Size", 1, 1, bowl);
+        group(m.get("Cơm tấm sườn bì chả"), "Thêm", 0, 3, new String[][]{{"Trứng ốp la", "7000"}, {"Thêm sườn", "25000"}, {"Thêm cơm", "5000"}});
+        group(m.get("Bánh mì thịt nướng"), "Thêm", 0, 2, new String[][]{{"Thêm trứng", "5000"}, {"Thêm pate", "3000"}});
+        group(m.get("Trà sữa trân châu"), "Size", 1, 1, new String[][]{{"M", "0"}, {"L", "6000"}});
+        group(m.get("Trà sữa trân châu"), "Mức đường", 1, 1, new String[][]{{"100% đường", "0"}, {"70% đường", "0"}, {"50% đường", "0"}});
+        group(m.get("Trà sữa trân châu"), "Topping", 0, 3, new String[][]{{"Trân châu trắng", "5000"}, {"Thạch phô mai", "8000"}, {"Pudding", "7000"}});
+        group(m.get("Cà phê sữa đá"), "Đá", 1, 1, new String[][]{{"Nhiều đá", "0"}, {"Ít đá", "0"}, {"Đá riêng", "0"}});
+
+        Voucher welcome = voucher("WELCOME10", "Giảm 10% đơn đầu tiên, tối đa 30.000đ", DiscountType.PERCENT, 10, 30000, 100000, null, 1);
+        Voucher freeship = voucher("FREESHIP", "Giảm 20.000đ cho đơn từ 200.000đ", DiscountType.AMOUNT, 20000, null, 200000, null, null);
+        promo("Giảm 10% đơn đầu tiên", "Nhập mã WELCOME10 – tối đa 30.000đ cho đơn từ 100.000đ", "5/52/Bowl_of_Meatball_pho.jpg/500px-Bowl_of_Meatball_pho.jpg", 1, p -> { p.setTargetType(PromotionTarget.VOUCHER); p.setVoucher(welcome); });
+        promo("Món mới: Cao lầu Hội An", "Sợi cao lầu dai, thịt xíu, rau Trà Quế – chỉ 60.000đ", "4/4e/Cao_l%E1%BA%A7u_H%E1%BB%99i_An_%282024%29.jpg/500px-Cao_l%E1%BA%A7u_H%E1%BB%99i_An_%282024%29.jpg", 2, p -> { p.setTargetType(PromotionTarget.MENU_ITEM); p.setMenuItem(m.get("Cao lầu Hội An")); });
+        promo("Giảm 20.000đ đơn từ 200.000đ", "Rủ cả nhà cùng đặt – nhập mã FREESHIP", "b/b0/C%C6%A1m_T%E1%BA%A5m%2C_Da_Nang%2C_Vietnam.jpg/500px-C%C6%A1m_T%E1%BA%A5m%2C_Da_Nang%2C_Vietnam.jpg", 3, p -> { p.setTargetType(PromotionTarget.VOUCHER); p.setVoucher(freeship); });
+        promo("Giải nhiệt mùa hè", "Trà sữa, nước mía, nước cam ép – mát lạnh giao tận nơi", "a/a2/Bubble_Tea.png/500px-Bubble_Tea.png", 4, p -> { p.setTargetType(PromotionTarget.CATEGORY); p.setCategory(drinks); });
 
         if (users.count() == 0) demoAccounts(z, m);
         log.info("Demo data loaded: {} dishes, {} delivery zones", m.size(), z.size());
@@ -93,7 +112,11 @@ public class DemoDataSeeder implements CommandLineRunner {
 
     private void demoAccounts(Map<String, DeliveryZone> z, Map<String, MenuItem> m) {
         // local development: take orders around the clock so the app can be tried at any hour
-        settings.findById(StoreSettings.ID).ifPresent(s -> { s.setOpenTime(java.time.LocalTime.MIN); s.setCloseTime(java.time.LocalTime.of(23, 59, 59)); });
+        // demo receiving account (not a real one) so the VietQR transfer flow can be tried locally
+        settings.findById(StoreSettings.ID).ifPresent(s -> {
+            s.setOpenTime(java.time.LocalTime.MIN); s.setCloseTime(java.time.LocalTime.of(23, 59, 59));
+            s.setBankCode("MB"); s.setBankAccount("0000000000"); s.setBankHolder("ATLAS RESTAURANT DEMO");
+        });
         user("Quản lý Atlas", "0900000001", Role.MANAGER);
         User staff = user("Trần Thị Bình", "0900000002", Role.STAFF);
         user("Lê Văn Bếp", "0900000003", Role.KITCHEN);
@@ -126,6 +149,11 @@ public class DemoDataSeeder implements CommandLineRunner {
             h.setChangedBy(s == 0 ? customer : staff);
             o.getHistory().add(h);
         }
+        Payment pay = new Payment();
+        pay.setOrder(o); pay.setMethod(PaymentMethod.COD); pay.setStatus(PaymentStatus.PAID);
+        pay.setAmount(lines.stream().map(l -> ((MenuItem) l[0]).getPrice().multiply(BigDecimal.valueOf((Integer) l[1]))).reduce(BigDecimal.ZERO, BigDecimal::add).add(o.getDeliveryFee()));
+        pay.setPaidAt(t.plusMinutes(38)); pay.setConfirmedBy(staff);
+        o.setPayment(pay);
         o = orders.save(o);
         orders.flush();
         for (int k = 0; k < lines.size(); k++) {
@@ -150,12 +178,31 @@ public class DemoDataSeeder implements CommandLineRunner {
         map.put(name, menuItems.save(i));
     }
 
-    private void voucher(String code, String desc, DiscountType type, int value, Integer max, int min, Integer limit, Integer perUser) {
+    private void group(MenuItem item, String name, int min, int max, String[][] opts) {
+        OptionGroup g = new OptionGroup();
+        g.setMenuItem(item); g.setName(name); g.setMinSelect(min); g.setMaxSelect(max); g.setSortOrder(item.getOptionGroups().size());
+        for (int i = 0; i < opts.length; i++) {
+            MenuOption o = new MenuOption();
+            o.setGroup(g); o.setName(opts[i][0]); o.setPriceDelta(new BigDecimal(opts[i][1])); o.setSortOrder(i);
+            g.getOptions().add(o);
+        }
+        item.getOptionGroups().add(g);
+        menuItems.save(item);
+    }
+
+    private void promo(String title, String subtitle, String img, int order, java.util.function.Consumer<Promotion> target) {
+        Promotion p = new Promotion();
+        p.setTitle(title); p.setSubtitle(subtitle); p.setImageUrl(W + img); p.setSortOrder(order); p.setEndAt(LocalDateTime.now().plusYears(1));
+        target.accept(p);
+        promotions.save(p);
+    }
+
+    private Voucher voucher(String code, String desc, DiscountType type, int value, Integer max, int min, Integer limit, Integer perUser) {
         Voucher v = new Voucher();
         v.setCode(code); v.setDescription(desc); v.setDiscountType(type); v.setDiscountValue(BigDecimal.valueOf(value));
         v.setMaxDiscount(max == null ? null : BigDecimal.valueOf(max)); v.setMinOrder(BigDecimal.valueOf(min));
         v.setUsageLimit(limit); v.setPerUserLimit(perUser); v.setEndAt(LocalDateTime.now().plusYears(1));
-        vouchers.save(v);
+        return vouchers.save(v);
     }
 
     private User user(String name, String phone, Role role) {

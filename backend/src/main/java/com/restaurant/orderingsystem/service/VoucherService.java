@@ -20,6 +20,7 @@ import java.util.*;
 public class VoucherService {
     private final VoucherRepository vouchers;
     private final OrderRepository orders;
+    private final PromotionRepository promotions;
 
     /** Result of checking a code against an order: either a discount or the reason it does not apply. */
     record Check(Voucher voucher, BigDecimal discount, String error) {}
@@ -71,6 +72,7 @@ public class VoucherService {
     public void delete(Long id) {
         voucher(id);
         if (orders.existsByVoucherId(id)) throw ApiException.conflict("Mã đã được dùng trong đơn hàng, hãy chọn \"Ngừng áp dụng\" thay vì xóa");
+        if (promotions.existsByVoucherId(id)) throw ApiException.conflict("Mã đang được dùng trong chương trình quảng bá");
         vouchers.deleteById(id);
     }
 

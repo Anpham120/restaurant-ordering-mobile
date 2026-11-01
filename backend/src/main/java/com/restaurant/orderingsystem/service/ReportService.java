@@ -28,6 +28,7 @@ public class ReportService {
     private final UserRepository users;
     private final OrderService orderService;
     private final StoreService store;
+    private final PaymentRepository payments;
 
     private record Delivered(Order order, LocalDateTime at) {}
 
@@ -67,6 +68,7 @@ public class ReportService {
         List<OrderResponse> recent = orderService.search(null, null, null, 0, 8, false).content();
         return new DashboardResponse(revenueToday, sum(yesterday), todayList.size(), cancelledToday,
                 orders.countByStatusIn(List.of(OrderStatus.PENDING)), orders.countByStatusIn(OrderService.ACTIVE),
+                orders.countByStatusIn(List.of(OrderStatus.AWAITING_PAYMENT)), payments.countByStatus(PaymentStatus.REFUND_PENDING),
                 avg(revenueToday, todayList.size()), avgRating, rating[1] == null ? 0 : ((Number) rating[1]).longValue(), newCustomers,
                 store.settings().isAcceptingOrders(), daily(week, today.minusDays(6), today), top(todayList, 5), recent);
     }
@@ -94,7 +96,7 @@ public class ReportService {
         for (Delivered d : list) {
             for (OrderItem i : d.order().getItems()) {
                 MenuItem m = i.getMenuItem();
-                BigDecimal line = i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity()));
+                BigDecimal line = OrderService.lineTotal(i);
                 acc.merge(m.getId(), new TopItem(m.getId(), m.getName(), m.getImageUrl(), i.getQuantity(), line),
                         (a, b) -> new TopItem(a.menuItemId(), a.name(), a.imageUrl(), a.quantity() + b.quantity(), a.revenue().add(b.revenue())));
             }

@@ -10,7 +10,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.restaurant.orderingsystem.entity.PaymentMethod;
+
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.time.format.DateTimeFormatter;
 
 @Service
@@ -47,8 +51,22 @@ public class StoreService {
         s.setCloseTime(r.closeTime());
         s.setMinOrderAmount(r.minOrderAmount());
         s.setAcceptingOrders(r.acceptingOrders());
+        String code = CatalogService.blankToNull(r.bankCode()), acc = CatalogService.blankToNull(r.bankAccount());
+        if ((code == null) != (acc == null)) throw ApiException.badRequest("Nhập đủ cả ngân hàng và số tài khoản (hoặc bỏ trống cả hai để tắt chuyển khoản)");
+        s.setBankCode(code);
+        s.setBankAccount(acc);
+        String holder = CatalogService.blankToNull(r.bankHolder());
+        s.setBankHolder(holder == null ? null : java.text.Normalizer.normalize(holder, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "").replace('đ', 'd').replace('Đ', 'D').toUpperCase(java.util.Locale.ROOT));
+        if (r.transferTimeoutMinutes() != null) s.setTransferTimeoutMinutes(r.transferTimeoutMinutes());
         s.setUpdatedBy(users.getReferenceById(Caller.id()));
         return toResponse(s);
+    }
+
+    List<PaymentMethod> paymentMethods(StoreSettings s) {
+        List<PaymentMethod> m = new ArrayList<>(List.of(PaymentMethod.COD));
+        if (s.getBankAccount() != null) m.add(PaymentMethod.BANK_TRANSFER);
+        return m;
     }
 
     @Transactional
@@ -62,6 +80,7 @@ public class StoreService {
     private StoreResponse toResponse(StoreSettings s) {
         String reason = closedReason(s);
         return new StoreResponse(s.getStoreName(), s.getHotline(), s.getStoreAddress(), s.getOpenTime(), s.getCloseTime(),
-                s.getMinOrderAmount(), s.isAcceptingOrders(), reason == null, reason);
+                s.getMinOrderAmount(), s.isAcceptingOrders(), reason == null, reason,
+                paymentMethods(s), s.getBankCode(), s.getBankAccount(), s.getBankHolder(), s.getTransferTimeoutMinutes());
     }
 }

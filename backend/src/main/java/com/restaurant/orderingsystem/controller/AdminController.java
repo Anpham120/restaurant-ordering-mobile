@@ -26,6 +26,8 @@ public class AdminController {
     private final UserAdminService users;
     private final ReviewService reviews;
     private final StoreService store;
+    private final PaymentService payments;
+    private final PromotionService promotions;
 
     @GetMapping("/dashboard") public DashboardResponse dashboard() { return reports.dashboard(); }
 
@@ -43,6 +45,19 @@ public class AdminController {
     @PostMapping("/menu-items") @ResponseStatus(HttpStatus.CREATED) public MenuItemResponse createItem(@Valid @RequestBody MenuItemRequest r) { return catalog.createItem(r); }
     @PutMapping("/menu-items/{id}") public MenuItemResponse updateItem(@PathVariable Long id, @Valid @RequestBody MenuItemRequest r) { return catalog.updateItem(id, r); }
     @DeleteMapping("/menu-items/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) public void deleteItem(@PathVariable Long id) { catalog.deleteItem(id); }
+    @PutMapping("/menu-items/{id}/options") public MenuItemResponse options(@PathVariable Long id, @Valid @RequestBody OptionsRequest r) { return catalog.replaceOptions(id, r); }
+
+    // payments
+    @GetMapping("/payments") public List<PaymentListItem> payments(@RequestParam(defaultValue = "REFUND_PENDING") PaymentStatus status) { return payments.list(status); }
+    @PatchMapping("/payments/{id}/refunded") public PaymentListItem refunded(@PathVariable Long id) { return payments.markRefunded(id); }
+    @GetMapping("/bank-transactions") public List<BankTransactionResponse> bankTransactions(@RequestParam(defaultValue = "100") int limit) { return payments.bankTransactions(limit); }
+
+    // promotions
+    @GetMapping("/promotions") public List<PromotionResponse> promotions() { return promotions.all(); }
+    @PostMapping("/promotions") @ResponseStatus(HttpStatus.CREATED) public PromotionResponse createPromotion(@Valid @RequestBody PromotionRequest r) { return promotions.create(r); }
+    @PutMapping("/promotions/{id}") public PromotionResponse updatePromotion(@PathVariable Long id, @Valid @RequestBody PromotionRequest r) { return promotions.update(id, r); }
+    @DeleteMapping("/promotions/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) public void deletePromotion(@PathVariable Long id) { promotions.delete(id); }
+    @PostMapping("/promotions/{id}/announce") public CountResponse announce(@PathVariable Long id) { return promotions.announce(id); }
 
     // delivery zones
     @GetMapping("/zones") public List<ZoneResponse> zones() { return zones.list(true); }

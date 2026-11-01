@@ -1,3 +1,3 @@
 package com.restaurant.orderingsystem.entity;
 
-public enum PaymentMethod { COD }
+public enum PaymentMethod { COD, BANK_TRANSFER }

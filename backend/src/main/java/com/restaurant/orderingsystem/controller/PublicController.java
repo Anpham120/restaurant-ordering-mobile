@@ -23,11 +23,13 @@ public class PublicController {
     private final ZoneService zones;
     private final CatalogService catalog;
     private final VoucherService vouchers;
+    private final PromotionService promotions;
 
     @GetMapping("/store") public StoreResponse store() { return store.info(); }
     @GetMapping("/zones") public List<ZoneResponse> zones() { return zones.list(false); }
     @GetMapping("/categories") public List<CategoryResponse> categories() { return catalog.categories(false); }
     @GetMapping("/vouchers") public List<VoucherResponse> vouchers() { return vouchers.usable(); }
+    @GetMapping("/promotions") public List<PromotionResponse> promotions() { return promotions.live(); }
 
     @GetMapping("/menu")
     public List<MenuItemResponse> menu(@RequestParam(required = false) Long categoryId, @RequestParam(required = false) String q) {

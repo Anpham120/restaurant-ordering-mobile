@@ -94,7 +94,7 @@ abstract class ApiTestBase {
     }
 
     ResultActions cart(String token, long itemId, int qty) throws Exception {
-        return as(token, put("/api/me/cart/items/" + itemId), "{\"quantity\":" + qty + "}");
+        return as(token, post("/api/me/cart/items"), "{\"menuItemId\":" + itemId + ",\"quantity\":" + qty + "}");
     }
 
     /** Places an order of 2 × pho (130.000đ + 15.000đ ship) and returns its id. */

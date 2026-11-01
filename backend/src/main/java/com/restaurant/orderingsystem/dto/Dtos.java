@@ -1,6 +1,7 @@
 package com.restaurant.orderingsystem.dto;
 
 import com.restaurant.orderingsystem.entity.*;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import org.springframework.data.domain.Page;
 
@@ -38,13 +39,18 @@ public final class Dtos {
 
     // =============================================================== store
     public record StoreResponse(String storeName, String hotline, String storeAddress, LocalTime openTime, LocalTime closeTime,
-                                BigDecimal minOrderAmount, boolean acceptingOrders, boolean openNow, String closedReason) {}
+                                BigDecimal minOrderAmount, boolean acceptingOrders, boolean openNow, String closedReason,
+                                List<PaymentMethod> paymentMethods, String bankCode, String bankAccount, String bankHolder, int transferTimeoutMinutes) {}
     public record StoreSettingsRequest(@NotBlank @Size(max = 100) String storeName,
                                        @NotBlank @Pattern(regexp = "^[0-9]{8,15}$", message = "chỉ gồm 8–15 chữ số") String hotline,
                                        @NotBlank @Size(max = 200) String storeAddress,
                                        @NotNull LocalTime openTime, @NotNull LocalTime closeTime,
                                        @NotNull @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal minOrderAmount,
-                                       boolean acceptingOrders) {}
+                                       boolean acceptingOrders,
+                                       @Size(max = 20) String bankCode,
+                                       @Size(max = 19) @Pattern(regexp = "^[A-Za-z0-9]*$", message = "chỉ gồm chữ và số") String bankAccount,
+                                       @Size(max = 80) String bankHolder,
+                                       @Min(5) @Max(120) Integer transferTimeoutMinutes) {}
     public record AcceptingRequest(boolean acceptingOrders) {}
 
     // =============================================================== zones
@@ -86,21 +92,31 @@ public final class Dtos {
                                   @Size(max = 500) @Pattern(regexp = URL, message = URL_MSG) String imageUrl,
                                   Boolean available,
                                   Boolean active) {}
+    public record OptionResponse(Long id, String name, BigDecimal priceDelta, boolean available) {}
+    public record OptionGroupResponse(Long id, String name, int minSelect, int maxSelect, List<OptionResponse> options) {}
     public record MenuItemResponse(Long id, Long categoryId, String categoryName, String name, String description, BigDecimal price,
                                    String imageUrl, boolean available, boolean active, Double ratingAvg, long ratingCount, long soldCount,
-                                   boolean favorite) {}
+                                   boolean favorite, List<OptionGroupResponse> optionGroups) {}
+    public record OptionRequest(Long id, @NotBlank @Size(max = 60) String name,
+                                @NotNull @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal priceDelta, Boolean available) {}
+    public record OptionGroupRequest(Long id, @NotBlank @Size(max = 60) String name, @Min(0) @Max(20) int minSelect, @Min(1) @Max(20) int maxSelect,
+                                     @NotEmpty @Size(max = 20) List<@Valid @NotNull OptionRequest> options) {}
+    public record OptionsRequest(@NotNull @Size(max = 10) List<@Valid @NotNull OptionGroupRequest> groups) {}
     public record MenuItemDetail(MenuItemResponse item, List<ReviewResponse> reviews) {}
     public record AvailabilityRequest(boolean available) {}
 
     // =============================================================== cart & checkout
-    public record CartItemRequest(@Min(0) @Max(99) int quantity, @Size(max = 200) String note) {}
-    public record CartLine(Long menuItemId, String name, String imageUrl, BigDecimal unitPrice, int quantity, String note,
-                           BigDecimal lineTotal, boolean orderable, String problem) {}
+    public record AddToCartRequest(@NotNull Long menuItemId, @Min(1) @Max(99) int quantity, @Size(max = 200) String note,
+                                   @Size(max = 30) List<@NotNull Long> optionIds) {}
+    public record CartLineRequest(@Min(0) @Max(99) int quantity, @Size(max = 200) String note) {}
+    public record ChosenOption(Long id, String groupName, String name, BigDecimal priceDelta) {}
+    public record CartLine(Long lineId, Long menuItemId, String name, String imageUrl, BigDecimal basePrice, List<ChosenOption> options,
+                           BigDecimal unitPrice, int quantity, String note, BigDecimal lineTotal, boolean orderable, String problem) {}
     public record CartResponse(List<CartLine> lines, int itemCount, BigDecimal subtotal, boolean hasProblems) {}
-    public record CheckoutRequest(@NotNull Long addressId, @Size(max = 40) String voucherCode, @Size(max = 300) String note) {}
+    public record CheckoutRequest(@NotNull Long addressId, @Size(max = 40) String voucherCode, @Size(max = 300) String note, PaymentMethod paymentMethod) {}
     public record CheckoutPreview(CartResponse cart, AddressResponse address, BigDecimal subtotal, BigDecimal deliveryFee,
                                   String voucherCode, BigDecimal discount, String voucherMessage, BigDecimal total,
-                                  int estimatedMinutes, boolean canPlace, List<String> problems) {}
+                                  int estimatedMinutes, PaymentMethod paymentMethod, List<PaymentMethod> paymentMethods, boolean canPlace, List<String> problems) {}
 
     // =============================================================== vouchers
     public record VoucherRequest(@NotBlank @Size(max = 40) @Pattern(regexp = CODE, message = CODE_MSG) String code,
@@ -120,15 +136,19 @@ public final class Dtos {
     public record CancelRequest(@NotBlank @Size(max = 300) String reason) {}
     public record StatusRequest(@NotNull OrderStatus status, @Size(max = 300) String note) {}
 
-    public record OrderItemResponse(Long id, Long menuItemId, String name, String imageUrl, int quantity, BigDecimal unitPrice,
-                                    BigDecimal lineTotal, String note, boolean reviewed) {}
+    public record OrderItemResponse(Long id, Long menuItemId, String name, String imageUrl, int quantity, List<ChosenOption> options,
+                                    BigDecimal unitPrice, BigDecimal lineTotal, String note, boolean reviewed) {}
+    /** Payment of an order; for a pending bank transfer it carries everything needed to show the VietQR code. */
+    public record PaymentResponse(Long id, PaymentMethod method, BigDecimal amount, PaymentStatus status, LocalDateTime expiresAt,
+                                  LocalDateTime paidAt, String confirmedByName, String transferContent, String qrUrl,
+                                  String bankCode, String bankAccount, String bankHolder) {}
     public record StatusEvent(OrderStatus status, LocalDateTime at, String byName, String note) {}
     public record OrderResponse(Long id, String code, OrderStatus status, LocalDateTime createdAt, LocalDateTime updatedAt,
                                 Long customerId, String customerName, String customerPhone,
                                 String recipientName, String recipientPhone, String deliveryStreet, String zoneName, String deliveryNote,
                                 String note, List<OrderItemResponse> items, int itemCount,
                                 BigDecimal subtotal, BigDecimal deliveryFee, String voucherCode, BigDecimal discount, BigDecimal total,
-                                PaymentMethod paymentMethod, boolean paid, LocalDateTime estimatedDeliveryAt,
+                                PaymentResponse payment, LocalDateTime estimatedDeliveryAt,
                                 boolean cancellable, boolean reviewable, List<StatusEvent> timeline) {}
     public record PageResponse<T>(List<T> content, int page, int size, long totalElements, int totalPages) {
         public static <T> PageResponse<T> of(Page<T> p) { return new PageResponse<>(p.getContent(), p.getNumber(), p.getSize(), p.getTotalElements(), p.getTotalPages()); }
@@ -155,7 +175,34 @@ public final class Dtos {
     public record RevenueReport(LocalDate from, LocalDate to, BigDecimal revenue, long deliveredOrders, long cancelledOrders,
                                 BigDecimal averageOrderValue, List<DailyRevenue> daily, List<TopItem> topItems, List<ZoneRevenue> byZone) {}
     public record DashboardResponse(BigDecimal revenueToday, BigDecimal revenueYesterday, long deliveredToday, long cancelledToday,
-                                    long pendingOrders, long activeOrders, BigDecimal averageOrderValueToday,
+                                    long pendingOrders, long activeOrders, long awaitingPayment, long pendingRefunds, BigDecimal averageOrderValueToday,
                                     Double ratingAvg7d, long ratingCount7d, long newCustomersToday, boolean acceptingOrders,
                                     List<DailyRevenue> last7Days, List<TopItem> topItemsToday, List<OrderResponse> recentOrders) {}
+
+    // =============================================================== payments (admin), SePay
+    public record PaymentListItem(Long id, Long orderId, String orderCode, String customerName, PaymentMethod method, BigDecimal amount,
+                                  PaymentStatus status, LocalDateTime createdAt, LocalDateTime paidAt, String confirmedByName) {}
+    public record BankTransactionResponse(Long id, String provider, Long providerTxnId, String gateway, String accountNumber, BigDecimal amount,
+                                          String content, String referenceCode, LocalDateTime transactionDate, LocalDateTime receivedAt,
+                                          Long orderId, String orderCode, String note) {}
+    /** Body SePay posts to our webhook (https://docs.sepay.vn/tich-hop-webhooks.html). */
+    public record SepayWebhook(Long id, String gateway, String transactionDate, String accountNumber, String subAccount, String code,
+                               String content, String transferType, String description, BigDecimal transferAmount, BigDecimal accumulated,
+                               String referenceCode) {}
+
+    // =============================================================== promotions & notifications
+    public record PromotionRequest(@NotBlank @Size(max = 120) String title,
+                                   @Size(max = 300) String subtitle,
+                                   @NotBlank @Size(max = 500) @Pattern(regexp = URL, message = URL_MSG) String imageUrl,
+                                   @NotNull PromotionTarget targetType,
+                                   Long menuItemId, Long categoryId, Long voucherId,
+                                   LocalDateTime startAt, LocalDateTime endAt,
+                                   @Min(0) @Max(999) int sortOrder,
+                                   Boolean active) {}
+    public record PromotionResponse(Long id, String title, String subtitle, String imageUrl, PromotionTarget targetType,
+                                    Long menuItemId, String menuItemName, Long categoryId, String categoryName, Long voucherId, String voucherCode,
+                                    LocalDateTime startAt, LocalDateTime endAt, int sortOrder, boolean active, boolean live, boolean notified) {}
+    public record NotificationResponse(Long id, NotificationType type, String title, String body, Long orderId, Long promotionId,
+                                       boolean read, LocalDateTime createdAt) {}
+    public record CountResponse(long count) {}
 }

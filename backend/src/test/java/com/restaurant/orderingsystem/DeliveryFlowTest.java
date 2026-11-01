@@ -54,7 +54,7 @@ class DeliveryFlowTest extends ApiTestBase {
     void fullDeliveryFlowWithTimelineReviewAndReports() throws Exception {
         long addr = address(customer);
         cart(customer, pho, 2).andExpect(jsonPath("$.subtotal").value(130000.0));
-        as(customer, put("/api/me/cart/items/" + tea), "{\"quantity\":1,\"note\":\"ít đá\"}").andExpect(jsonPath("$.itemCount").value(3));
+        as(customer, post("/api/me/cart/items"), "{\"menuItemId\":" + tea + ",\"quantity\":1,\"note\":\"ít đá\"}").andExpect(jsonPath("$.itemCount").value(3));
         as(customer, post("/api/me/checkout/preview"), "{\"addressId\":" + addr + "}").andExpect(status().isOk())
                 .andExpect(jsonPath("$.subtotal").value(150000.0)).andExpect(jsonPath("$.deliveryFee").value(15000.0))
                 .andExpect(jsonPath("$.total").value(165000.0)).andExpect(jsonPath("$.canPlace").value(true));
@@ -67,7 +67,8 @@ class DeliveryFlowTest extends ApiTestBase {
         as(staff, get("/api/manage/orders").param("status", "PENDING").param("sort", "oldest")).andExpect(jsonPath("$.content[?(@.id==" + id + ")]").isNotEmpty());
         as(staff, get("/api/manage/orders").param("q", order.get("code").asText())).andExpect(jsonPath("$.content[0].id").value(id));
         deliver(id);
-        as(customer, get("/api/me/orders/" + id)).andExpect(jsonPath("$.status").value("DELIVERED")).andExpect(jsonPath("$.paid").value(true))
+        as(customer, get("/api/me/orders/" + id)).andExpect(jsonPath("$.status").value("DELIVERED")).andExpect(jsonPath("$.payment.status").value("PAID")).andExpect(jsonPath("$.payment.method").value("COD"))
+                .andExpect(jsonPath("$.payment.confirmedByName").value("STAFF test"))
                 .andExpect(jsonPath("$.timeline", hasSize(6))).andExpect(jsonPath("$.timeline[1].status").value("CONFIRMED"))
                 .andExpect(jsonPath("$.timeline[1].byName").value("STAFF test")).andExpect(jsonPath("$.reviewable").value(true));
 

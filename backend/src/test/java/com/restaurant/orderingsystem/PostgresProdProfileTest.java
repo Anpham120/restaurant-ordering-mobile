@@ -64,8 +64,8 @@ class PostgresProdProfileTest {
 
     @Test
     void prodProfileOnPostgres() throws Exception {
-        assertEquals(1, jdbc.queryForObject("select count(*) from flyway_schema_history where success and version = '1'", Integer.class));
-        assertEquals(13, jdbc.queryForObject("select count(*) from information_schema.tables where table_schema = 'public' and table_name <> 'flyway_schema_history'", Integer.class));
+        assertEquals(2, jdbc.queryForObject("select count(*) from flyway_schema_history where success and version in ('1', '2')", Integer.class));
+        assertEquals(21, jdbc.queryForObject("select count(*) from information_schema.tables where table_schema = 'public' and table_name <> 'flyway_schema_history'", Integer.class));
         assertEquals(1, jdbc.queryForObject("select count(*) from users", Integer.class));
         assertEquals(1, jdbc.queryForObject("select count(*) from store_settings", Integer.class));
         assertEquals(0, jdbc.queryForObject("select count(*) from menu_items", Integer.class));
@@ -87,7 +87,7 @@ class PostgresProdProfileTest {
                 .andExpect(status().isCreated()), "token");
         String addr = field(call(customer, post("/api/me/addresses"), "{\"zoneId\":" + zone + ",\"label\":\"Nhà\",\"recipientName\":\"An\","
                 + "\"recipientPhone\":\"0944444444\",\"street\":\"12 Nguyễn Huệ\",\"makeDefault\":true}").andExpect(status().isCreated()), "id");
-        call(customer, put("/api/me/cart/items/" + pho), "{\"quantity\":2}").andExpect(status().isOk());
+        call(customer, post("/api/me/cart/items"), "{\"menuItemId\":" + pho + ",\"quantity\":2}").andExpect(status().isOk());
         String order = field(call(customer, post("/api/me/orders"), "{\"addressId\":" + addr + "}").andExpect(status().isCreated())
                 .andExpect(jsonPath("$.total").value(145000.0)), "id");
         for (String[] s : new String[][]{{staff, "CONFIRMED"}, {kitchen, "PREPARING"}, {kitchen, "READY"}, {staff, "DELIVERING"}, {staff, "DELIVERED"}}) {
@@ -98,6 +98,8 @@ class PostgresProdProfileTest {
 
         // the database itself rejects broken data
         assertEquals("23514", sqlState("update order_items set quantity = 0"));                      // check violation
+        assertEquals("23514", sqlState("update payments set status = 'PAID', paid_at = null"));          // paid needs paid_at
+        assertEquals("23505", sqlState("insert into payments(order_id, method, amount, status, created_at, updated_at) select order_id, 'COD', 1, 'PENDING', now(), now() from payments")); // one payment per order
         assertEquals("23505", sqlState("update addresses set is_default = true where id = " + addr + "; insert into addresses(user_id, zone_id, label, recipient_name, recipient_phone, street, is_default, created_at) select user_id, zone_id, 'B', 'B', '0944444444', 'x', true, now() from addresses where id = " + addr));
         assertEquals("23503", sqlState("delete from menu_items where id = " + pho));                   // FK: ordered dish
         assertEquals("23514", sqlState("insert into store_settings(id, store_name, hotline, store_address, open_time, close_time, updated_at) values (2,'x','1','x','08:00','09:00',now())"));

@@ -26,5 +26,10 @@ public class StoreSettings {
     @Column(name = "is_accepting_orders", nullable = false) private boolean acceptingOrders = true;
     @Column(name = "updated_at", nullable = false) private LocalDateTime updatedAt;
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "updated_by") private User updatedBy;
+    /** Receiving account for VietQR bank transfers; transfers are offered only when set. */
+    @Column(name = "bank_code", length = 20) private String bankCode;
+    @Column(name = "bank_account", length = 19) private String bankAccount;
+    @Column(name = "bank_holder", length = 80) private String bankHolder;
+    @Column(name = "transfer_timeout_minutes", nullable = false) private int transferTimeoutMinutes = 15;
     @PrePersist @PreUpdate void touch() { updatedAt = LocalDateTime.now(); }
 }

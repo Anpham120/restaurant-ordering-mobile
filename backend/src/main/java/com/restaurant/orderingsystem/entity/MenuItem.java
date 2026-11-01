@@ -26,6 +26,7 @@ public class MenuItem {
     @Column(name = "is_active", nullable = false) private boolean active = true;
     @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;
     @Column(name = "updated_at", nullable = false) private LocalDateTime updatedAt;
+    @OneToMany(mappedBy = "menuItem", cascade = CascadeType.ALL, orphanRemoval = true) @OrderBy("sortOrder, id") private List<OptionGroup> optionGroups = new ArrayList<>();
     @PrePersist void onCreate() { createdAt = updatedAt = LocalDateTime.now(); }
     @PreUpdate void onUpdate() { updatedAt = LocalDateTime.now(); }
 }

@@ -22,6 +22,7 @@ public class StoreController {
     private final OrderService orders;
     private final CatalogService catalog;
     private final StoreService store;
+    private final PaymentService payments;
 
     @GetMapping("/orders")
     public PageResponse<OrderResponse> orders(@RequestParam(required = false) List<OrderStatus> status,
@@ -37,6 +38,13 @@ public class StoreController {
 
     @PatchMapping("/orders/{id}/status")
     public OrderResponse status(@PathVariable Long id, @Valid @RequestBody StatusRequest r) { return orders.changeStatus(id, r.status(), r.note()); }
+
+    /** A transfer that arrived but was not matched automatically (e.g. wrong content). */
+    @PatchMapping("/orders/{id}/confirm-transfer")
+    public PaymentResponse confirmTransfer(@PathVariable Long id) {
+        if (!Caller.is(Role.STAFF, Role.MANAGER)) throw ApiException.forbidden("Chỉ nhân viên hoặc quản lý được xác nhận thanh toán");
+        return payments.confirmTransfer(id);
+    }
 
     @GetMapping("/kitchen/queue") public List<OrderResponse> kitchen() { return orders.kitchenQueue(); }
 

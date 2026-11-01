@@ -27,11 +27,11 @@ public class Order {
     @Column(length = 300) private String note;
     @Column(name = "delivery_fee", nullable = false, precision = 12, scale = 2) private BigDecimal deliveryFee;
     @Column(name = "discount_amount", nullable = false, precision = 12, scale = 2) private BigDecimal discountAmount = BigDecimal.ZERO;
-    @Enumerated(EnumType.STRING) @Column(name = "payment_method", nullable = false, length = 10) private PaymentMethod paymentMethod = PaymentMethod.COD;
     @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;
     @Column(name = "updated_at", nullable = false) private LocalDateTime updatedAt;
     @Version @Column(nullable = false) private long version;
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL) @OrderBy("id") private List<OrderItem> items = new ArrayList<>();
+    @OneToOne(mappedBy = "order", cascade = CascadeType.ALL) private Payment payment;
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL) @OrderBy("changedAt, id") private List<OrderStatusHistory> history = new ArrayList<>();
     @PrePersist void onCreate() {
         if (createdAt == null) createdAt = LocalDateTime.now();

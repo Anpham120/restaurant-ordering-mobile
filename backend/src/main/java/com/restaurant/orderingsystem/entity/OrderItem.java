@@ -21,4 +21,5 @@ public class OrderItem {
     /** Price charged when the order was placed. */
     @Column(name = "unit_price", nullable = false, precision = 12, scale = 2) private BigDecimal unitPrice;
     @Column(length = 200) private String note;
+    @OneToMany(mappedBy = "orderItem", cascade = CascadeType.ALL) private List<OrderItemOption> options = new ArrayList<>();
 }
