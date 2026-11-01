@@ -1,10 +1,11 @@
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {Pressable, StyleSheet, View} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
+import { KeyboardScroll } from '@/components/keyboard';
 import { PhoneFrame } from '@/components/phone';
 import { Txt } from '@/components/txt';
 import { ErrorBox, Field, Notice, Segmented } from '@/components/ui';
@@ -54,8 +55,8 @@ export default function LoginScreen() {
 
   return (
     <PhoneFrame bg={colors.white}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+      <View style={{ flex: 1 }}>
+        <KeyboardScroll contentContainerStyle={{ flexGrow: 1 }}>
           <View style={styles.hero}>
             <Image source={{ uri: HERO }} style={StyleSheet.absoluteFill} contentFit="cover" accessibilityIgnoresInvertColors />
             <View style={styles.shade} />
@@ -72,7 +73,7 @@ export default function LoginScreen() {
             {mode === 'login' ? (
               <>
                 <Field label="Số điện thoại hoặc email" value={id} onChangeText={setId} autoCapitalize="none" keyboardType="email-address"
-                  autoComplete="username" placeholder="0901 234 567" />
+                  autoComplete="username" />
                 <Field label="Mật khẩu" value={password} onChangeText={setPassword} secureTextEntry autoComplete="current-password"
                   onSubmitEditing={() => { if (valid) void submit(); }} />
                 <Pressable accessibilityRole="link" hitSlop={8} style={styles.forgot}
@@ -84,7 +85,7 @@ export default function LoginScreen() {
               <>
                 <Field label="Họ và tên" value={name} onChangeText={setName} autoComplete="name" maxLength={100} />
                 <Field label="Số điện thoại" value={phone} onChangeText={(v) => setPhone(v.replace(/[^0-9]/g, ''))} keyboardType="phone-pad"
-                  autoComplete="tel" maxLength={11} placeholder="0901234567" hint="Dùng để đăng nhập và nhận cuộc gọi giao hàng" />
+                  autoComplete="tel" maxLength={11} hint="Dùng để đăng nhập và nhận cuộc gọi giao hàng" />
                 <Field label="Email (không bắt buộc)" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
                 <Field label="Mật khẩu" value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" hint="Tối thiểu 8 ký tự" />
               </>
@@ -95,8 +96,8 @@ export default function LoginScreen() {
               Nhân viên cửa hàng đăng nhập cùng màn hình này – app tự chuyển tới khu vực làm việc theo vai trò.
             </Txt>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardScroll>
+      </View>
     </PhoneFrame>
   );
 }

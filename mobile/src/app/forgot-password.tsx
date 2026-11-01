@@ -1,8 +1,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, View, type TextInputInstance } from 'react-native';
+import { Linking, Pressable, StyleSheet, View, type TextInputInstance } from 'react-native';
 
 import { Button } from '@/components/button';
+import { KeyboardScroll } from '@/components/keyboard';
 import { PhoneFrame, TopBar } from '@/components/phone';
 import { Txt } from '@/components/txt';
 import { Card, ErrorBox, Field, Notice } from '@/components/ui';
@@ -77,8 +78,8 @@ export default function ForgotPasswordScreen() {
   return (
     <PhoneFrame>
       <TopBar title="Quên mật khẩu" onBack={back} />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }} keyboardShouldPersistTaps="handled">
+      <View style={{ flex: 1 }}>
+        <KeyboardScroll contentContainerStyle={{ padding: 16, gap: 12 }}>
           <View style={styles.steps} accessibilityLabel={`Bước ${step === 'request' ? 1 : 2} trên 2`}>
             <View style={[styles.step, styles.stepOn]} />
             <View style={[styles.step, step === 'reset' && styles.stepOn]} />
@@ -91,7 +92,7 @@ export default function ForgotPasswordScreen() {
               </Txt>
               {error ? <ErrorBox message={error} /> : null}
               <Field label="Số điện thoại hoặc email" value={login} onChangeText={setLogin} autoCapitalize="none" keyboardType="email-address"
-                autoComplete="username" placeholder="0901 234 567" autoFocus={!login} onSubmitEditing={() => { if (login.trim()) void send(); }} />
+                autoComplete="username" autoFocus={!login} onSubmitEditing={() => { if (login.trim()) void send(); }} />
               <Button title="Gửi mã xác nhận" size="lg" icon="mail-outline" onPress={send} loading={busy === 'send'} disabled={!login.trim()} />
             </Card>
           ) : (
@@ -126,8 +127,8 @@ export default function ForgotPasswordScreen() {
               <Txt weight="semibold" size={14} color={colors.primary}>Dùng số điện thoại hoặc email khác</Txt>
             </Pressable>
           ) : null}
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardScroll>
+      </View>
     </PhoneFrame>
   );
 }

@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { KeyboardScroll } from '@/components/keyboard';
 import { Button } from '@/components/button';
 import { PhoneFrame } from '@/components/phone';
 import { Txt } from '@/components/txt';
@@ -84,7 +85,7 @@ function Detail({ detail, onFavorite }: { detail: MenuItemDetail; onFavorite: (v
 
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 150 }}>
+      <KeyboardScroll contentContainerStyle={{ paddingBottom: 150 }}>
         <FoodImage uri={item.imageUrl} style={styles.hero} rounded={0} />
         <View style={styles.sheet}>
           <View style={{ gap: 8 }}>
@@ -137,7 +138,7 @@ function Detail({ detail, onFavorite }: { detail: MenuItemDetail; onFavorite: (v
           }) : null}
 
           {item.available ? (
-            <Field label="Ghi chú cho quán (không bắt buộc)" value={note} onChangeText={setNote} placeholder="Ví dụ: không hành, nhiều tái, ít bánh…"
+            <Field label="Ghi chú cho quán (không bắt buộc)" value={note} onChangeText={setNote} placeholder="Thêm ghi chú cho món này"
               multiline maxLength={200} />
           ) : null}
 
@@ -155,7 +156,7 @@ function Detail({ detail, onFavorite }: { detail: MenuItemDetail; onFavorite: (v
             ))}
           </View>
         </View>
-      </ScrollView>
+      </KeyboardScroll>
 
       <Pressable accessibilityRole="button" accessibilityLabel={item.favorite ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'} onPress={toggleFavorite}
         style={[styles.round, shadow, { top: insets.top + 16, right: 16 }]}>

@@ -10,6 +10,7 @@ import { useWide } from '@/lib/hooks';
 import { navFor } from '@/lib/nav';
 import { useSession } from '@/lib/session';
 import { colors, radius } from '@/lib/theme';
+import { KeyboardScroll } from './keyboard';
 import { Txt } from './txt';
 
 /** Store and admin pages: dark sidebar on wide screens, scrollable top navigation on phones. */
@@ -98,10 +99,10 @@ export function Page({ title, subtitle, actions, children, scroll = true }: {
   );
   if (!scroll) return <View style={[styles.page, { flex: 1 }]}>{head}{children}</View>;
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
+    <KeyboardScroll style={{ flex: 1 }} contentContainerStyle={styles.page}>
       {head}
       {children}
-    </ScrollView>
+    </KeyboardScroll>
   );
 }
 

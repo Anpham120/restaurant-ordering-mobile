@@ -20,21 +20,30 @@ export interface Store {
   storeName: string; hotline: string; storeAddress: string; openTime: string; closeTime: string;
   minOrderAmount: number; acceptingOrders: boolean; openNow: boolean; closedReason: string | null;
   paymentMethods: PaymentMethod[]; bankCode: string | null; bankAccount: string | null; bankHolder: string | null; transferTimeoutMinutes: number;
+  /** Restaurant position and the delivery pricing rules (see DeliveryService in the backend). */
+  latitude: number | null; longitude: number | null; deliveryBaseKm: number; deliveryBaseFee: number; deliveryExtraFeePerKm: number;
+  deliveryMaxKm: number; prepMinutes: number; minutesPerKm: number;
 }
 export interface StoreSettingsInput {
   storeName: string; hotline: string; storeAddress: string; openTime: string; closeTime: string; minOrderAmount: number; acceptingOrders: boolean;
   bankCode: string | null; bankAccount: string | null; bankHolder: string | null; transferTimeoutMinutes: number;
+  latitude?: number | null; longitude?: number | null; deliveryBaseKm?: number; deliveryBaseFee?: number; deliveryExtraFeePerKm?: number;
+  deliveryMaxKm?: number; prepMinutes?: number; minutesPerKm?: number;
 }
 
-export interface Zone { id: number; name: string; deliveryFee: number; estimatedMinutes: number; sortOrder: number; active: boolean }
-export interface ZoneInput { name: string; deliveryFee: number; estimatedMinutes: number; sortOrder: number; active?: boolean }
+/** Distance from the restaurant, fee and delivery estimate for a map position. */
+export interface DeliveryQuote { distanceKm: number; deliveryFee: number; estimatedMinutes: number; deliverable: boolean; message: string | null }
+/** A place found by the address search, with its position. */
+export interface GeoPlace { name: string; latitude: number; longitude: number }
 
 export interface Address {
-  id: number; zoneId: number; zoneName: string; deliveryFee: number; estimatedMinutes: number; zoneActive: boolean;
-  label: string; recipientName: string; recipientPhone: string; street: string; note: string | null; isDefault: boolean;
+  id: number; label: string; recipientName: string; recipientPhone: string; street: string; note: string | null; isDefault: boolean;
+  latitude: number | null; longitude: number | null; hasLocation: boolean;
+  distanceKm: number; deliveryFee: number; estimatedMinutes: number; deliverable: boolean; deliveryMessage: string | null;
 }
 export interface AddressInput {
-  zoneId: number; label: string; recipientName: string; recipientPhone: string; street: string; note?: string | null; makeDefault: boolean;
+  label: string; recipientName: string; recipientPhone: string; street: string; latitude: number; longitude: number;
+  note?: string | null; makeDefault: boolean;
 }
 
 export interface Category { id: number; name: string; imageUrl: string | null; sortOrder: number; itemCount: number }
@@ -94,7 +103,7 @@ export interface StatusEvent { status: OrderStatus; at: string; byName: string |
 export interface Order {
   id: number; code: string; status: OrderStatus; createdAt: string; updatedAt: string;
   customerId: number; customerName: string; customerPhone: string;
-  recipientName: string; recipientPhone: string; deliveryStreet: string; zoneName: string; deliveryNote: string | null; note: string | null;
+  recipientName: string; recipientPhone: string; deliveryStreet: string; distanceKm: number; deliveryNote: string | null; note: string | null;
   items: OrderItem[]; itemCount: number; subtotal: number; deliveryFee: number; voucherCode: string | null; discount: number; total: number;
   payment: Payment | null; estimatedDeliveryAt: string | null; cancellable: boolean; reviewable: boolean; timeline: StatusEvent[];
 }
@@ -105,10 +114,10 @@ export interface CustomerSummary { id: number; fullName: string; phone: string; 
 
 export interface DailyRevenue { date: string; revenue: number; orders: number }
 export interface TopItem { menuItemId: number; name: string; imageUrl: string | null; quantity: number; revenue: number }
-export interface ZoneRevenue { zone: string; revenue: number; orders: number }
+export interface DistanceRevenue { band: string; revenue: number; orders: number }
 export interface RevenueReport {
   from: string; to: string; revenue: number; deliveredOrders: number; cancelledOrders: number; averageOrderValue: number;
-  daily: DailyRevenue[]; topItems: TopItem[]; byZone: ZoneRevenue[];
+  daily: DailyRevenue[]; topItems: TopItem[]; byDistance: DistanceRevenue[];
 }
 export interface Dashboard {
   revenueToday: number; revenueYesterday: number; deliveredToday: number; cancelledToday: number; pendingOrders: number; activeOrders: number;
@@ -217,7 +226,9 @@ export const api = {
 
   // public
   store: () => get<Store>('/api/store'),
-  zones: () => get<Zone[]>('/api/zones'),
+  deliveryQuote: (lat: number, lng: number) => get<DeliveryQuote>(`/api/delivery/quote${qs({ lat, lng })}`),
+  searchPlaces: (q: string) => get<GeoPlace[]>(`/api/geocode/search${qs({ q })}`),
+  reversePlace: (lat: number, lng: number) => get<GeoPlace[]>(`/api/geocode/reverse${qs({ lat, lng })}`),
   categories: () => get<Category[]>('/api/categories'),
   vouchers: () => get<Voucher[]>('/api/vouchers'),
   menu: (categoryId?: number | null, q?: string) => get<MenuItem[]>(`/api/menu${qs({ categoryId, q })}`),
@@ -284,10 +295,6 @@ export const api = {
   updatePromotion: (id: number, b: PromotionInput) => put<Promotion>(`/api/admin/promotions/${id}`, b),
   deletePromotion: (id: number) => del(`/api/admin/promotions/${id}`),
   announcePromotion: (id: number) => post<Announce>(`/api/admin/promotions/${id}/announce`),
-  adminZones: () => get<Zone[]>('/api/admin/zones'),
-  createZone: (b: ZoneInput) => post<Zone>('/api/admin/zones', b),
-  updateZone: (id: number, b: ZoneInput) => put<Zone>(`/api/admin/zones/${id}`, b),
-  deleteZone: (id: number) => del(`/api/admin/zones/${id}`),
   adminVouchers: () => get<Voucher[]>('/api/admin/vouchers'),
   createVoucher: (b: VoucherInput) => post<Voucher>('/api/admin/vouchers', b),
   updateVoucher: (id: number, b: VoucherInput) => put<Voucher>(`/api/admin/vouchers/${id}`, b),

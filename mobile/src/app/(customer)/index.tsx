@@ -10,6 +10,8 @@ import { Button } from '@/components/button';
 import { DishCard, DishRow } from '@/components/dish';
 import { Sheet } from '@/components/modal';
 import { PromoCarousel } from '@/components/promo-carousel';
+import { PromoPopup } from '@/components/promo-popup';
+import { dismissWelcome, lastDismissedWelcome } from '@/lib/welcome';
 import { Txt } from '@/components/txt';
 import { Empty, ErrorBox, FoodImage, Loading, Notice, SearchBox } from '@/components/ui';
 import { api, type Address, type Category, type MenuItem, type Promotion, type Store, type Voucher } from '@/lib/api';
@@ -26,7 +28,8 @@ interface HomeData { store: Store; categories: Category[]; menu: MenuItem[]; pop
 
 export default function Home() {
   const insets = useSafeAreaInsets();
-  const { user } = useSession();
+  const { user, welcomeSeq } = useSession();
+  const [dismissedSeq, setDismissedSeq] = useState(lastDismissedWelcome);
   const { plainLine, setVoucherHint } = useCart();
   const toast = useToast();
   const unread = useUnread();
@@ -62,6 +65,10 @@ export default function Home() {
     else if (p.targetType === 'CATEGORY' && p.categoryId) setCat(p.categoryId);
     else if (p.targetType === 'VOUCHER') setPromo(p);
   };
+  // once per sign-in: the newest running campaigns in a popup, swipeable; they stay in the banner below afterwards
+  const popupPromos = useMemo(() => [...(data?.promotions ?? [])].sort((a, b) => b.id - a.id).slice(0, 5), [data?.promotions]);
+  const showPopup = user?.role === 'CUSTOMER' && welcomeSeq > dismissedSeq && popupPromos.length > 0 && !!data;
+  const closePopup = () => { dismissWelcome(welcomeSeq); setDismissedSeq(welcomeSeq); };
   const promoVoucher = promo ? data?.vouchers.find((v) => v.id === promo.voucherId) : undefined;
 
   return (
@@ -75,7 +82,7 @@ export default function Home() {
               <Txt size={12} color={colors.muted}>Giao đến</Txt>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <Txt weight="bold" size={15} numberOfLines={1} style={{ flexShrink: 1 }}>
-                  {data?.address ? `${data.address.street}, ${data.address.zoneName}` : user ? 'Thêm địa chỉ giao hàng' : 'Đăng nhập để đặt món'}
+                  {data?.address ? data.address.street : user ? 'Thêm địa chỉ giao hàng' : 'Đăng nhập để đặt món'}
                 </Txt>
                 <Ionicons name="chevron-down" size={16} color={colors.text} />
               </View>
@@ -154,6 +161,8 @@ export default function Home() {
         </ScrollView>
       ) : null}
       <CartBar />
+
+      <PromoPopup promotions={popupPromos} visible={showPopup} onClose={closePopup} onOpen={(p) => { closePopup(); openPromo(p); }} />
 
       <Sheet visible={!!promo} onClose={() => setPromo(null)} title={promo?.title ?? ''} width={420}
         footer={promo?.voucherCode ? (

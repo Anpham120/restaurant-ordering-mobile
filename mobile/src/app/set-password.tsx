@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
+import { KeyboardScroll } from '@/components/keyboard';
 import { PhoneFrame } from '@/components/phone';
 import { Txt } from '@/components/txt';
 import { Card, ErrorBox, Field } from '@/components/ui';
@@ -45,8 +46,8 @@ export default function SetPasswordScreen() {
 
   return (
     <PhoneFrame>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={{ padding: 16, paddingTop: insets.top + 24, gap: 12 }} keyboardShouldPersistTaps="handled">
+      <View style={{ flex: 1 }}>
+        <KeyboardScroll contentContainerStyle={{ padding: 16, paddingTop: insets.top + 24, gap: 12 }}>
           <View style={styles.icon}><Ionicons name="key-outline" size={28} color={colors.primary} /></View>
           <Txt weight="extrabold" size={22} style={{ textAlign: 'center' }}>Đặt mật khẩu mới</Txt>
           <Txt size={14} color={colors.textSoft} style={{ textAlign: 'center', lineHeight: 20 }}>
@@ -63,8 +64,8 @@ export default function SetPasswordScreen() {
             <Button title="Lưu mật khẩu và tiếp tục" size="lg" onPress={submit} loading={busy} disabled={!valid} />
           </Card>
           <Button title="Đăng xuất" variant="ghost" onPress={() => { logout(); router.replace('/login'); }} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardScroll>
+      </View>
     </PhoneFrame>
   );
 }

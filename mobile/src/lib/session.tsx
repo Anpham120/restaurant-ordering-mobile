@@ -20,6 +20,8 @@ interface SessionValue {
   /** Why the user was signed out (expired or revoked session); shown on the login screen. */
   notice: string | null;
   clearNotice: () => void;
+  /** Counts sign-ins and registrations of this run (not restored sessions): the promotion popup is shown once per sign-in. */
+  welcomeSeq: number;
 }
 
 export const SESSION_EXPIRED = 'Phiên đăng nhập đã hết hiệu lực, vui lòng đăng nhập lại.';
@@ -40,6 +42,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [state, setState] = useState<Stored | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [welcomeSeq, setWelcomeSeq] = useState(0);
 
   const persist = useCallback((s: Stored | null) => {
     setAuthToken(s?.token ?? null);
@@ -84,14 +87,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     ready,
     user: state?.user ?? null,
     token: state?.token ?? null,
-    login: async (login, password) => accept(await api.login(login, password)),
-    register: async (b) => accept(await api.register(b)),
+    login: async (login, password) => { const u = accept(await api.login(login, password)); setWelcomeSeq((n) => n + 1); return u; },
+    register: async (b) => { const u = accept(await api.register(b)); setWelcomeSeq((n) => n + 1); return u; },
     logout: () => persist(null),
     setUser: (u) => { if (state) persist({ token: state.token, user: u }); },
     acceptAuth: accept,
     notice,
     clearNotice: () => setNotice(null),
-  }), [ready, state, accept, persist, notice]);
+    welcomeSeq,
+  }), [ready, state, accept, persist, notice, welcomeSeq]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

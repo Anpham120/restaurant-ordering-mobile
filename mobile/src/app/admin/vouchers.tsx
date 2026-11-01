@@ -82,7 +82,7 @@ export default function AdminVouchers() {
           {form ? (
             <View style={{ gap: 12 }}>
               <Field label="Mã" value={form.code} onChangeText={(v) => set('code', v.toUpperCase().replace(/[^A-Z0-9_-]/g, ''))} autoCapitalize="characters" maxLength={40} />
-              <Field label="Mô tả cho khách" value={form.description} onChangeText={(v) => set('description', v)} placeholder="Giảm 10% đơn đầu tiên" maxLength={200} />
+              <Field label="Mô tả cho khách" value={form.description} onChangeText={(v) => set('description', v)} placeholder="Mô tả ngắn cho khách" maxLength={200} />
               <Segmented value={form.discountType} onChange={(v) => set('discountType', v)} options={[{ value: 'PERCENT', label: 'Giảm %' }, { value: 'AMOUNT', label: 'Giảm tiền' }]} />
               <Field label={form.discountType === 'PERCENT' ? 'Phần trăm (≤ 100)' : 'Số tiền giảm (đ)'} value={form.discountValue}
                 onChangeText={(v) => set('discountValue', v.replace(/\D/g, ''))} keyboardType="numeric" />

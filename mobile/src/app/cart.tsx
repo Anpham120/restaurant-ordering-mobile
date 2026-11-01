@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { KeyboardScroll } from '@/components/keyboard';
 import { Button } from '@/components/button';
 import { Sheet } from '@/components/modal';
 import { PhoneFrame, TopBar } from '@/components/phone';
@@ -11,7 +12,7 @@ import { Txt } from '@/components/txt';
 import { Empty, ErrorBox, Field, FoodImage, Line, Loading, Notice, Stepper } from '@/components/ui';
 import { api, errorMessage, type Address, type CheckoutPreview, type PaymentMethod } from '@/lib/api';
 import { useCart } from '@/lib/cart';
-import { money, optionText } from '@/lib/format';
+import { km, money, optionText } from '@/lib/format';
 import { useLoad } from '@/lib/hooks';
 import { useSession } from '@/lib/session';
 import { colors, fonts, radius, shadow } from '@/lib/theme';
@@ -94,7 +95,7 @@ function Checkout() {
 
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <KeyboardScroll contentContainerStyle={styles.content}>
         {addresses.error ? <ErrorBox message={addresses.error} onRetry={addresses.reload} /> : null}
 
         <View style={[styles.card, shadow]}>
@@ -110,10 +111,16 @@ function Checkout() {
           {chosen ? (
             <Txt size={14} color={colors.textSoft} style={{ lineHeight: 21 }}>
               <Txt weight="bold" size={14}>{chosen.recipientName} · {chosen.recipientPhone}{'\n'}</Txt>
-              {chosen.street}, {chosen.zoneName}
+              {chosen.street}
             </Txt>
           ) : <Txt size={14} color={colors.muted}>Bạn chưa có địa chỉ nào. Thêm địa chỉ để đặt hàng.</Txt>}
-          {chosen ? <Notice icon="time-outline" tone="success" text={`Giao dự kiến ${chosen.estimatedMinutes}–${chosen.estimatedMinutes + 10} phút`} /> : null}
+          {chosen?.deliverable ? <Notice icon="time-outline" tone="success"
+            text={`Cách cửa hàng ${km(chosen.distanceKm)} · giao dự kiến ${chosen.estimatedMinutes}–${chosen.estimatedMinutes + 10} phút`} /> : null}
+          {chosen && !chosen.hasLocation ? (
+            <Pressable accessibilityRole="button" onPress={() => router.push('/addresses')}>
+              <Txt weight="semibold" size={13} color={colors.primary}>Địa chỉ này chưa có vị trí · bấm để cập nhật</Txt>
+            </Pressable>
+          ) : null}
         </View>
 
         <View style={[styles.card, shadow, { paddingVertical: 6 }]}>
@@ -148,7 +155,7 @@ function Checkout() {
             </View>
           ) : (
             <View style={styles.rowGap}>
-              <TextInput value={voucherInput} onChangeText={setVoucherInput} placeholder="Nhập mã, ví dụ WELCOME10" placeholderTextColor={colors.faint}
+              <TextInput value={voucherInput} onChangeText={setVoucherInput} placeholder="Nhập mã giảm giá" placeholderTextColor={colors.faint}
                 autoCapitalize="characters" accessibilityLabel="Mã giảm giá" style={styles.voucherInput} onSubmitEditing={applyVoucher} />
               <Button title="Áp dụng" size="sm" variant="soft" onPress={applyVoucher} disabled={!voucherInput.trim()} style={{ height: 46 }} />
             </View>
@@ -164,26 +171,30 @@ function Checkout() {
         </View>
 
         <View style={[styles.card, shadow]}>
-          <Field label="Ghi chú cho cửa hàng" value={note} onChangeText={setNote} placeholder="Ví dụ: gọi trước khi giao" maxLength={300} />
+          <Field label="Ghi chú cho cửa hàng" value={note} onChangeText={setNote} placeholder="Ghi chú thêm cho đơn hàng" maxLength={300} />
         </View>
 
         <View style={[styles.card, shadow]}>
           <Txt weight="extrabold" size={15}>Thanh toán</Txt>
           <PayOption on={method === 'COD'} onPress={() => setMethod('COD')} icon="cash-outline" iconColor={colors.success}
             title="Tiền mặt khi nhận hàng (COD)" />
+          {/* always listed so the customer sees the option; it is greyed out until the store has set a receiving account */}
           {(p?.paymentMethods ?? []).includes('BANK_TRANSFER') ? (
             <PayOption on={method === 'BANK_TRANSFER'} onPress={() => setMethod('BANK_TRANSFER')} icon="qr-code-outline" iconColor={colors.info}
               title="Chuyển khoản VietQR" sub="Quét mã bằng app ngân hàng · tự xác nhận sau vài giây" />
+          ) : p ? (
+            <PayOption on={false} disabled onPress={() => undefined} icon="qr-code-outline" iconColor={colors.faint}
+              title="Chuyển khoản VietQR" sub="Cửa hàng chưa bật chuyển khoản, tạm thời chỉ thanh toán khi nhận hàng" />
           ) : null}
           <View style={styles.summary}>
             <Line label={`Tạm tính (${cart.itemCount} món)`} value={money(p?.subtotal ?? cart.subtotal)} />
-            <Line label={`Phí giao hàng${chosen ? ` · ${chosen.zoneName}` : ''}`} value={p ? money(p.deliveryFee) : '—'} />
+            <Line label={`Phí giao hàng${chosen?.deliverable ? ` · ${km(chosen.distanceKm)}` : ''}`} value={p ? money(p.deliveryFee) : '—'} />
             {p && p.discount > 0 ? <Line label="Giảm giá" value={`−${money(p.discount)}`} valueColor={colors.success} /> : null}
           </View>
         </View>
 
         {p && p.problems.filter((x) => x !== p.voucherMessage).map((x) => <Notice key={x} icon="alert-circle" tone="danger" text={x} />)}
-      </ScrollView>
+      </KeyboardScroll>
 
       <View style={[styles.bottom, { paddingBottom: insets.bottom + 18 }]}>
         <View style={styles.rowBetween}>
@@ -202,7 +213,7 @@ function Checkout() {
             <View style={{ flex: 1, gap: 2 }}>
               <Txt weight="bold" size={14}>{a.label}{a.isDefault ? ' · Mặc định' : ''}</Txt>
               <Txt size={13} color={colors.textSoft}>{a.recipientName} · {a.recipientPhone}</Txt>
-              <Txt size={13} color={colors.muted}>{a.street}, {a.zoneName} · phí {money(a.deliveryFee)}</Txt>
+              <Txt size={13} color={a.deliverable ? colors.muted : colors.danger}>{a.street}{a.deliverable ? ` · ${km(a.distanceKm)} · phí ${money(a.deliveryFee)}` : ` · ${a.hasLocation ? 'ngoài phạm vi giao' : 'chưa có vị trí'}`}</Txt>
             </View>
           </Pressable>
         ))}
@@ -211,16 +222,17 @@ function Checkout() {
   );
 }
 
-function PayOption({ on, onPress, icon, iconColor, title, sub }: {
-  on: boolean; onPress: () => void; icon: 'cash-outline' | 'qr-code-outline'; iconColor: string; title: string; sub?: string;
+function PayOption({ on, onPress, icon, iconColor, title, sub, disabled }: {
+  on: boolean; onPress: () => void; icon: 'cash-outline' | 'qr-code-outline'; iconColor: string; title: string; sub?: string; disabled?: boolean;
 }) {
   return (
-    <Pressable accessibilityRole="radio" accessibilityState={{ checked: on }} onPress={onPress} style={[styles.pay, on && styles.payOn]}>
+    <Pressable accessibilityRole="radio" accessibilityState={{ checked: on, disabled: !!disabled }} disabled={disabled} onPress={onPress}
+      style={[styles.pay, on && styles.payOn, disabled && { opacity: 0.6, backgroundColor: colors.neutralSoft }]}>
       <Ionicons name={on ? 'radio-button-on' : 'radio-button-off'} size={20} color={colors.primary} />
       <Ionicons name={icon} size={20} color={iconColor} />
       <View style={{ flex: 1 }}>
         <Txt size={14} weight={on ? 'semibold' : 'regular'}>{title}</Txt>
-        {sub ? <Txt size={12} color={colors.success}>{sub}</Txt> : null}
+        {sub ? <Txt size={12} color={disabled ? colors.muted : colors.success}>{sub}</Txt> : null}
       </View>
     </Pressable>
   );

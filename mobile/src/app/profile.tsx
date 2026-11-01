@@ -1,7 +1,8 @@
 import { Redirect } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 
+import { KeyboardScroll } from '@/components/keyboard';
 import { Button } from '@/components/button';
 import { PhoneFrame, TopBar } from '@/components/phone';
 import { Txt } from '@/components/txt';
@@ -52,7 +53,7 @@ export default function ProfileScreen() {
   return (
     <PhoneFrame>
       <TopBar title="Thông tin tài khoản" />
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }} keyboardShouldPersistTaps="handled">
+      <KeyboardScroll contentContainerStyle={{ padding: 16, gap: 12 }}>
         <Card style={{ gap: 12 }}>
           <Txt weight="extrabold" size={16}>Thông tin cá nhân</Txt>
           <Field label="Họ và tên" value={name} onChangeText={setName} maxLength={100} />
@@ -84,7 +85,7 @@ export default function ProfileScreen() {
           <Button title="Đổi mật khẩu" variant="dark" onPress={savePassword} loading={busy === 'password'} disabled={!current || next.length < 8 || next !== confirm} />
           <Txt size={12} color={colors.muted}>Sau khi đổi, các thiết bị khác đang đăng nhập sẽ bị đăng xuất.</Txt>
         </Card>
-      </ScrollView>
+      </KeyboardScroll>
     </PhoneFrame>
   );
 }

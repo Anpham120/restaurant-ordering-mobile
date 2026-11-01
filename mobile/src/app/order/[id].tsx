@@ -10,7 +10,7 @@ import { Txt } from '@/components/txt';
 import { Badge, Card, ErrorBox, FoodImage, Line, Loading, Stars, StatusBadge } from '@/components/ui';
 import { api, errorMessage, type Order, type OrderItem, type OrderStatus, type Store } from '@/lib/api';
 import { useCart } from '@/lib/cart';
-import { money, optionText, paymentChip, time } from '@/lib/format';
+import { km, money, optionText, paymentChip, time } from '@/lib/format';
 import { useLoad } from '@/lib/hooks';
 import { OrderService } from '@/lib/order-flow';
 import { colors, fonts, radius } from '@/lib/theme';
@@ -128,7 +128,7 @@ function Tracking({ order, hotline, onChange, reload }: { order: Order; hotline:
         ))}
         <View style={styles.sum}>
           <Line label="Tạm tính" value={money(order.subtotal)} />
-          <Line label={`Phí giao · ${order.zoneName}`} value={money(order.deliveryFee)} />
+          <Line label={`Phí giao · ${km(order.distanceKm)}`} value={money(order.deliveryFee)} />
           {order.discount > 0 ? <Line label={`Giảm giá (${order.voucherCode})`} value={`−${money(order.discount)}`} valueColor={colors.success} /> : null}
           <Line label="Tổng cộng" value={money(order.total)} strong />
           <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
@@ -136,7 +136,7 @@ function Tracking({ order, hotline, onChange, reload }: { order: Order; hotline:
           </View>
         </View>
         <Txt size={14} color={colors.textSoft} style={{ lineHeight: 20 }}>
-          Giao đến: {order.recipientName} · {order.recipientPhone}{'\n'}{order.deliveryStreet}, {order.zoneName}
+          Giao đến: {order.recipientName} · {order.recipientPhone}{'\n'}{order.deliveryStreet}
         </Txt>
         {order.note ? <Txt size={13} color={colors.muted}>Ghi chú: {order.note}</Txt> : null}
       </Card>

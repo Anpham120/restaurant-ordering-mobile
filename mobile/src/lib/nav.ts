@@ -15,7 +15,6 @@ const ADMIN: NavItem[] = [
   { href: '/admin/vouchers', label: 'Khuyến mãi', icon: 'ticket-outline' },
   { href: '/admin/promotions', label: 'Chương trình', icon: 'megaphone-outline' },
   { href: '/admin/payments', label: 'Thanh toán', icon: 'card-outline' },
-  { href: '/admin/zones', label: 'Khu vực giao', icon: 'map-outline' },
   { href: '/admin/staff', label: 'Nhân viên', icon: 'people-outline' },
   { href: '/admin/customers', label: 'Khách hàng', icon: 'person-circle-outline' },
   { href: '/admin/reviews', label: 'Đánh giá', icon: 'star-outline' },

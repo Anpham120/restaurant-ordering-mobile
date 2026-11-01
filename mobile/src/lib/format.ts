@@ -8,6 +8,11 @@ export function money(v: number | null | undefined): string {
   return `${nf.format(Math.round(v ?? 0))}đ`;
 }
 
+/** 3.4 -> "3,4 km" */
+export function km(v: number | null | undefined): string {
+  return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(v ?? 0)} km`;
+}
+
 /** Server timestamps are Vietnam local time without an offset. */
 export function parseDate(s: string | null | undefined): Date | null {
   if (!s) return null;

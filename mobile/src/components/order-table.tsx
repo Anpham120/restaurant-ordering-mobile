@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { Order } from '@/lib/api';
-import { dateTime, money } from '@/lib/format';
+import { dateTime, km, money } from '@/lib/format';
 import { colors } from '@/lib/theme';
 import { Txt } from './txt';
 import { StatusBadge } from './ui';
@@ -14,7 +14,7 @@ export function OrderTable({ orders, onOpen }: { orders: Order[]; onOpen: (o: Or
         <View style={[styles.row, styles.head]}>
           <Txt weight="semibold" size={13} color={colors.muted} style={styles.c1}>Mã đơn</Txt>
           <Txt weight="semibold" size={13} color={colors.muted} style={styles.c2}>Khách hàng</Txt>
-          <Txt weight="semibold" size={13} color={colors.muted} style={styles.c3}>Khu vực</Txt>
+          <Txt weight="semibold" size={13} color={colors.muted} style={styles.c3}>Khoảng cách</Txt>
           <Txt weight="semibold" size={13} color={colors.muted} style={styles.c4}>Giờ đặt</Txt>
           <Txt weight="semibold" size={13} color={colors.muted} style={[styles.c5, { textAlign: 'right' }]}>Tổng tiền</Txt>
           <Txt weight="semibold" size={13} color={colors.muted} style={styles.c6}>Trạng thái</Txt>
@@ -26,7 +26,7 @@ export function OrderTable({ orders, onOpen }: { orders: Order[]; onOpen: (o: Or
               <Txt size={14} numberOfLines={1}>{o.recipientName}</Txt>
               <Txt size={12} color={colors.muted}>{o.recipientPhone}</Txt>
             </View>
-            <Txt size={14} style={styles.c3}>{o.zoneName}</Txt>
+            <Txt size={14} style={styles.c3}>{km(o.distanceKm)}</Txt>
             <Txt size={14} style={styles.c4}>{dateTime(o.createdAt)}</Txt>
             <Txt weight="bold" size={14} style={[styles.c5, { textAlign: 'right' }]}>{money(o.total)}</Txt>
             <View style={styles.c6}><StatusBadge status={o.status} /></View>

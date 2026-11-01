@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { colors, radius } from '@/lib/theme';
 import { Button } from './button';
 import { Txt } from './txt';
+import { KeyboardAvoid, KeyboardScroll } from './keyboard';
 import { Field } from './ui';
 
 /** Centered dialog on wide screens, bottom sheet on phones. */
@@ -12,8 +13,8 @@ export function Sheet({ visible, onClose, title, children, footer, width = 520 }
   visible: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode; width?: number;
 }) {
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.backdrop}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
+      <KeyboardAvoid style={styles.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Đóng" />
         <View style={[styles.sheet, { maxWidth: width }]}>
           <View style={styles.head}>
@@ -22,10 +23,10 @@ export function Sheet({ visible, onClose, title, children, footer, width = 520 }
               <Ionicons name="close" size={22} color={colors.text} />
             </Pressable>
           </View>
-          <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">{children}</ScrollView>
+          <KeyboardScroll contentContainerStyle={styles.body}>{children}</KeyboardScroll>
           {footer ? <View style={styles.footer}>{footer}</View> : null}
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAvoid>
     </Modal>
   );
 }

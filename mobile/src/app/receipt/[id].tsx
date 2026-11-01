@@ -7,7 +7,7 @@ import { PhoneFrame, TopBar } from '@/components/phone';
 import { Txt } from '@/components/txt';
 import { Empty, ErrorBox, Loading } from '@/components/ui';
 import { api, type Order, type Store } from '@/lib/api';
-import { fullDateTime, money, optionText, paymentChip, statusLabel } from '@/lib/format';
+import { fullDateTime, km, money, optionText, paymentChip, statusLabel } from '@/lib/format';
 import { useLoad } from '@/lib/hooks';
 import { OrderService } from '@/lib/order-flow';
 import { colors, radius } from '@/lib/theme';
@@ -75,7 +75,7 @@ function Receipt({ order, store }: { order: Order; store: Store }) {
         <Dash />
         <Row label="Thời gian đặt" value={fullDateTime(order.createdAt)} mono />
         <Row label="Người nhận" value={`${order.recipientName} · ${order.recipientPhone}`} />
-        <Row label="Giao đến" value={`${order.deliveryStreet}, ${order.zoneName}`} />
+        <Row label="Giao đến" value={order.deliveryStreet} />
         {order.note ? <Row label="Ghi chú" value={order.note} /> : null}
         <Dash />
         {order.items.map((i) => (
@@ -91,7 +91,7 @@ function Receipt({ order, store }: { order: Order; store: Store }) {
         ))}
         <Dash />
         <Row label={`Tạm tính (${order.itemCount} món)`} value={money(order.subtotal)} mono />
-        <Row label={`Phí giao hàng · ${order.zoneName}`} value={money(order.deliveryFee)} mono />
+        <Row label={`Phí giao hàng · ${km(order.distanceKm)}`} value={money(order.deliveryFee)} mono />
         {order.discount > 0 ? <Row label={`Giảm giá${order.voucherCode ? ` (${order.voucherCode})` : ''}`} value={`-${money(order.discount)}`} mono /> : null}
         <View style={styles.double} />
         <View style={styles.row}>
@@ -142,7 +142,7 @@ function receiptText(order: Order, store: Store, payRows: [string, string][]): s
   return [
     store.storeName.toUpperCase(), store.storeAddress, `Hotline: ${store.hotline}`, line,
     `BIÊN NHẬN #${order.code}`, `Đặt lúc: ${fullDateTime(order.createdAt)}`,
-    `Giao đến: ${order.recipientName} · ${order.deliveryStreet}, ${order.zoneName}`, line,
+    `Giao đến: ${order.recipientName} · ${order.deliveryStreet}`, line,
     ...items, line,
     `Tạm tính: ${money(order.subtotal)}`, `Phí giao: ${money(order.deliveryFee)}`,
     ...(order.discount > 0 ? [`Giảm giá${order.voucherCode ? ` (${order.voucherCode})` : ''}: -${money(order.discount)}`] : []),

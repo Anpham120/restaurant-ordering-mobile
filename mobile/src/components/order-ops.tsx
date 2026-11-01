@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { api, errorMessage, type Order } from '@/lib/api';
-import { countdown, dateTime, minutesSince, money, optionText, paymentChip, statusLabel, time } from '@/lib/format';
+import { countdown, dateTime, km, minutesSince, money, optionText, paymentChip, statusLabel, time } from '@/lib/format';
 import { OrderService, type Action } from '@/lib/order-flow';
 import { useSession } from '@/lib/session';
 import { colors, radius, shadow } from '@/lib/theme';
@@ -43,7 +43,7 @@ export function useStatusChange(onChanged: (o: Order) => void) {
       onCancel={() => setPending(null)}
       suggestions={pending?.action.label === 'Giao thất bại'
         ? ['Khách không nghe máy', 'Sai địa chỉ', 'Khách từ chối nhận']
-        : ['Hết nguyên liệu', 'Ngoài khu vực giao', 'Khách yêu cầu hủy', 'Đơn nghi giả mạo']}
+        : ['Hết nguyên liệu', 'Ngoài phạm vi giao', 'Khách yêu cầu hủy', 'Đơn nghi giả mạo']}
       onConfirm={(reason) => (pending ? run(pending.order, pending.action, reason) : undefined)} />
   );
   return { trigger, busy, dialog };
@@ -72,7 +72,7 @@ export function OrderCard({ order, now, onAction, busy, onOpen }: {
             <Ionicons name="call-outline" size={13} color={colors.primary} />
             <Txt weight="semibold" size={13} color={colors.primary}>{order.recipientPhone}</Txt>
           </View>
-          <Txt size={13} color={colors.textSoft} style={{ lineHeight: 18 }}>{order.deliveryStreet}, {order.zoneName}</Txt>
+          <Txt size={13} color={colors.textSoft} style={{ lineHeight: 18 }}>{order.deliveryStreet} · {km(order.distanceKm)}</Txt>
         </View>
         <Txt size={13} color={colors.neutralText} style={{ lineHeight: 18 }}>
           {order.items.map((i) => `${i.quantity} ${i.name}${i.options.length ? ` (${optionText(i.options)})` : ''}`).join(', ')}
@@ -135,7 +135,7 @@ export function OrderDetailSheet({ order, onClose, onAction, busy, onConfirmTran
       </View>
       <View style={styles.block}>
         <Txt weight="bold" size={14}>{order.recipientName} · {order.recipientPhone}</Txt>
-        <Txt size={14} color={colors.textSoft}>{order.deliveryStreet}, {order.zoneName}</Txt>
+        <Txt size={14} color={colors.textSoft}>{order.deliveryStreet} · {km(order.distanceKm)}</Txt>
         {order.deliveryNote ? <Txt size={13} color={colors.muted}>Ghi chú giao: {order.deliveryNote}</Txt> : null}
         {order.note ? <Txt size={13} color={colors.warningText}>Ghi chú đơn: {order.note}</Txt> : null}
         <Txt size={12} color={colors.muted}>Tài khoản: {order.customerName} · {order.customerPhone}</Txt>

@@ -9,6 +9,7 @@ import { router, Stack, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { View } from 'react-native';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { Loading } from '@/components/ui';
@@ -44,6 +45,7 @@ export default function RootLayout() {
   });
   if (!loaded) return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
   return (
+    <KeyboardProvider>
     <SafeAreaProvider>
       <SessionProvider>
         <CartProvider>
@@ -54,5 +56,6 @@ export default function RootLayout() {
         </CartProvider>
       </SessionProvider>
     </SafeAreaProvider>
+    </KeyboardProvider>
   );
 }

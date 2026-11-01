@@ -48,10 +48,10 @@ export default function AdminReport() {
               <RevenueBars days={r.daily} />
             </Card>
             <Card style={styles.panel}>
-              <Txt weight="extrabold" size={16}>Theo khu vực giao</Txt>
-              {r.byZone.length === 0 ? <Txt size={14} color={colors.muted}>Chưa có dữ liệu.</Txt> : r.byZone.map((z) => (
-                <View key={z.zone} style={styles.zone}>
-                  <Txt weight="semibold" size={14} style={{ flex: 1 }}>{z.zone}</Txt>
+              <Txt weight="extrabold" size={16}>Theo khoảng cách giao</Txt>
+              {r.byDistance.length === 0 ? <Txt size={14} color={colors.muted}>Chưa có dữ liệu.</Txt> : r.byDistance.map((z) => (
+                <View key={z.band} style={styles.zone}>
+                  <Txt weight="semibold" size={14} style={{ flex: 1 }}>{z.band}</Txt>
                   <Txt size={13} color={colors.muted}>{z.orders} đơn</Txt>
                   <Txt weight="bold" size={14} style={{ width: 110, textAlign: 'right' }}>{money(z.revenue)}</Txt>
                 </View>
