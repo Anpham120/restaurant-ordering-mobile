@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Page } from '@/components/backoffice';
-import { OrderCard, OrderDetailSheet, useStatusChange } from '@/components/order-ops';
+import { AwaitingCard, OrderCard, OrderDetailSheet, useConfirmTransfer, useStatusChange } from '@/components/order-ops';
 import { Txt } from '@/components/txt';
-import { ErrorBox, Loading, SearchBox, Toggle } from '@/components/ui';
+import { Chip, ErrorBox, Loading, SearchBox, Toggle } from '@/components/ui';
 import { api, errorMessage, type Order, type OrderStatus, type Page as P, type Store } from '@/lib/api';
 import { useLoad, useNow, useWide } from '@/lib/hooks';
 import { colors } from '@/lib/theme';
@@ -16,7 +16,7 @@ const COLUMNS: { title: string; statuses: OrderStatus[]; dot: string }[] = [
   { title: 'Chờ giao', statuses: ['READY'], dot: colors.info },
   { title: 'Đang giao', statuses: ['DELIVERING'], dot: colors.success },
 ];
-const ACTIVE: OrderStatus[] = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERING'];
+const ACTIVE: OrderStatus[] = ['AWAITING_PAYMENT', 'PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERING'];
 
 export default function OrderBoard() {
   const now = useNow(15000);
@@ -32,6 +32,8 @@ export default function OrderBoard() {
     if (open?.id === o.id) setOpen(o);
   };
   const { trigger, busy, dialog } = useStatusChange(replace);
+  const [showAwaiting, setShowAwaiting] = useState(true);
+  const { confirm, busyId } = useConfirmTransfer(() => { void board.reload(); setOpen(null); });
 
   const orders = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -39,13 +41,16 @@ export default function OrderBoard() {
       || o.recipientPhone.includes(needle) || o.recipientName.toLowerCase().includes(needle));
   }, [board.data, q]);
 
+  const awaiting = orders.filter((o) => o.status === 'AWAITING_PAYMENT');
+  const working = orders.filter((o) => o.status !== 'AWAITING_PAYMENT');
+
   const toggle = async (v: boolean) => {
     try { store.setData(await api.setAccepting(v)); toast.show(v ? 'Đã mở nhận đơn' : 'Đã tạm ngưng nhận đơn', 'success'); }
     catch (e) { toast.show(errorMessage(e), 'error'); }
   };
 
   return (
-    <Page title="Đơn hàng đang xử lý" subtitle={`${orders.length} đơn · tự cập nhật mỗi 5 giây`} scroll={false}
+    <Page title="Đơn hàng đang xử lý" subtitle={`${working.length} đơn · tự cập nhật mỗi 5 giây`} scroll={false}
       actions={<>
         <View style={{ width: 230 }}><SearchBox value={q} onChangeText={setQ} placeholder="Tìm mã đơn, SĐT…" accessibilityLabel="Tìm đơn" /></View>
         {store.data ? (
@@ -58,10 +63,23 @@ export default function OrderBoard() {
         ) : null}
       </>}>
       {board.error ? <ErrorBox message={board.error} onRetry={board.reload} /> : null}
+      {awaiting.length ? (
+        <View style={{ gap: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Chip label={`Chờ chuyển khoản · ${awaiting.length}`} icon="qr-code-outline" active={showAwaiting} onPress={() => setShowAwaiting(!showAwaiting)} />
+            <Txt size={13} color={colors.muted}>Đơn sẽ tự vào cột “Chờ xác nhận” khi ngân hàng báo có</Txt>
+          </View>
+          {showAwaiting ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingBottom: 4 }}>
+              {awaiting.map((o) => <AwaitingCard key={o.id} order={o} now={now} busy={busyId === o.id} onConfirm={() => void confirm(o)} onOpen={() => setOpen(o)} />)}
+            </ScrollView>
+          ) : null}
+        </View>
+      ) : null}
       {board.loading && !board.data ? <Loading /> : (
         <ScrollView horizontal={!wide} style={{ flex: 1 }} contentContainerStyle={wide ? styles.grid : styles.rowScroll}>
           {COLUMNS.map((c) => {
-            const list = orders.filter((o) => c.statuses.includes(o.status));
+            const list = working.filter((o) => c.statuses.includes(o.status));
             return (
               <View key={c.title} style={[styles.column, wide ? { flex: 1 } : { width: 290 }]}>
                 <View style={styles.colHead}>
@@ -78,7 +96,7 @@ export default function OrderBoard() {
           })}
         </ScrollView>
       )}
-      <OrderDetailSheet order={open} onClose={() => setOpen(null)} onAction={trigger} busy={busy} />
+      <OrderDetailSheet order={open} onClose={() => setOpen(null)} onAction={trigger} busy={busy} onConfirmTransfer={(o) => void confirm(o)} />
       {dialog}
     </Page>
   );

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View } from 'react-native';
 
 import { Page } from '@/components/backoffice';
-import { OrderDetailSheet, useStatusChange } from '@/components/order-ops';
+import { OrderDetailSheet, useConfirmTransfer, useStatusChange } from '@/components/order-ops';
 import { OrderTable } from '@/components/order-table';
 import { Txt } from '@/components/txt';
 import { Card, Chip, Empty, ErrorBox, Field, Loading, SearchBox } from '@/components/ui';
@@ -11,7 +11,7 @@ import { money, statusLabel, todayIso } from '@/lib/format';
 import { useLoad } from '@/lib/hooks';
 import { colors } from '@/lib/theme';
 
-const FILTERS: (OrderStatus | 'ALL')[] = ['ALL', 'PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERING', 'DELIVERED', 'CANCELLED'];
+const FILTERS: (OrderStatus | 'ALL')[] = ['ALL', 'AWAITING_PAYMENT', 'PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERING', 'DELIVERED', 'CANCELLED'];
 
 /** Order lookup by day, status, code, phone or name (staff "history" and manager "search"). */
 export function OrderHistory({ title = 'Lịch sử đơn hàng' }: { title?: string }) {
@@ -29,6 +29,7 @@ export function OrderHistory({ title = 'Lịch sử đơn hàng' }: { title?: st
     setOpen(o);
   };
   const { trigger, busy, dialog } = useStatusChange(replace);
+  const { confirm } = useConfirmTransfer(() => { setOpen(null); void list.reload(); });
   const orders = list.data?.content ?? [];
   const delivered = orders.filter((o) => o.status === 'DELIVERED');
 
@@ -47,7 +48,7 @@ export function OrderHistory({ title = 'Lịch sử đơn hàng' }: { title?: st
           : <OrderTable orders={orders} onOpen={setOpen} />}
       </Card>
       {orders.length >= 100 ? <Txt size={13} color={colors.muted}>Chỉ hiển thị 100 đơn mới nhất, hãy lọc thêm để xem đơn khác.</Txt> : null}
-      <OrderDetailSheet order={open} onClose={() => setOpen(null)} onAction={trigger} busy={busy} />
+      <OrderDetailSheet order={open} onClose={() => setOpen(null)} onAction={trigger} busy={busy} onConfirmTransfer={(o) => void confirm(o)} />
       {dialog}
     </Page>
   );

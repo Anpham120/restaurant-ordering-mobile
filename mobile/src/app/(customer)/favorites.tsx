@@ -31,8 +31,8 @@ export default function FavoritesTab() {
 }
 
 function List() {
-  const { quantityOf } = useCart();
-  const change = useCartChange();
+  const { plainLine } = useCart();
+  const { setPlain } = useCartChange();
   const { data, error, loading, reload } = useLoad<MenuItem[]>(() => api.favorites());
   if (loading && !data) return <Loading />;
   if (error && !data) return <View style={{ padding: 16 }}><ErrorBox message={error} onRetry={reload} /></View>;
@@ -42,7 +42,7 @@ function List() {
       keyExtractor={(m) => String(m.id)}
       contentContainerStyle={styles.list}
       ListEmptyComponent={<Empty icon="heart-outline" title="Chưa có món yêu thích" text="Nhấn biểu tượng trái tim ở trang món ăn để lưu lại món bạn thích." />}
-      renderItem={({ item }) => <DishRow item={item} qty={quantityOf(item.id)} onChange={(v) => void change(item.id, v)} />}
+      renderItem={({ item }) => <DishRow item={item} qty={plainLine(item.id)?.quantity ?? 0} onChange={(v) => void setPlain(item, v)} />}
     />
   );
 }

@@ -1,24 +1,38 @@
 import type { Order, OrderStatus, Role } from './api';
 
 const FLOW: OrderStatus[] = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERING', 'DELIVERED'];
+const TRANSFER_FLOW: OrderStatus[] = ['AWAITING_PAYMENT', ...FLOW];
 
-export interface Step { status: OrderStatus; at: string | null; note: string | null; state: 'done' | 'now' | 'todo' | 'cancel' }
+export interface Step { status: OrderStatus; label: string; at: string | null; note: string | null; state: 'done' | 'now' | 'todo' | 'cancel' }
+
+const LABEL: Record<OrderStatus, string> = {
+  AWAITING_PAYMENT: 'Đã đặt hàng · chờ chuyển khoản', PENDING: 'Đã đặt hàng', CONFIRMED: 'Cửa hàng đã xác nhận', PREPARING: 'Đang chuẩn bị món',
+  READY: 'Món đã sẵn sàng', DELIVERING: 'Đang giao hàng', DELIVERED: 'Giao thành công', CANCELLED: 'Đơn đã hủy',
+};
 
 export interface Action { to: OrderStatus; label: string; variant: 'primary' | 'success' | 'danger' | 'secondary'; needsReason?: boolean; reasonTitle?: string }
 
 export const OrderService = {
+  /** A receipt exists once the order is delivered, or as soon as a bank transfer has been received. */
+  hasReceipt(order: Order): boolean {
+    return order.status === 'DELIVERED' || (order.payment?.method === 'BANK_TRANSFER' && !!order.payment.paidAt);
+  },
+
   /** Customer timeline: what happened (from history) plus the steps still to come. */
   timeline(order: Order): Step[] {
     const at = new Map<OrderStatus, { at: string; note: string | null }>();
     order.timeline.forEach((e) => at.set(e.status, { at: e.at, note: e.note }));
+    const transfer = order.payment?.method === 'BANK_TRANSFER';
+    const flow = transfer ? TRANSFER_FLOW : FLOW;
+    const label = (s: OrderStatus) => (transfer && s === 'PENDING' ? 'Đã thanh toán · chờ xác nhận' : LABEL[s]);
     if (order.status === 'CANCELLED') {
-      const done: Step[] = FLOW.filter((s) => at.has(s)).map((s) => ({ status: s, at: at.get(s)!.at, note: null, state: 'done' }));
+      const done: Step[] = flow.filter((s) => at.has(s)).map((s) => ({ status: s, label: label(s), at: at.get(s)!.at, note: null, state: 'done' }));
       const c = at.get('CANCELLED');
-      return [...done, { status: 'CANCELLED', at: c?.at ?? null, note: c?.note ?? null, state: 'cancel' }];
+      return [...done, { status: 'CANCELLED', label: LABEL.CANCELLED, at: c?.at ?? null, note: c?.note ?? null, state: 'cancel' }];
     }
-    const idx = FLOW.indexOf(order.status);
-    return FLOW.map((s, i) => ({
-      status: s, at: at.get(s)?.at ?? null, note: null,
+    const idx = flow.indexOf(order.status);
+    return flow.map((s, i) => ({
+      status: s, label: label(s), at: at.get(s)?.at ?? null, note: null,
       state: i < idx || order.status === 'DELIVERED' ? 'done' : i === idx ? 'now' : 'todo',
     }));
   },

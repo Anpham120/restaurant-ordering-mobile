@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { MenuItem } from '@/lib/api';
 import { money } from '@/lib/format';
+import { needsChoice } from '@/lib/use-cart-change';
 import { colors, radius, shadow } from '@/lib/theme';
 import { Txt } from './txt';
 import { AddButton, Badge, FoodImage, RatingPill, Stepper } from './ui';
@@ -15,6 +16,7 @@ interface Props { item: MenuItem; qty: number; onChange: (q: number) => void }
  */
 export function DishRow({ item, qty, onChange }: Props) {
   const off = !item.available;
+  const choose = needsChoice(item);
   return (
     <View style={[styles.row, shadow]}>
       <Pressable accessibilityLabel={item.name} onPress={() => router.push(`/item/${item.id}`)} style={({ pressed }) => [styles.rowPress, pressed && { opacity: 0.9 }]}>
@@ -27,12 +29,14 @@ export function DishRow({ item, qty, onChange }: Props) {
           {item.description ? <Txt size={13} color={colors.muted} numberOfLines={2} style={{ lineHeight: 18 }}>{item.description}</Txt> : null}
           <View style={styles.priceRow}>
             <Txt weight="bold" size={15} color={off ? colors.muted : colors.primary}>{money(item.price)}</Txt>
+            {item.optionGroups.length && !off ? <Txt size={12} color={colors.muted}>{choose ? 'Chọn size/tùy chọn' : 'Có thêm topping'}</Txt> : null}
           </View>
         </View>
       </Pressable>
       <View style={styles.action}>
         {off ? <Badge label="Tạm hết" bg={colors.neutralSoft} fg={colors.neutralText} />
-          : qty > 0 ? <Stepper value={qty} onChange={onChange} size={30} /> : <AddButton onPress={() => onChange(1)} label={`Thêm ${item.name} vào giỏ`} />}
+          : qty > 0 && !choose ? <Stepper value={qty} onChange={onChange} size={30} />
+            : <AddButton onPress={() => (choose ? router.push(`/item/${item.id}`) : onChange(1))} label={choose ? `Chọn tùy chọn cho ${item.name}` : `Thêm ${item.name} vào giỏ`} />}
       </View>
     </View>
   );

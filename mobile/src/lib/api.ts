@@ -2,8 +2,12 @@ import { getApiBase } from './config';
 
 // =============================================================== models (mirror backend Dtos.java)
 export type Role = 'CUSTOMER' | 'STAFF' | 'KITCHEN' | 'MANAGER';
-export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERING' | 'DELIVERED' | 'CANCELLED';
+export type OrderStatus = 'AWAITING_PAYMENT' | 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERING' | 'DELIVERED' | 'CANCELLED';
 export type DiscountType = 'PERCENT' | 'AMOUNT';
+export type PaymentMethod = 'COD' | 'BANK_TRANSFER';
+export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUND_PENDING' | 'REFUNDED';
+export type PromotionTarget = 'NONE' | 'MENU_ITEM' | 'CATEGORY' | 'VOUCHER';
+export type NotificationType = 'ORDER' | 'PAYMENT' | 'PROMOTION';
 
 export interface User { id: number; fullName: string; phone: string; email: string | null; role: Role; active: boolean; createdAt: string }
 export interface AuthResponse { token: string; expiresAt: string; user: User }
@@ -11,9 +15,11 @@ export interface AuthResponse { token: string; expiresAt: string; user: User }
 export interface Store {
   storeName: string; hotline: string; storeAddress: string; openTime: string; closeTime: string;
   minOrderAmount: number; acceptingOrders: boolean; openNow: boolean; closedReason: string | null;
+  paymentMethods: PaymentMethod[]; bankCode: string | null; bankAccount: string | null; bankHolder: string | null; transferTimeoutMinutes: number;
 }
 export interface StoreSettingsInput {
   storeName: string; hotline: string; storeAddress: string; openTime: string; closeTime: string; minOrderAmount: number; acceptingOrders: boolean;
+  bankCode: string | null; bankAccount: string | null; bankHolder: string | null; transferTimeoutMinutes: number;
 }
 
 export interface Zone { id: number; name: string; deliveryFee: number; estimatedMinutes: number; sortOrder: number; active: boolean }
@@ -29,9 +35,14 @@ export interface AddressInput {
 
 export interface Category { id: number; name: string; imageUrl: string | null; sortOrder: number; itemCount: number }
 export interface CategoryInput { name: string; imageUrl?: string | null; sortOrder: number }
+export interface MenuOption { id: number; name: string; priceDelta: number; available: boolean }
+export interface OptionGroup { id: number; name: string; minSelect: number; maxSelect: number; options: MenuOption[] }
+export interface OptionInput { id?: number | null; name: string; priceDelta: number; available?: boolean }
+export interface OptionGroupInput { id?: number | null; name: string; minSelect: number; maxSelect: number; options: OptionInput[] }
 export interface MenuItem {
   id: number; categoryId: number; categoryName: string; name: string; description: string | null; price: number;
   imageUrl: string | null; available: boolean; active: boolean; ratingAvg: number | null; ratingCount: number; soldCount: number; favorite: boolean;
+  optionGroups: OptionGroup[];
 }
 export interface MenuItemInput {
   categoryId: number; name: string; description?: string | null; price: number; imageUrl?: string | null; available?: boolean; active?: boolean;
@@ -42,15 +53,17 @@ export interface Review {
 }
 export interface MenuItemDetail { item: MenuItem; reviews: Review[] }
 
+export interface ChosenOption { id: number; groupName: string; name: string; priceDelta: number }
 export interface CartLine {
-  menuItemId: number; name: string; imageUrl: string | null; unitPrice: number; quantity: number; note: string | null;
-  lineTotal: number; orderable: boolean; problem: string | null;
+  lineId: number; menuItemId: number; name: string; imageUrl: string | null; basePrice: number; options: ChosenOption[]; unitPrice: number;
+  quantity: number; note: string | null; lineTotal: number; orderable: boolean; problem: string | null;
 }
 export interface Cart { lines: CartLine[]; itemCount: number; subtotal: number; hasProblems: boolean }
-export interface CheckoutInput { addressId: number; voucherCode?: string | null; note?: string | null }
+export interface CheckoutInput { addressId: number; voucherCode?: string | null; note?: string | null; paymentMethod?: PaymentMethod }
 export interface CheckoutPreview {
   cart: Cart; address: Address; subtotal: number; deliveryFee: number; voucherCode: string | null; discount: number;
-  voucherMessage: string | null; total: number; estimatedMinutes: number; canPlace: boolean; problems: string[];
+  voucherMessage: string | null; total: number; estimatedMinutes: number; paymentMethod: PaymentMethod; paymentMethods: PaymentMethod[];
+  canPlace: boolean; problems: string[];
 }
 
 export interface Voucher {
@@ -63,15 +76,23 @@ export interface VoucherInput {
 }
 
 export interface OrderItem {
-  id: number; menuItemId: number; name: string; imageUrl: string | null; quantity: number; unitPrice: number; lineTotal: number; note: string | null; reviewed: boolean;
+  id: number; menuItemId: number; name: string; imageUrl: string | null; quantity: number; options: ChosenOption[]; unitPrice: number; lineTotal: number;
+  note: string | null; reviewed: boolean;
 }
+export interface Payment {
+  id: number; method: PaymentMethod; amount: number; status: PaymentStatus; expiresAt: string | null; paidAt: string | null; confirmedByName: string | null;
+  transferContent: string | null; qrUrl: string | null; bankCode: string | null; bankAccount: string | null; bankHolder: string | null;
+  bankApps: BankApp[]; canSwitchToCod: boolean; canSwitchToTransfer: boolean;
+}
+/** VietQR deeplink that opens a banking app with account, amount and content prefilled. */
+export interface BankApp { appId: string; name: string; logoUrl: string; url: string }
 export interface StatusEvent { status: OrderStatus; at: string; byName: string | null; note: string | null }
 export interface Order {
   id: number; code: string; status: OrderStatus; createdAt: string; updatedAt: string;
   customerId: number; customerName: string; customerPhone: string;
   recipientName: string; recipientPhone: string; deliveryStreet: string; zoneName: string; deliveryNote: string | null; note: string | null;
   items: OrderItem[]; itemCount: number; subtotal: number; deliveryFee: number; voucherCode: string | null; discount: number; total: number;
-  paymentMethod: 'COD'; paid: boolean; estimatedDeliveryAt: string | null; cancellable: boolean; reviewable: boolean; timeline: StatusEvent[];
+  payment: Payment | null; estimatedDeliveryAt: string | null; cancellable: boolean; reviewable: boolean; timeline: StatusEvent[];
 }
 export interface Page<T> { content: T[]; page: number; size: number; totalElements: number; totalPages: number }
 
@@ -87,9 +108,32 @@ export interface RevenueReport {
 }
 export interface Dashboard {
   revenueToday: number; revenueYesterday: number; deliveredToday: number; cancelledToday: number; pendingOrders: number; activeOrders: number;
+  awaitingPayment: number; pendingRefunds: number;
   averageOrderValueToday: number; ratingAvg7d: number | null; ratingCount7d: number; newCustomersToday: number; acceptingOrders: boolean;
   last7Days: DailyRevenue[]; topItemsToday: TopItem[]; recentOrders: Order[];
 }
+
+export interface PaymentListItem {
+  id: number; orderId: number; orderCode: string; customerName: string; method: PaymentMethod; amount: number; status: PaymentStatus;
+  createdAt: string; paidAt: string | null; confirmedByName: string | null;
+}
+export interface BankTransaction {
+  id: number; provider: string; providerTxnId: number; gateway: string | null; accountNumber: string | null; amount: number; content: string | null;
+  referenceCode: string | null; transactionDate: string | null; receivedAt: string; orderId: number | null; orderCode: string | null; note: string | null;
+}
+export interface Promotion {
+  id: number; title: string; subtitle: string | null; imageUrl: string; targetType: PromotionTarget;
+  menuItemId: number | null; menuItemName: string | null; categoryId: number | null; categoryName: string | null; voucherId: number | null; voucherCode: string | null;
+  startAt: string | null; endAt: string | null; sortOrder: number; active: boolean; live: boolean; notified: boolean;
+}
+export interface PromotionInput {
+  title: string; subtitle?: string | null; imageUrl: string; targetType: PromotionTarget; menuItemId?: number | null; categoryId?: number | null;
+  voucherId?: number | null; startAt?: string | null; endAt?: string | null; sortOrder: number; active?: boolean;
+}
+export interface Notification {
+  id: number; type: NotificationType; title: string; body: string; orderId: number | null; promotionId: number | null; read: boolean; createdAt: string;
+}
+export interface Count { count: number }
 
 // =============================================================== transport
 export class ApiError extends Error {
@@ -171,15 +215,23 @@ export const api = {
   addFavorite: (id: number) => put<void>(`/api/me/favorites/${id}`),
   removeFavorite: (id: number) => del(`/api/me/favorites/${id}`),
   cart: () => get<Cart>('/api/me/cart'),
-  setCartItem: (menuItemId: number, quantity: number, note?: string | null) => put<Cart>(`/api/me/cart/items/${menuItemId}`, { quantity, note: note ?? null }),
+  addToCart: (menuItemId: number, quantity: number, note?: string | null, optionIds: number[] = []) =>
+    post<Cart>('/api/me/cart/items', { menuItemId, quantity, note: note ?? null, optionIds }),
+  updateCartLine: (lineId: number, quantity: number, note?: string | null) => patch<Cart>(`/api/me/cart/items/${lineId}`, { quantity, note: note ?? null }),
   clearCart: () => request<Cart>('DELETE', '/api/me/cart'),
   preview: (b: CheckoutInput) => post<CheckoutPreview>('/api/me/checkout/preview', b),
   placeOrder: (b: CheckoutInput) => post<Order>('/api/me/orders', b),
   myOrders: (page = 0, size = 20) => get<Page<Order>>(`/api/me/orders${qs({ page, size })}`),
   myOrder: (id: number) => get<Order>(`/api/me/orders/${id}`),
   cancelOrder: (id: number, reason: string) => post<Order>(`/api/me/orders/${id}/cancel`, { reason }),
+  switchPaymentMethod: (id: number, method: PaymentMethod) => post<Order>(`/api/me/orders/${id}/payment-method`, { method }),
   reorder: (id: number) => post<Cart>(`/api/me/orders/${id}/reorder`),
   review: (orderItemId: number, rating: number, comment?: string | null) => post<Review>('/api/me/reviews', { orderItemId, rating, comment: comment ?? null }),
+  promotions: () => get<Promotion[]>('/api/promotions'),
+  notifications: (limit = 50) => get<Notification[]>(`/api/me/notifications?limit=${limit}`),
+  unreadCount: () => get<Count>('/api/me/notifications/unread-count'),
+  readNotification: (id: number) => post<void>(`/api/me/notifications/${id}/read`),
+  readAllNotifications: () => post<Count>('/api/me/notifications/read-all'),
 
   // store
   storeOrders: (p: { status?: OrderStatus[]; q?: string; date?: string; page?: number; size?: number; sort?: 'oldest' | 'newest' }) =>
@@ -187,6 +239,7 @@ export const api = {
   storeOrder: (id: number) => get<Order>(`/api/manage/orders/${id}`),
   setStatus: (id: number, status: OrderStatus, note?: string | null) => patch<Order>(`/api/manage/orders/${id}/status`, { status, note: note ?? null }),
   kitchenQueue: () => get<Order[]>('/api/manage/kitchen/queue'),
+  confirmTransfer: (orderId: number) => patch<Payment>(`/api/manage/orders/${orderId}/confirm-transfer`),
   storeMenu: () => get<MenuItem[]>('/api/manage/menu'),
   setAvailability: (id: number, available: boolean) => patch<MenuItem>(`/api/manage/menu-items/${id}/availability`, { available }),
   storeInfo: () => get<Store>('/api/manage/store'),
@@ -203,6 +256,15 @@ export const api = {
   createItem: (b: MenuItemInput) => post<MenuItem>('/api/admin/menu-items', b),
   updateItem: (id: number, b: MenuItemInput) => put<MenuItem>(`/api/admin/menu-items/${id}`, b),
   deleteItem: (id: number) => del(`/api/admin/menu-items/${id}`),
+  setOptions: (id: number, groups: OptionGroupInput[]) => put<MenuItem>(`/api/admin/menu-items/${id}/options`, { groups }),
+  payments: (status: PaymentStatus = 'REFUND_PENDING') => get<PaymentListItem[]>(`/api/admin/payments?status=${status}`),
+  markRefunded: (id: number) => patch<PaymentListItem>(`/api/admin/payments/${id}/refunded`),
+  bankTransactions: (limit = 100) => get<BankTransaction[]>(`/api/admin/bank-transactions?limit=${limit}`),
+  adminPromotions: () => get<Promotion[]>('/api/admin/promotions'),
+  createPromotion: (b: PromotionInput) => post<Promotion>('/api/admin/promotions', b),
+  updatePromotion: (id: number, b: PromotionInput) => put<Promotion>(`/api/admin/promotions/${id}`, b),
+  deletePromotion: (id: number) => del(`/api/admin/promotions/${id}`),
+  announcePromotion: (id: number) => post<Count>(`/api/admin/promotions/${id}/announce`),
   adminZones: () => get<Zone[]>('/api/admin/zones'),
   createZone: (b: ZoneInput) => post<Zone>('/api/admin/zones', b),
   updateZone: (id: number, b: ZoneInput) => put<Zone>(`/api/admin/zones/${id}`, b),

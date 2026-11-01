@@ -1,4 +1,4 @@
-import type { DiscountType, OrderStatus, Role } from './api';
+import type { ChosenOption, DiscountType, OrderStatus, Payment, Role } from './api';
 import { colors } from './theme';
 
 const nf = new Intl.NumberFormat('vi-VN');
@@ -34,6 +34,14 @@ export function dateTime(s: string | null | undefined): string {
   if (!d) return '';
   const p = vnParts(d);
   return `${pad(p.d)}/${pad(p.m)} ${pad(p.h)}:${pad(p.min)}`;
+}
+
+/** "01/11/2026 14:05" (Vietnam time) for receipts. */
+export function fullDateTime(s: string | null | undefined): string {
+  const d = parseDate(s);
+  if (!d) return '';
+  const p = vnParts(d);
+  return `${pad(p.d)}/${pad(p.m)}/${p.y} ${pad(p.h)}:${pad(p.min)}`;
 }
 
 export function dayLabel(iso: string): string {
@@ -76,6 +84,7 @@ export function todayIso(offsetDays = 0): string {
 }
 
 export const statusLabel: Record<OrderStatus, string> = {
+  AWAITING_PAYMENT: 'Chờ thanh toán',
   PENDING: 'Chờ xác nhận',
   CONFIRMED: 'Đã xác nhận',
   PREPARING: 'Đang chuẩn bị',
@@ -87,6 +96,7 @@ export const statusLabel: Record<OrderStatus, string> = {
 
 /** Customer-facing timeline wording. */
 export const timelineLabel: Record<OrderStatus, string> = {
+  AWAITING_PAYMENT: 'Đã đặt hàng',
   PENDING: 'Đã đặt hàng',
   CONFIRMED: 'Cửa hàng đã xác nhận',
   PREPARING: 'Đang chuẩn bị món',
@@ -97,6 +107,7 @@ export const timelineLabel: Record<OrderStatus, string> = {
 };
 
 export const statusTone: Record<OrderStatus, { bg: string; fg: string }> = {
+  AWAITING_PAYMENT: { bg: colors.warningSoft, fg: colors.warningText },
   PENDING: { bg: colors.primarySoft, fg: colors.primaryText },
   CONFIRMED: { bg: colors.warningSoft, fg: colors.warningText },
   PREPARING: { bg: colors.warningSoft, fg: colors.warningText },
@@ -123,4 +134,45 @@ export function initials(name: string): string {
   const a = parts[0]?.[0] ?? '';
   const b = parts.length > 1 ? parts[parts.length - 1][0] : '';
   return (a + b).toUpperCase();
+}
+
+/** "Size L · 70% đường · Trân châu trắng" */
+export function optionText(options: ChosenOption[] | null | undefined): string {
+  return (options ?? []).map((o) => o.name).join(' · ');
+}
+
+/** Short label + colours describing how an order is paid. */
+export function paymentChip(p: Payment | null | undefined): { label: string; bg: string; fg: string } {
+  if (!p) return { label: 'Thanh toán khi nhận hàng', bg: colors.neutralSoft, fg: colors.neutralText };
+  if (p.method === 'COD') {
+    if (p.status === 'PAID') return { label: 'Đã thu tiền mặt', bg: colors.successSoft, fg: colors.success };
+    if (p.status === 'FAILED') return { label: 'COD · không thu', bg: colors.neutralSoft, fg: colors.neutralText };
+    return { label: 'COD · thu khi giao', bg: colors.neutralSoft, fg: colors.neutralText };
+  }
+  switch (p.status) {
+    case 'PENDING': return { label: 'Chờ chuyển khoản', bg: colors.warningSoft, fg: colors.warningText };
+    case 'PAID': return { label: 'Đã chuyển khoản', bg: colors.successSoft, fg: colors.success };
+    case 'REFUND_PENDING': return { label: 'Chờ hoàn tiền', bg: colors.dangerSoft, fg: colors.danger };
+    case 'REFUNDED': return { label: 'Đã hoàn tiền', bg: colors.infoSoft, fg: colors.info };
+    default: return { label: 'Chưa thanh toán', bg: colors.neutralSoft, fg: colors.neutralText };
+  }
+}
+
+/** Common VietQR bank codes for the settings form. */
+export const BANKS: { code: string; name: string }[] = [
+  { code: 'VCB', name: 'Vietcombank' }, { code: 'BIDV', name: 'BIDV' }, { code: 'ICB', name: 'VietinBank' }, { code: 'TCB', name: 'Techcombank' },
+  { code: 'MB', name: 'MB Bank' }, { code: 'ACB', name: 'ACB' }, { code: 'VPB', name: 'VPBank' }, { code: 'TPB', name: 'TPBank' },
+  { code: 'STB', name: 'Sacombank' }, { code: 'VIB', name: 'VIB' },
+];
+
+export function bankName(code: string | null | undefined): string {
+  return BANKS.find((b) => b.code === code)?.name ?? code ?? '';
+}
+
+/** "05:09" until a server timestamp; "00:00" when passed. */
+export function countdown(s: string | null | undefined, now: number): string {
+  const d = parseDate(s);
+  if (!d) return '';
+  const sec = Math.max(0, Math.floor((d.getTime() - now) / 1000));
+  return `${pad(Math.floor(sec / 60))}:${pad(sec % 60)}`;
 }

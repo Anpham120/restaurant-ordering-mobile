@@ -7,10 +7,10 @@ import { Button } from '@/components/button';
 import { ReasonDialog } from '@/components/modal';
 import { PhoneFrame, TopBar } from '@/components/phone';
 import { Txt } from '@/components/txt';
-import { Card, ErrorBox, FoodImage, Line, Loading, Stars, StatusBadge } from '@/components/ui';
+import { Badge, Card, ErrorBox, FoodImage, Line, Loading, Stars, StatusBadge } from '@/components/ui';
 import { api, errorMessage, type Order, type OrderItem, type OrderStatus, type Store } from '@/lib/api';
 import { useCart } from '@/lib/cart';
-import { money, time, timelineLabel } from '@/lib/format';
+import { money, optionText, paymentChip, time } from '@/lib/format';
 import { useLoad } from '@/lib/hooks';
 import { OrderService } from '@/lib/order-flow';
 import { colors, fonts, radius } from '@/lib/theme';
@@ -19,6 +19,7 @@ import { useToast } from '@/lib/toast';
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
 const HERO: Record<OrderStatus, { icon: IconName; title: string }> = {
+  AWAITING_PAYMENT: { icon: 'qr-code-outline', title: 'Chờ bạn chuyển khoản' },
   PENDING: { icon: 'hourglass-outline', title: 'Chờ cửa hàng xác nhận' },
   CONFIRMED: { icon: 'checkmark-done-outline', title: 'Cửa hàng đã nhận đơn' },
   PREPARING: { icon: 'flame-outline', title: 'Bếp đang chuẩn bị món' },
@@ -46,6 +47,7 @@ function Tracking({ order, hotline, onChange, reload }: { order: Order; hotline:
   const toast = useToast();
   const { replace } = useCart();
   const [cancelling, setCancelling] = useState(false);
+  const [switching, setSwitching] = useState(false);
   const hero = HERO[order.status];
   const cancelled = order.status === 'CANCELLED';
   const steps = OrderService.timeline(order);
@@ -54,17 +56,41 @@ function Tracking({ order, hotline, onChange, reload }: { order: Order; hotline:
     try { replace(await api.reorder(order.id)); router.push('/cart'); } catch (e) { toast.show(errorMessage(e), 'error'); }
   };
 
+  const toTransfer = async () => {
+    setSwitching(true);
+    try { onChange(await api.switchPaymentMethod(order.id, 'BANK_TRANSFER')); router.push(`/pay/${order.id}`); }
+    catch (e) { toast.show(errorMessage(e), 'error'); }
+    finally { setSwitching(false); }
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      <View style={[styles.hero, { backgroundColor: cancelled ? colors.neutralText : order.status === 'DELIVERED' ? colors.success : colors.primary }]}>
+      {order.status === 'AWAITING_PAYMENT' ? (
+        <Button title={`Thanh toán ngay · ${money(order.total)}`} icon="qr-code-outline" size="lg" onPress={() => router.push(`/pay/${order.id}`)} />
+      ) : null}
+      <View style={[styles.hero, { backgroundColor: cancelled ? colors.neutralText : order.status === 'DELIVERED' ? colors.success : order.status === 'AWAITING_PAYMENT' ? colors.warning : colors.primary }]}>
         <View style={styles.heroIcon}><Ionicons name={hero.icon} size={28} color={colors.white} /></View>
         <View style={{ flex: 1, gap: 2 }}>
           <Txt weight="extrabold" size={19} color={colors.white}>{hero.title}</Txt>
           <Txt size={14} color={colors.white} style={{ opacity: 0.92 }}>
-            {order.estimatedDeliveryAt ? `Dự kiến giao lúc ${time(order.estimatedDeliveryAt)}` : order.paid ? 'Đã thanh toán khi nhận hàng' : `Đặt lúc ${time(order.createdAt)}`}
+            {order.status === 'AWAITING_PAYMENT' ? 'Đơn sẽ được gửi tới cửa hàng ngay khi nhận được tiền'
+              : order.estimatedDeliveryAt ? `Dự kiến giao lúc ${time(order.estimatedDeliveryAt)}` : paymentChip(order.payment).label}
           </Txt>
         </View>
       </View>
+
+      {order.payment?.canSwitchToTransfer ? (
+        <View style={styles.switch}>
+          <View style={styles.rowGap}>
+            <Ionicons name="qr-code-outline" size={22} color={colors.primary} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Txt weight="bold" size={14}>Không muốn trả tiền mặt?</Txt>
+              <Txt size={13} color={colors.muted}>Chuyển khoản {money(order.total)} qua app ngân hàng – được khi cửa hàng chưa xác nhận đơn.</Txt>
+            </View>
+          </View>
+          <Button title="Chuyển khoản ngay" icon="card-outline" onPress={toTransfer} loading={switching} />
+        </View>
+      ) : null}
 
       <Card>
         {steps.map((s, i) => (
@@ -77,7 +103,7 @@ function Tracking({ order, hotline, onChange, reload }: { order: Order; hotline:
             </View>
             <View style={styles.stepBody}>
               <View style={{ flex: 1, gap: 2 }}>
-                <Txt weight={s.state === 'todo' ? 'regular' : 'bold'} size={15} color={s.state === 'todo' ? colors.faint : colors.text}>{timelineLabel[s.status]}</Txt>
+                <Txt weight={s.state === 'todo' ? 'regular' : 'bold'} size={15} color={s.state === 'todo' ? colors.faint : colors.text}>{s.label}</Txt>
                 {s.note ? <Txt size={13} color={colors.muted}>{s.note}</Txt> : null}
               </View>
               <Txt size={13} color={colors.muted}>{s.at ? time(s.at) : ''}</Txt>
@@ -93,7 +119,10 @@ function Tracking({ order, hotline, onChange, reload }: { order: Order; hotline:
         </View>
         {order.items.map((i) => (
           <View key={i.id} style={styles.rowBetween}>
-            <Txt size={14} style={{ flex: 1 }}>{i.quantity} × {i.name}{i.note ? <Txt size={13} color={colors.muted}>{`  (${i.note})`}</Txt> : null}</Txt>
+            <View style={{ flex: 1 }}>
+              <Txt size={14}>{i.quantity} × {i.name}</Txt>
+              {i.options.length || i.note ? <Txt size={13} color={colors.muted}>{[optionText(i.options), i.note].filter(Boolean).join(' · ')}</Txt> : null}
+            </View>
             <Txt size={14}>{money(i.lineTotal)}</Txt>
           </View>
         ))}
@@ -101,7 +130,10 @@ function Tracking({ order, hotline, onChange, reload }: { order: Order; hotline:
           <Line label="Tạm tính" value={money(order.subtotal)} />
           <Line label={`Phí giao · ${order.zoneName}`} value={money(order.deliveryFee)} />
           {order.discount > 0 ? <Line label={`Giảm giá (${order.voucherCode})`} value={`−${money(order.discount)}`} valueColor={colors.success} /> : null}
-          <Line label={order.paid ? 'Đã thanh toán (COD)' : 'Thanh toán khi nhận hàng'} value={money(order.total)} strong />
+          <Line label="Tổng cộng" value={money(order.total)} strong />
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+            <Badge label={paymentChip(order.payment).label} bg={paymentChip(order.payment).bg} fg={paymentChip(order.payment).fg} />
+          </View>
         </View>
         <Txt size={14} color={colors.textSoft} style={{ lineHeight: 20 }}>
           Giao đến: {order.recipientName} · {order.recipientPhone}{'\n'}{order.deliveryStreet}, {order.zoneName}
@@ -109,6 +141,9 @@ function Tracking({ order, hotline, onChange, reload }: { order: Order; hotline:
         {order.note ? <Txt size={13} color={colors.muted}>Ghi chú: {order.note}</Txt> : null}
       </Card>
 
+      {OrderService.hasReceipt(order) ? (
+        <Button title="Xem biên nhận" icon="receipt-outline" variant="secondary" onPress={() => router.push(`/receipt/${order.id}`)} />
+      ) : null}
       <View style={{ flexDirection: 'row', gap: 10 }}>
         {hotline ? <Button title="Gọi cửa hàng" icon="call-outline" variant="secondary" onPress={() => void Linking.openURL(`tel:${hotline}`)} style={{ flex: 1 }} /> : null}
         {order.cancellable ? <Button title="Hủy đơn" variant="danger" onPress={() => setCancelling(true)} style={{ flex: 1 }} />
@@ -177,6 +212,7 @@ const styles = StyleSheet.create({
   dotCancel: { backgroundColor: colors.danger, borderColor: colors.danger },
   railLine: { flex: 1, width: 2, minHeight: 18, backgroundColor: '#E7E0DA' },
   stepBody: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', gap: 8, paddingBottom: 18 },
+  switch: { gap: 12, backgroundColor: colors.primarySoft, borderRadius: radius.lg, padding: 14, borderWidth: 1, borderColor: '#FBD5BF' },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   rowGap: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   sum: { borderTopWidth: 1, borderTopColor: colors.divider, paddingTop: 10, gap: 6 },

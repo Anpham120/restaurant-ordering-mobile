@@ -43,6 +43,10 @@ function Body({ d, onOpen }: { d: Dashboard; onOpen: (o: Order) => void }) {
         <Kpi label="Đơn đang xử lý" value={String(d.activeOrders)} sub={`${d.pendingOrders} đơn chờ xác nhận`} tone={d.pendingOrders > 0 ? 'down' : 'muted'}
           onPress={() => router.navigate('/store/orders')} />
         <Kpi label="Giá trị TB mỗi đơn" value={money(d.averageOrderValueToday)} sub={`${d.newCustomersToday} khách mới hôm nay`} tone="muted" />
+        <Kpi label="Chờ chuyển khoản" value={String(d.awaitingPayment)} sub="đơn chưa nhận được tiền" tone={d.awaitingPayment > 0 ? 'down' : 'muted'}
+          onPress={() => router.navigate('/store/orders')} />
+        <Kpi label="Chờ hoàn tiền" value={String(d.pendingRefunds)} sub="khoản cần hoàn cho khách" tone={d.pendingRefunds > 0 ? 'down' : 'muted'}
+          onPress={() => router.navigate('/admin/payments')} />
         <Kpi label="Đánh giá 7 ngày" value={d.ratingAvg7d != null ? `${d.ratingAvg7d.toFixed(1)} ★` : '—'} sub={`${d.ratingCount7d} lượt đánh giá`} tone="muted" />
       </View>
       <View style={styles.split}>

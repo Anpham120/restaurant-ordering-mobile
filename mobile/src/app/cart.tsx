@@ -9,9 +9,9 @@ import { Sheet } from '@/components/modal';
 import { PhoneFrame, TopBar } from '@/components/phone';
 import { Txt } from '@/components/txt';
 import { Empty, ErrorBox, Field, FoodImage, Line, Loading, Notice, Stepper } from '@/components/ui';
-import { api, errorMessage, type Address, type CheckoutPreview } from '@/lib/api';
+import { api, errorMessage, type Address, type CheckoutPreview, type PaymentMethod } from '@/lib/api';
 import { useCart } from '@/lib/cart';
-import { money } from '@/lib/format';
+import { money, optionText } from '@/lib/format';
 import { useLoad } from '@/lib/hooks';
 import { useSession } from '@/lib/session';
 import { colors, fonts, radius, shadow } from '@/lib/theme';
@@ -31,13 +31,14 @@ export default function CartScreen() {
 
 function Checkout() {
   const insets = useSafeAreaInsets();
-  const { cart, refresh, replace } = useCart();
-  const change = useCartChange();
+  const { cart, refresh, replace, voucherHint, setVoucherHint } = useCart();
+  const { setLine } = useCartChange();
   const toast = useToast();
   const addresses = useLoad<Address[]>(() => api.addresses());
   const [addressId, setAddressId] = useState<number | null>(null);
-  const [voucherInput, setVoucherInput] = useState('');
-  const [voucher, setVoucher] = useState<string | null>(null);
+  const [voucherInput, setVoucherInput] = useState(voucherHint ?? '');
+  const [voucher, setVoucher] = useState<string | null>(voucherHint);
+  const [method, setMethod] = useState<PaymentMethod>('COD');
   const [note, setNote] = useState('');
   const [preview, setPreview] = useState<CheckoutPreview | null>(null);
   const [picking, setPicking] = useState(false);
@@ -47,16 +48,18 @@ function Checkout() {
   const chosen = list.find((a) => a.id === addressId) ?? list.find((a) => a.isDefault) ?? list[0] ?? null;
 
   useEffect(() => { void refresh(); }, [refresh]);
+  // the hint from a promotion banner is used once
+  useEffect(() => { if (voucherHint) setVoucherHint(null); }, [voucherHint, setVoucherHint]);
 
   // recompute totals whenever the cart, address or voucher changes
-  const cartKey = cart.lines.map((l) => `${l.menuItemId}:${l.quantity}`).join(',');
+  const cartKey = cart.lines.map((l) => `${l.lineId}:${l.quantity}`).join(',');
   useEffect(() => {
     let alive = true;
     if (!chosen || cart.lines.length === 0) return undefined;
-    api.preview({ addressId: chosen.id, voucherCode: voucher }).then((p) => { if (alive) setPreview(p); })
+    api.preview({ addressId: chosen.id, voucherCode: voucher, paymentMethod: method }).then((p) => { if (alive) setPreview(p); })
       .catch((e: unknown) => { if (alive) toast.show(errorMessage(e), 'error'); });
     return () => { alive = false; };
-  }, [chosen, voucher, cartKey, cart.lines.length, toast]);
+  }, [chosen, voucher, method, cartKey, cart.lines.length, toast]);
 
   const applyVoucher = () => setVoucher(voucherInput.trim() ? voucherInput.trim().toUpperCase() : null);
 
@@ -64,10 +67,15 @@ function Checkout() {
     if (!chosen) return;
     setPlacing(true);
     try {
-      const order = await api.placeOrder({ addressId: chosen.id, voucherCode: voucher, note: note.trim() || null });
+      const order = await api.placeOrder({ addressId: chosen.id, voucherCode: voucher, note: note.trim() || null, paymentMethod: method });
       replace({ lines: [], itemCount: 0, subtotal: 0, hasProblems: false });
-      toast.show('Đặt hàng thành công!', 'success');
-      router.replace(`/order/${order.id}`);
+      if (order.status === 'AWAITING_PAYMENT') {
+        toast.show('Đã tạo đơn, vui lòng chuyển khoản để hoàn tất', 'success');
+        router.replace(`/pay/${order.id}`);
+      } else {
+        toast.show('Đặt hàng thành công!', 'success');
+        router.replace(`/order/${order.id}`);
+      }
     } catch (e) {
       toast.show(errorMessage(e), 'error');
     } finally {
@@ -110,16 +118,17 @@ function Checkout() {
 
         <View style={[styles.card, shadow, { paddingVertical: 6 }]}>
           {cart.lines.map((l) => (
-            <View key={l.menuItemId} style={styles.line}>
+            <View key={l.lineId} style={styles.line}>
               <FoodImage uri={l.imageUrl} style={[styles.thumb, !l.orderable && { opacity: 0.45 }]} />
               <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
                 <Txt weight="bold" size={15} numberOfLines={1}>{l.name}</Txt>
+                {l.options.length ? <Txt size={13} color={colors.textSoft} numberOfLines={2}>{optionText(l.options)}</Txt> : null}
                 {l.problem ? <Txt weight="semibold" size={13} color={colors.danger}>{l.problem}</Txt>
                   : l.note ? <Txt size={13} color={colors.muted} numberOfLines={1}>{l.note}</Txt> : null}
                 <Txt weight="bold" size={14} color={colors.primary}>{money(l.lineTotal)}</Txt>
               </View>
-              {l.orderable ? <Stepper value={l.quantity} onChange={(v) => void change(l.menuItemId, v, l.note)} outline size={32} />
-                : <Button title="Bỏ" size="sm" variant="danger" onPress={() => void change(l.menuItemId, 0)} />}
+              {l.orderable ? <Stepper value={l.quantity} onChange={(v) => void setLine(l.lineId, v, l.note)} outline size={32} />
+                : <Button title="Bỏ" size="sm" variant="danger" onPress={() => void setLine(l.lineId, 0)} />}
             </View>
           ))}
           <Pressable accessibilityRole="button" onPress={() => router.replace('/')} style={styles.more}>
@@ -160,11 +169,12 @@ function Checkout() {
 
         <View style={[styles.card, shadow]}>
           <Txt weight="extrabold" size={15}>Thanh toán</Txt>
-          <View style={styles.rowGap}>
-            <Ionicons name="radio-button-on" size={20} color={colors.primary} />
-            <Ionicons name="cash-outline" size={20} color={colors.success} />
-            <Txt size={14}>Tiền mặt khi nhận hàng (COD)</Txt>
-          </View>
+          <PayOption on={method === 'COD'} onPress={() => setMethod('COD')} icon="cash-outline" iconColor={colors.success}
+            title="Tiền mặt khi nhận hàng (COD)" />
+          {(p?.paymentMethods ?? []).includes('BANK_TRANSFER') ? (
+            <PayOption on={method === 'BANK_TRANSFER'} onPress={() => setMethod('BANK_TRANSFER')} icon="qr-code-outline" iconColor={colors.info}
+              title="Chuyển khoản VietQR" sub="Quét mã bằng app ngân hàng · tự xác nhận sau vài giây" />
+          ) : null}
           <View style={styles.summary}>
             <Line label={`Tạm tính (${cart.itemCount} món)`} value={money(p?.subtotal ?? cart.subtotal)} />
             <Line label={`Phí giao hàng${chosen ? ` · ${chosen.zoneName}` : ''}`} value={p ? money(p.deliveryFee) : '—'} />
@@ -180,7 +190,7 @@ function Checkout() {
           <Txt weight="semibold" size={15}>Tổng cộng</Txt>
           <Txt weight="extrabold" size={22} color={colors.primary}>{p ? money(p.total) : money(cart.subtotal)}</Txt>
         </View>
-        <Button title="Đặt hàng" size="lg" onPress={place} loading={placing} disabled={!p || !p.canPlace} />
+        <Button title={method === 'BANK_TRANSFER' ? 'Đặt hàng & thanh toán' : 'Đặt hàng'} size="lg" onPress={place} loading={placing} disabled={!p || !p.canPlace} />
       </View>
 
       <Sheet visible={picking} onClose={() => setPicking(false)} title="Chọn địa chỉ giao hàng"
@@ -201,7 +211,24 @@ function Checkout() {
   );
 }
 
+function PayOption({ on, onPress, icon, iconColor, title, sub }: {
+  on: boolean; onPress: () => void; icon: 'cash-outline' | 'qr-code-outline'; iconColor: string; title: string; sub?: string;
+}) {
+  return (
+    <Pressable accessibilityRole="radio" accessibilityState={{ checked: on }} onPress={onPress} style={[styles.pay, on && styles.payOn]}>
+      <Ionicons name={on ? 'radio-button-on' : 'radio-button-off'} size={20} color={colors.primary} />
+      <Ionicons name={icon} size={20} color={iconColor} />
+      <View style={{ flex: 1 }}>
+        <Txt size={14} weight={on ? 'semibold' : 'regular'}>{title}</Txt>
+        {sub ? <Txt size={12} color={colors.success}>{sub}</Txt> : null}
+      </View>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  pay: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1.5, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10 },
+  payOn: { borderColor: colors.primary, backgroundColor: '#FFF7F2' },
   content: { padding: 16, gap: 12, paddingBottom: 150 },
   card: { backgroundColor: colors.white, borderRadius: radius.lg, padding: 14, gap: 10 },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

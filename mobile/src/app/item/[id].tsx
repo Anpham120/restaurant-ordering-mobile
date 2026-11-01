@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -8,7 +8,7 @@ import { Button } from '@/components/button';
 import { PhoneFrame } from '@/components/phone';
 import { Txt } from '@/components/txt';
 import { Badge, ErrorBox, Field, FoodImage, Loading, Stars, Stepper } from '@/components/ui';
-import { api, errorMessage, type MenuItemDetail } from '@/lib/api';
+import { api, errorMessage, type MenuItemDetail, type OptionGroup } from '@/lib/api';
 import { useCart } from '@/lib/cart';
 import { dateTime, money } from '@/lib/format';
 import { useLoad } from '@/lib/hooks';
@@ -44,14 +44,27 @@ function Detail({ detail, onFavorite }: { detail: MenuItemDetail; onFavorite: (v
   const insets = useSafeAreaInsets();
   const { item, reviews } = detail;
   const { user } = useSession();
-  const { quantityOf, cart } = useCart();
-  const change = useCartChange();
+  const { quantityOf } = useCart();
+  const { addConfigured } = useCartChange();
   const toast = useToast();
   const inCart = quantityOf(item.id);
-  const line = cart.lines.find((l) => l.menuItemId === item.id);
-  const [qty, setQty] = useState(inCart || 1);
-  const [note, setNote] = useState(line?.note ?? '');
+  const [qty, setQty] = useState(1);
+  const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  // single-choice required groups start on their first available option (e.g. the regular size)
+  const [chosen, setChosen] = useState<Record<number, number[]>>(() => Object.fromEntries(item.optionGroups.map((g) => {
+    const first = g.options.find((o) => o.available);
+    return [g.id, g.minSelect > 0 && g.maxSelect === 1 && first ? [first.id] : []];
+  })));
+  const picked = useMemo(() => item.optionGroups.flatMap((g) => g.options.filter((o) => (chosen[g.id] ?? []).includes(o.id))), [item, chosen]);
+  const unit = item.price + picked.reduce((s, o) => s + o.priceDelta, 0);
+  const missing = item.optionGroups.find((g) => (chosen[g.id]?.length ?? 0) < g.minSelect);
+  const toggle = (g: OptionGroup, optionId: number) => setChosen((c) => {
+    const cur = c[g.id] ?? [];
+    if (g.maxSelect === 1) return { ...c, [g.id]: cur.includes(optionId) && g.minSelect === 0 ? [] : [optionId] };
+    if (cur.includes(optionId)) return { ...c, [g.id]: cur.filter((x) => x !== optionId) };
+    return cur.length >= g.maxSelect ? c : { ...c, [g.id]: [...cur, optionId] };
+  });
 
   const toggleFavorite = async () => {
     if (!user) { router.push('/login'); return; }
@@ -64,14 +77,14 @@ function Detail({ detail, onFavorite }: { detail: MenuItemDetail; onFavorite: (v
 
   const submit = async () => {
     setBusy(true);
-    const ok = await change(item.id, qty, note.trim() || null);
+    const ok = await addConfigured(item.id, qty, note.trim() || null, picked.map((o) => o.id));
     setBusy(false);
-    if (ok) router.back();
+    if (ok) { if (router.canGoBack()) router.back(); else router.replace('/'); }
   };
 
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 150 }}>
         <FoodImage uri={item.imageUrl} style={styles.hero} rounded={0} />
         <View style={styles.sheet}>
           <View style={{ gap: 8 }}>
@@ -94,6 +107,34 @@ function Detail({ detail, onFavorite }: { detail: MenuItemDetail; onFavorite: (v
             <Txt weight="extrabold" size={22} color={colors.primary}>{money(item.price)}</Txt>
             {item.description ? <Txt size={15} color={colors.textSoft} style={{ lineHeight: 23 }}>{item.description}</Txt> : null}
           </View>
+
+          {item.available ? item.optionGroups.map((g) => {
+            const sel = chosen[g.id] ?? [];
+            const required = g.minSelect > 0;
+            return (
+              <View key={g.id} style={styles.group}>
+                <View style={styles.groupHead}>
+                  <Txt weight="extrabold" size={15}>{g.name}</Txt>
+                  <Badge label={required ? `Bắt buộc · chọn ${g.maxSelect === 1 ? 1 : `${g.minSelect}–${g.maxSelect}`}` : `Tùy chọn · tối đa ${g.maxSelect}`}
+                    bg={required ? colors.primarySoft : colors.neutralSoft} fg={required ? colors.primaryText : colors.neutralText} />
+                </View>
+                {g.options.map((o) => {
+                  const on = sel.includes(o.id);
+                  const disabled = !o.available || (!on && g.maxSelect > 1 && sel.length >= g.maxSelect);
+                  return (
+                    <Pressable key={o.id} accessibilityRole={g.maxSelect === 1 ? 'radio' : 'checkbox'} accessibilityState={{ checked: on, disabled }}
+                      disabled={disabled} onPress={() => toggle(g, o.id)} style={[styles.option, disabled && { opacity: 0.45 }]}>
+                      <View style={[g.maxSelect === 1 ? styles.radio : styles.check, on && (g.maxSelect === 1 ? styles.radioOn : styles.checkOn)]}>
+                        {on ? (g.maxSelect === 1 ? <View style={styles.radioDot} /> : <Ionicons name="checkmark" size={15} color={colors.white} />) : null}
+                      </View>
+                      <Txt size={15} style={{ flex: 1 }}>{o.name}{!o.available ? ' (tạm hết)' : ''}</Txt>
+                      <Txt size={14} color={colors.muted}>+{money(o.priceDelta)}</Txt>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            );
+          }) : null}
 
           {item.available ? (
             <Field label="Ghi chú cho quán (không bắt buộc)" value={note} onChangeText={setNote} placeholder="Ví dụ: không hành, nhiều tái, ít bánh…"
@@ -122,12 +163,21 @@ function Detail({ detail, onFavorite }: { detail: MenuItemDetail; onFavorite: (v
       </Pressable>
 
       <View style={[styles.bottom, { paddingBottom: insets.bottom + 16 }]}>
-        {item.available ? (
-          <>
-            <View style={styles.qtyBox}><Stepper value={qty} onChange={setQty} min={1} outline size={30} /></View>
-            <Button title={`${inCart ? 'Cập nhật giỏ' : 'Thêm vào giỏ'} · ${money(item.price * qty)}`} size="lg" onPress={submit} loading={busy} style={{ flex: 1, paddingHorizontal: 8 }} />
-          </>
-        ) : <Button title="Món tạm hết, vui lòng chọn món khác" size="lg" variant="secondary" disabled style={{ flex: 1 }} />}
+        {item.available && (picked.length || missing || inCart) ? (
+          <Txt size={12} color={missing ? colors.danger : colors.muted} numberOfLines={1} style={{ textAlign: 'center' }}>
+            {missing ? `Vui lòng chọn ${missing.name.toLowerCase()}` : picked.length ? picked.map((o) => o.name).join(' · ') : ''}
+            {!missing && inCart ? `${picked.length ? '  ·  ' : ''}Đã có ${inCart} trong giỏ` : ''}
+          </Txt>
+        ) : null}
+        <View style={styles.bottomRow}>
+          {item.available ? (
+            <>
+              <View style={styles.qtyBox}><Stepper value={qty} onChange={setQty} min={1} outline size={30} /></View>
+              <Button title={`Thêm vào giỏ · ${money(unit * qty)}`} size="lg" onPress={submit} loading={busy} disabled={!!missing}
+                style={{ flex: 1, paddingHorizontal: 8 }} />
+            </>
+          ) : <Button title="Món tạm hết, vui lòng chọn món khác" size="lg" variant="secondary" disabled style={{ flex: 1 }} />}
+        </View>
       </View>
     </View>
   );
@@ -140,6 +190,15 @@ const styles = StyleSheet.create({
   meta: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   review: { backgroundColor: colors.bg, borderRadius: 12, padding: 12, gap: 4 },
   reviewHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14, paddingHorizontal: 16, flexDirection: 'row', gap: 12, alignItems: 'center' },
+  bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, paddingHorizontal: 16, gap: 8 },
+  bottomRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  group: { gap: 4, borderTopWidth: 1, borderTopColor: colors.divider, paddingTop: 12 },
+  groupHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  option: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#D6CFC9', alignItems: 'center', justifyContent: 'center' },
+  radioOn: { borderColor: colors.primary },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
+  check: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#D6CFC9', alignItems: 'center', justifyContent: 'center' },
+  checkOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   qtyBox: { height: 52, borderWidth: 1.5, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: 6, justifyContent: 'center' },
 });

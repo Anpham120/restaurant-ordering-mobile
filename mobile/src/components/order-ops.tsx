@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { api, errorMessage, type Order } from '@/lib/api';
-import { dateTime, minutesSince, money, statusLabel, time } from '@/lib/format';
+import { countdown, dateTime, minutesSince, money, optionText, paymentChip, statusLabel, time } from '@/lib/format';
 import { OrderService, type Action } from '@/lib/order-flow';
 import { useSession } from '@/lib/session';
 import { colors, radius, shadow } from '@/lib/theme';
@@ -74,10 +74,12 @@ export function OrderCard({ order, now, onAction, busy, onOpen }: {
           </View>
           <Txt size={13} color={colors.textSoft} style={{ lineHeight: 18 }}>{order.deliveryStreet}, {order.zoneName}</Txt>
         </View>
-        <Txt size={13} color={colors.neutralText} style={{ lineHeight: 18 }}>{order.items.map((i) => `${i.quantity} ${i.name}`).join(', ')}</Txt>
+        <Txt size={13} color={colors.neutralText} style={{ lineHeight: 18 }}>
+          {order.items.map((i) => `${i.quantity} ${i.name}${i.options.length ? ` (${optionText(i.options)})` : ''}`).join(', ')}
+        </Txt>
         {order.note ? <Txt size={12} color={colors.warningText}>Ghi chú: {order.note}</Txt> : null}
         <View style={styles.total}>
-          <Txt size={12} color={colors.muted}>COD</Txt>
+          <Badge label={paymentChip(order.payment).label} bg={paymentChip(order.payment).bg} fg={paymentChip(order.payment).fg} size={11} />
           <Txt weight="bold" size={16}>{money(order.total)}</Txt>
         </View>
       </Pressable>
@@ -94,17 +96,35 @@ export function OrderCard({ order, now, onAction, busy, onOpen }: {
   );
 }
 
+/** Staff confirm by hand a bank transfer that arrived but was not matched automatically. */
+export function useConfirmTransfer(onDone: (orderId: number) => void) {
+  const toast = useToast();
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const confirm = async (o: Order) => {
+    setBusyId(o.id);
+    try {
+      await api.confirmTransfer(o.id);
+      toast.show(`#${o.code}: đã xác nhận nhận chuyển khoản`, 'success');
+      onDone(o.id);
+    } catch (e) { toast.show(errorMessage(e), 'error'); } finally { setBusyId(null); }
+  };
+  return { confirm, busyId };
+}
+
 /** Full order detail with timeline, used from the board, history and admin search. */
-export function OrderDetailSheet({ order, onClose, onAction, busy }: {
-  order: Order | null; onClose: () => void; onAction: (o: Order, a: Action) => void; busy: string | null;
+export function OrderDetailSheet({ order, onClose, onAction, busy, onConfirmTransfer }: {
+  order: Order | null; onClose: () => void; onAction: (o: Order, a: Action) => void; busy: string | null; onConfirmTransfer?: (o: Order) => void;
 }) {
   const { user } = useSession();
   if (!order) return null;
   const actions = OrderService.actions(order.status, user?.role);
+  const canConfirmTransfer = !!onConfirmTransfer && order.status === 'AWAITING_PAYMENT' && (user?.role === 'STAFF' || user?.role === 'MANAGER');
+  const pay = paymentChip(order.payment);
   return (
     <Sheet visible onClose={onClose} title={`Đơn #${order.code}`} width={620}
-      footer={actions.length ? (
+      footer={actions.length || canConfirmTransfer ? (
         <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
+          {canConfirmTransfer ? <Button title="Xác nhận đã nhận CK" variant="success" icon="checkmark-done" onPress={() => onConfirmTransfer!(order)} style={{ flexGrow: 1 }} /> : null}
           {actions.map((a) => <Button key={a.label} title={a.label} variant={a.variant === 'danger' ? 'danger' : a.variant === 'success' ? 'success' : 'primary'}
             loading={busy === `${order.id}:${a.to}`} onPress={() => onAction(order, a)} style={{ flexGrow: 1 }} />)}
         </View>
@@ -123,7 +143,11 @@ export function OrderDetailSheet({ order, onClose, onAction, busy }: {
       <View style={styles.block}>
         {order.items.map((i) => (
           <View key={i.id} style={styles.rowBetween}>
-            <Txt size={14} style={{ flex: 1 }}>{i.quantity} × {i.name}{i.note ? <Txt size={13} color={colors.warningText}>{`  · ${i.note}`}</Txt> : null}</Txt>
+            <View style={{ flex: 1 }}>
+              <Txt size={14}>{i.quantity} × {i.name}</Txt>
+              {i.options.length ? <Txt size={13} color={colors.primaryText}>{optionText(i.options)}</Txt> : null}
+              {i.note ? <Txt size={13} color={colors.warningText}>{i.note}</Txt> : null}
+            </View>
             <Txt size={14}>{money(i.lineTotal)}</Txt>
           </View>
         ))}
@@ -131,8 +155,17 @@ export function OrderDetailSheet({ order, onClose, onAction, busy }: {
           <Line label="Tạm tính" value={money(order.subtotal)} />
           <Line label="Phí giao" value={money(order.deliveryFee)} />
           {order.discount > 0 ? <Line label={`Giảm giá (${order.voucherCode})`} value={`−${money(order.discount)}`} valueColor={colors.success} /> : null}
-          <Line label={order.paid ? 'Đã thu (COD)' : 'Thu khi giao (COD)'} value={money(order.total)} strong />
+          <Line label="Tổng cộng" value={money(order.total)} strong />
         </View>
+      </View>
+      <View style={[styles.block, { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }]}>
+        <Txt weight="bold" size={14}>Thanh toán</Txt>
+        <Badge label={pay.label} bg={pay.bg} fg={pay.fg} />
+        <Txt size={13} color={colors.muted} style={{ flex: 1 }}>
+          {order.payment?.method === 'BANK_TRANSFER' ? `Nội dung CK: ${order.payment.transferContent ?? ''}` : 'Tiền mặt khi giao'}
+          {order.payment?.paidAt ? ` · lúc ${time(order.payment.paidAt)}` : ''}
+          {order.payment?.confirmedByName ? ` · ${order.payment.confirmedByName}` : ''}
+        </Txt>
       </View>
       <View style={{ gap: 8 }}>
         <Txt weight="bold" size={14}>Lịch sử trạng thái</Txt>
@@ -150,7 +183,24 @@ export function OrderDetailSheet({ order, onClose, onAction, busy }: {
   );
 }
 
+/** Compact card of an order waiting for a bank transfer (store board strip). */
+export function AwaitingCard({ order, now, onConfirm, busy, onOpen }: { order: Order; now: number; onConfirm: () => void; busy: boolean; onOpen: () => void }) {
+  return (
+    <View style={[styles.awaiting, shadow]}>
+      <Pressable accessibilityLabel={`Đơn ${order.code}`} onPress={onOpen} style={{ gap: 4 }}>
+        <View style={styles.rowBetween}>
+          <Txt weight="bold" size={14}>#{order.code.slice(-4)} · {money(order.total)}</Txt>
+          <Badge label={`còn ${countdown(order.payment?.expiresAt, now)}`} bg={colors.warningSoft} fg={colors.warningText} size={11} />
+        </View>
+        <Txt size={12} color={colors.textSoft} numberOfLines={1}>{order.recipientName} · {order.payment?.transferContent}</Txt>
+      </Pressable>
+      <Button title="Xác nhận đã nhận CK" size="sm" variant="success" loading={busy} onPress={onConfirm} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  awaiting: { width: 250, backgroundColor: colors.white, borderRadius: 12, padding: 10, gap: 8 },
   card: { backgroundColor: colors.white, borderRadius: 12, padding: 12, gap: 8 },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   phone: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' },

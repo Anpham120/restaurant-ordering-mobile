@@ -4,11 +4,12 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Page } from '@/components/backoffice';
 import { Button } from '@/components/button';
 import { EditorPanel, WithEditor } from '@/components/editor';
+import { OptionsEditor } from '@/components/options-editor';
 import { Txt } from '@/components/txt';
 import { Badge, Card, Chip, Empty, ErrorBox, Field, FoodImage, Loading, SearchBox, Toggle } from '@/components/ui';
 import { api, errorMessage, type Category, type MenuItem, type MenuItemInput } from '@/lib/api';
 import { confirmAction } from '@/lib/confirm';
-import { money } from '@/lib/format';
+import { money, optionText } from '@/lib/format';
 import { useLoad } from '@/lib/hooks';
 import { colors } from '@/lib/theme';
 import { useToast } from '@/lib/toast';
@@ -23,6 +24,8 @@ export default function AdminMenu() {
   const [q, setQ] = useState('');
   const [form, setForm] = useState<Form | null>(null);
   const [saving, setSaving] = useState(false);
+  const [optionsFor, setOptionsFor] = useState<MenuItem | null>(null);
+  const current = form?.id ? (items.data ?? []).find((m) => m.id === form.id) : undefined;
 
   const list = (items.data ?? []).filter((m) => (cat == null || m.categoryId === cat) && (!q.trim() || m.name.toLowerCase().includes(q.trim().toLowerCase())));
   const edit = (m: MenuItem) => setForm({ id: m.id, categoryId: m.categoryId, name: m.name, description: m.description ?? '', price: String(m.price),
@@ -130,6 +133,19 @@ export default function AdminMenu() {
                 <Field label="Mô tả" value={form.description} onChangeText={(v) => set('description', v)} multiline maxLength={500} />
                 <Field label="Link ảnh" value={form.imageUrl} onChangeText={(v) => set('imageUrl', v)} autoCapitalize="none" placeholder="https://…"
                   error={urlOk ? null : 'Phải bắt đầu bằng http:// hoặc https://'} />
+                {current ? (
+                  <View style={styles.optBox}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <Txt weight="semibold" size={14}>Tùy chọn (size, topping…)</Txt>
+                      <Button title={current.optionGroups.length ? 'Sửa' : 'Thêm'} size="sm" variant="soft" onPress={() => setOptionsFor(current)} />
+                    </View>
+                    {current.optionGroups.length ? current.optionGroups.map((g) => (
+                      <Txt key={g.id} size={13} color={colors.textSoft}>
+                        <Txt weight="bold" size={13}>{g.name}</Txt> ({g.minSelect > 0 ? 'bắt buộc' : 'tùy chọn'}, tối đa {g.maxSelect}): {optionText(g.options.map((o) => ({ ...o, groupName: g.name })))}
+                      </Txt>
+                    )) : <Txt size={13} color={colors.muted}>Món chưa có tùy chọn.</Txt>}
+                  </View>
+                ) : form.id ? null : <Txt size={13} color={colors.muted}>Lưu món trước rồi thêm tùy chọn (size, topping…).</Txt>}
                 <View style={styles.switchRow}>
                   <Txt size={14} style={{ flex: 1 }}>Còn hàng hôm nay</Txt>
                   <Toggle value={form.available} onChange={(v) => set('available', v)} label="Còn hàng" />
@@ -144,6 +160,7 @@ export default function AdminMenu() {
             ) : null}
           </EditorPanel>
         } />
+      {optionsFor ? <OptionsEditor item={optionsFor} onClose={() => setOptionsFor(null)} onSaved={upsert} /> : null}
     </Page>
   );
 }
@@ -157,4 +174,5 @@ const styles = StyleSheet.create({
   cRate: { width: 80 },
   cToggle: { width: 84 },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  optBox: { backgroundColor: colors.bg, borderRadius: 10, padding: 10, gap: 6 },
 });

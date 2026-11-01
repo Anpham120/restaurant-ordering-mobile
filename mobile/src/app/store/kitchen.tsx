@@ -107,6 +107,11 @@ export default function Kitchen() {
                       <Txt weight="extrabold" size={22} color={colors.kitchenAccent} style={{ minWidth: 38 }}>{i.quantity}×</Txt>
                       <View style={{ flex: 1, gap: 4 }}>
                         <Txt weight="bold" size={20} color={colors.kitchenText} style={{ lineHeight: 26 }}>{i.name}</Txt>
+                        {i.options.length ? (
+                          <View style={styles.opts}>
+                            {i.options.map((op) => <View key={op.id} style={styles.opt}><Txt weight="bold" size={15} color="#FED7AA">{op.name}</Txt></View>)}
+                          </View>
+                        ) : null}
                         {i.note ? <View style={styles.note}><Txt weight="bold" size={15} color={colors.text}>{i.note}</Txt></View> : null}
                       </View>
                     </View>
@@ -149,6 +154,8 @@ const styles = StyleSheet.create({
   ticketBody: { padding: 16, gap: 12 },
   line: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   note: { alignSelf: 'flex-start', backgroundColor: colors.noteBg, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
+  opts: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  opt: { backgroundColor: '#7C2D12', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
   orderNote: { borderTopWidth: 1, borderTopColor: colors.kitchenLine, paddingTop: 10 },
   btn: { height: 56, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },

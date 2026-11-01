@@ -1,14 +1,16 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { Txt } from '@/components/txt';
-import { Card, Empty, ErrorBox, FoodImage, Loading, StatusBadge } from '@/components/ui';
+import { Badge, Card, Empty, ErrorBox, FoodImage, Loading, StatusBadge } from '@/components/ui';
 import { api, errorMessage, type Order, type Page } from '@/lib/api';
 import { useCart } from '@/lib/cart';
-import { friendlyDate, money } from '@/lib/format';
+import { friendlyDate, money, paymentChip } from '@/lib/format';
 import { useLoad, useNow } from '@/lib/hooks';
+import { OrderService } from '@/lib/order-flow';
 import { useSession } from '@/lib/session';
 import { colors } from '@/lib/theme';
 import { useToast } from '@/lib/toast';
@@ -58,17 +60,29 @@ function OrderList() {
                 <Txt weight="bold" size={14}>#{o.code}</Txt>
                 <Txt size={12} color={colors.muted}>{friendlyDate(o.createdAt, now)}</Txt>
               </View>
-              <StatusBadge status={o.status} />
+              <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                <StatusBadge status={o.status} />
+                {OrderService.hasReceipt(o) ? (
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Biên nhận đơn #${o.code}`} hitSlop={8} onPress={() => router.push(`/receipt/${o.id}`)} style={styles.receipt}>
+                    <Ionicons name="receipt-outline" size={14} color={colors.primary} />
+                    <Txt weight="semibold" size={12} color={colors.primary}>Biên nhận</Txt>
+                  </Pressable>
+                ) : null}
+              </View>
             </View>
             <View style={styles.rowGap}>
               <FoodImage uri={o.items[0]?.imageUrl} style={{ width: 48, height: 48 }} />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Txt size={14} numberOfLines={1}>{o.items.map((i) => `${i.quantity} ${i.name}`).join(', ')}</Txt>
-                <Txt weight="extrabold" size={15}>{money(o.total)}</Txt>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <Txt weight="extrabold" size={15}>{money(o.total)}</Txt>
+                  <Badge label={paymentChip(o.payment).label} bg={paymentChip(o.payment).bg} fg={paymentChip(o.payment).fg} size={11} />
+                </View>
               </View>
             </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              {o.reviewable ? <Button title="Đánh giá" size="sm" variant="soft" icon="star-outline" onPress={() => router.push(`/order/${o.id}`)} style={{ flex: 1 }} />
+              {o.status === 'AWAITING_PAYMENT' ? <Button title="Thanh toán ngay" size="sm" icon="qr-code-outline" onPress={() => router.push(`/pay/${o.id}`)} style={{ flex: 1 }} />
+                : o.reviewable ? <Button title="Đánh giá" size="sm" variant="soft" icon="star-outline" onPress={() => router.push(`/order/${o.id}`)} style={{ flex: 1 }} />
                 : <Button title={active ? 'Theo dõi đơn' : 'Xem chi tiết'} size="sm" variant="soft" onPress={() => router.push(`/order/${o.id}`)} style={{ flex: 1 }} />}
               {!active ? <Button title="Đặt lại" size="sm" variant="secondary" icon="refresh" onPress={() => void reorder(o)} style={{ flex: 1 }} /> : null}
             </View>
@@ -84,4 +98,5 @@ const styles = StyleSheet.create({
   list: { padding: 16, gap: 12, paddingBottom: 32 },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   rowGap: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  receipt: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2 },
 });
