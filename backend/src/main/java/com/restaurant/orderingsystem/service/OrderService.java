@@ -155,6 +155,13 @@ public class OrderService {
     @Transactional
     public CartResponse reorder(Long id) { return cart.addAll(own(id).getItems()); }
 
+    @Transactional
+    public OrderResponse switchPaymentMethod(Long id, PaymentMethod method) {
+        Order o = own(id);
+        payments.switchMethod(o, method);
+        return toResponse(o);
+    }
+
     Order own(Long id) {
         Order o = find(id);
         if (!o.getCustomer().getId().equals(Caller.id())) throw ApiException.notFound("Không tìm thấy đơn hàng");
@@ -246,7 +253,9 @@ public class OrderService {
         boolean reviewable = deliveredAt != null && deliveredAt.isAfter(LocalDateTime.now().minusDays(REVIEW_DAYS)) && reviewed.size() < o.getItems().size();
         List<OrderItemResponse> items = o.getItems().stream().map(i -> new OrderItemResponse(i.getId(), i.getMenuItem().getId(), i.getMenuItem().getName(),
                 i.getMenuItem().getImageUrl(), i.getQuantity(),
-                i.getOptions().stream().map(x -> new ChosenOption(x.getOption().getId(), x.getOption().getGroup().getName(), x.getOption().getName(), x.getPriceDelta())).toList(),
+                i.getOptions().stream()
+                        .sorted(Comparator.comparingInt((OrderItemOption x) -> x.getOption().getGroup().getSortOrder()).thenComparingInt(x -> x.getOption().getSortOrder()))
+                        .map(x -> new ChosenOption(x.getOption().getId(), x.getOption().getGroup().getName(), x.getOption().getName(), x.getPriceDelta())).toList(),
                 Money.of(unitPrice(i)), lineTotal(i), i.getNote(), reviewed.contains(i.getId()))).toList();
         List<StatusEvent> timeline = o.getHistory().stream()
                 .map(h -> new StatusEvent(h.getStatus(), h.getChangedAt(), h.getChangedBy() == null ? null : h.getChangedBy().getFullName(), h.getNote())).toList();

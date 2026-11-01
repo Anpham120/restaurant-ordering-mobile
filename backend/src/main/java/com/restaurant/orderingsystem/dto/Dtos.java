@@ -141,7 +141,11 @@ public final class Dtos {
     /** Payment of an order; for a pending bank transfer it carries everything needed to show the VietQR code. */
     public record PaymentResponse(Long id, PaymentMethod method, BigDecimal amount, PaymentStatus status, LocalDateTime expiresAt,
                                   LocalDateTime paidAt, String confirmedByName, String transferContent, String qrUrl,
-                                  String bankCode, String bankAccount, String bankHolder) {}
+                                  String bankCode, String bankAccount, String bankHolder, List<BankAppLink> bankApps,
+                                  boolean canSwitchToCod, boolean canSwitchToTransfer) {}
+    /** Opens a Vietnamese banking app with the transfer prefilled (VietQR deeplink, https://www.vietqr.io). */
+    public record BankAppLink(String appId, String name, String logoUrl, String url) {}
+    public record PaymentMethodRequest(@NotNull PaymentMethod method) {}
     public record StatusEvent(OrderStatus status, LocalDateTime at, String byName, String note) {}
     public record OrderResponse(Long id, String code, OrderStatus status, LocalDateTime createdAt, LocalDateTime updatedAt,
                                 Long customerId, String customerName, String customerPhone,

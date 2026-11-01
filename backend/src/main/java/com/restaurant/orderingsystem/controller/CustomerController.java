@@ -53,6 +53,7 @@ public class CustomerController {
     @GetMapping("/orders/{id}") public OrderResponse myOrder(@PathVariable Long id) { return orders.myOrder(id); }
     @PostMapping("/orders/{id}/cancel") public OrderResponse cancel(@PathVariable Long id, @Valid @RequestBody CancelRequest r) { return orders.cancelByCustomer(id, r.reason()); }
     @PostMapping("/orders/{id}/reorder") public CartResponse reorder(@PathVariable Long id) { return orders.reorder(id); }
+    @PostMapping("/orders/{id}/payment-method") public OrderResponse paymentMethod(@PathVariable Long id, @Valid @RequestBody PaymentMethodRequest r) { return orders.switchPaymentMethod(id, r.method()); }
 
     // reviews
     @PostMapping("/reviews") @ResponseStatus(HttpStatus.CREATED) public ReviewResponse review(@Valid @RequestBody ReviewRequest r) { return reviews.create(r); }

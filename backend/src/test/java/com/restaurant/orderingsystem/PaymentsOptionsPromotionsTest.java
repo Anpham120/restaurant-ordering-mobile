@@ -52,8 +52,12 @@ class PaymentsOptionsPromotionsTest extends ApiTestBase {
     }
 
     ResultActions webhook(String auth, long id, String content, int amount) throws Exception {
+        return webhook(auth, id, content, amount, "0000000000");
+    }
+
+    ResultActions webhook(String auth, long id, String content, int amount, String account) throws Exception {
         var b = post("/api/payments/sepay/webhook").contentType(MediaType.APPLICATION_JSON).content(
-                "{\"id\":" + id + ",\"gateway\":\"MBBank\",\"transactionDate\":\"2026-11-01 10:00:00\",\"accountNumber\":\"0000000000\","
+                "{\"id\":" + id + ",\"gateway\":\"MBBank\",\"transactionDate\":\"2026-11-01 10:00:00\",\"accountNumber\":\"" + account + "\","
                         + "\"code\":null,\"content\":\"" + content + "\",\"transferType\":\"in\",\"transferAmount\":" + amount
                         + ",\"accumulated\":0,\"referenceCode\":\"FT" + id + "\"}");
         return mvc.perform(auth == null ? b : b.header("Authorization", auth));
@@ -208,5 +212,39 @@ class PaymentsOptionsPromotionsTest extends ApiTestBase {
                 + "\"sortOrder\":0,\"active\":false}").andExpect(jsonPath("$.live").value(false));
         as(null, get("/api/promotions")).andExpect(jsonPath("$[?(@.id==" + promo + ")]").isEmpty());
         as(manager, delete("/api/admin/promotions/" + promo)).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void bankAppDeeplinksAndForeignAccount() throws Exception {
+        long id = transferOrder();
+        as(customer, get("/api/me/orders/" + id)).andExpect(jsonPath("$.payment.bankApps", hasSize(12)))
+                .andExpect(jsonPath("$.payment.bankApps[0].url", startsWith("https://dl.vietqr.io/pay?app=mb&ba=0000000000%40mb&am=145000&tn=ATL" + id)))
+                .andExpect(jsonPath("$.payment.canSwitchToCod").value(true));
+        // money with our payment code but into another account must not settle the order
+        webhook("Apikey test-sepay-key", ++sepayId, "ATL" + id, 145000, "9999999999").andExpect(status().isOk());
+        as(customer, get("/api/me/orders/" + id)).andExpect(jsonPath("$.status").value("AWAITING_PAYMENT"));
+        as(manager, get("/api/admin/bank-transactions")).andExpect(jsonPath("$[0].note", containsString("Không phải tài khoản")));
+    }
+
+    @Test
+    void customerSwitchesPaymentMethodBothWays() throws Exception {
+        long id = transferOrder();
+        as(customer, post("/api/me/orders/" + id + "/payment-method"), "{\"method\":\"COD\"}").andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PENDING")).andExpect(jsonPath("$.payment.method").value("COD"))
+                .andExpect(jsonPath("$.payment.expiresAt").doesNotExist()).andExpect(jsonPath("$.payment.canSwitchToTransfer").value(true))
+                .andExpect(jsonPath("$.timeline[1].note", containsString("thanh toán khi nhận hàng")));
+        as(customer, post("/api/me/orders/" + id + "/payment-method"), "{\"method\":\"BANK_TRANSFER\"}")
+                .andExpect(jsonPath("$.status").value("AWAITING_PAYMENT")).andExpect(jsonPath("$.payment.qrUrl").isNotEmpty());
+        as(register(), post("/api/me/orders/" + id + "/payment-method"), "{\"method\":\"COD\"}").andExpect(status().isNotFound());
+        // back to COD, store confirms → cannot switch to transfer any more
+        as(customer, post("/api/me/orders/" + id + "/payment-method"), "{\"method\":\"COD\"}").andExpect(status().isOk());
+        setStatus(staff, id, "CONFIRMED", null).andExpect(status().isOk());
+        as(customer, post("/api/me/orders/" + id + "/payment-method"), "{\"method\":\"BANK_TRANSFER\"}").andExpect(status().isBadRequest());
+        // the customer transfers anyway: the COD payment becomes a paid transfer
+        webhook("Apikey test-sepay-key", ++sepayId, "ATL" + id, 145000).andExpect(status().isOk());
+        as(customer, get("/api/me/orders/" + id)).andExpect(jsonPath("$.status").value("CONFIRMED"))
+                .andExpect(jsonPath("$.payment.method").value("BANK_TRANSFER")).andExpect(jsonPath("$.payment.status").value("PAID"));
+        // paid: no more switching
+        as(customer, post("/api/me/orders/" + id + "/payment-method"), "{\"method\":\"COD\"}").andExpect(status().isBadRequest());
     }
 }

@@ -46,6 +46,13 @@ public class PaymentService {
 
     @Value("${app.sepay.api-key:}") private String sepayApiKey;
     @Value("${app.payment.code-prefix:ATL}") private String codePrefix;
+    @Value("${app.public-url:http://localhost:8082}") private String publicUrl;
+
+    /** Most installed banking apps that support VietQR deeplinks (app id → name), from api.vietqr.io/v2/android-app-deeplinks. */
+    private static final String[][] BANK_APPS = {
+            {"mb", "MB Bank"}, {"vcb", "VCB Digibank"}, {"vba", "Agribank Plus"}, {"icb", "VietinBank iPay"}, {"bidv", "BIDV SmartBanking"},
+            {"tcb", "Techcombank Mobile"}, {"vpb", "VPBank NEO"}, {"cake", "CAKE"}, {"tpb", "TPBank Mobile"}, {"acb", "ACB ONE"},
+            {"ocb", "OCB OMNI"}, {"timo", "Timo"}};
 
     // ---------------------------------------------------------------- codes & QR
     String transferContent(Order o) { return codePrefix + o.getId(); }
@@ -59,9 +66,18 @@ public class PaymentService {
         String qr = showQr ? "https://qr.sepay.vn/img?acc=" + enc(s.getBankAccount()) + "&bank=" + enc(s.getBankCode())
                 + "&amount=" + p.getAmount().toBigInteger() + "&des=" + enc(content) + "&template=compact"
                 + (s.getBankHolder() == null ? "" : "&holder=" + enc(s.getBankHolder())) : null;
+        List<BankAppLink> apps = !showQr ? List.of() : java.util.Arrays.stream(BANK_APPS).map(a -> new BankAppLink(a[0], a[1],
+                "https://cdn.vietqr.io/bank-app-icon/" + a[0] + "-android.webp",
+                "https://dl.vietqr.io/pay?app=" + a[0] + "&ba=" + enc(s.getBankAccount() + "@" + s.getBankCode().toLowerCase(Locale.ROOT))
+                        + "&am=" + p.getAmount().toBigInteger() + "&tn=" + enc(content)
+                        + (s.getBankHolder() == null ? "" : "&bn=" + enc(s.getBankHolder()))
+                        + "&url=" + enc(publicUrl + "/order/" + o.getId()))).toList();
+        boolean open = p.getStatus() == PaymentStatus.PENDING;
+        boolean toCod = open && p.getMethod() == PaymentMethod.BANK_TRANSFER && o.getStatus() == OrderStatus.AWAITING_PAYMENT;
+        boolean toTransfer = open && p.getMethod() == PaymentMethod.COD && o.getStatus() == OrderStatus.PENDING && s.getBankAccount() != null;
         return new PaymentResponse(p.getId(), p.getMethod(), p.getAmount(), p.getStatus(), p.getExpiresAt(), p.getPaidAt(),
                 p.getConfirmedBy() == null ? null : p.getConfirmedBy().getFullName(), content, qr,
-                showQr ? s.getBankCode() : null, showQr ? s.getBankAccount() : null, showQr ? s.getBankHolder() : null);
+                showQr ? s.getBankCode() : null, showQr ? s.getBankAccount() : null, showQr ? s.getBankHolder() : null, apps, toCod, toTransfer);
     }
 
     private static String enc(String s) { return URLEncoder.encode(s, StandardCharsets.UTF_8); }
@@ -89,11 +105,18 @@ public class PaymentService {
         t.setTransactionDate(parseTime(w.transactionDate()));
         t.setReceivedAt(LocalDateTime.now());
 
+        String storeAccount = store.settings().getBankAccount();
+        boolean ourAccount = storeAccount != null && (storeAccount.equalsIgnoreCase(nz(w.accountNumber())) || storeAccount.equalsIgnoreCase(nz(w.subAccount())));
         Long orderId = orderIdFrom(w.code(), w.content());
         Payment p = orderId == null ? null : orders.findById(orderId).map(Order::getPayment).orElse(null);
-        if (p == null || p.getMethod() != PaymentMethod.BANK_TRANSFER) {
+        if (!ourAccount) {
+            t.setNote("Không phải tài khoản nhận tiền của quán – bỏ qua");
+        } else if (p == null) {
             t.setNote("Không khớp đơn hàng nào");
         } else {
+            if (p.getMethod() == PaymentMethod.COD && p.getStatus() == PaymentStatus.PENDING) {
+                p.setMethod(PaymentMethod.BANK_TRANSFER);   // customer chose COD but paid by transfer anyway
+            }
             t.setPayment(p);
             settle(p, t);
         }
@@ -123,6 +146,30 @@ public class PaymentService {
         p.setPaidAt(LocalDateTime.now());
         t.setNote(t.getAmount().compareTo(p.getAmount()) > 0 ? "Chuyển dư " + Money.vnd(t.getAmount().subtract(p.getAmount())) : "Khớp đơn");
         if (o.getStatus() == OrderStatus.AWAITING_PAYMENT) events.change(o, OrderStatus.PENDING, "Đã nhận chuyển khoản " + Money.vnd(t.getAmount()), null);
+    }
+
+    private static String nz(String s) { return s == null ? "" : s.trim(); }
+
+    /** Customer switches between COD and bank transfer before paying / before the store confirmed the order. */
+    @Transactional
+    public PaymentResponse switchMethod(Order o, PaymentMethod to) {
+        Payment p = o.getPayment();
+        if (p == null || p.getStatus() != PaymentStatus.PENDING) throw ApiException.badRequest("Đơn đã thanh toán hoặc đã đóng, không đổi được phương thức");
+        if (p.getMethod() == to) return toResponse(p);
+        if (to == PaymentMethod.COD) {
+            if (o.getStatus() != OrderStatus.AWAITING_PAYMENT) throw ApiException.badRequest("Đơn không ở trạng thái chờ thanh toán");
+            p.setMethod(PaymentMethod.COD);
+            p.setExpiresAt(null);
+            events.change(o, OrderStatus.PENDING, "Khách đổi sang thanh toán khi nhận hàng", null);
+        } else {
+            if (o.getStatus() != OrderStatus.PENDING) throw ApiException.badRequest("Cửa hàng đã xác nhận đơn, không đổi sang chuyển khoản được nữa");
+            StoreSettings s = store.settings();
+            if (s.getBankAccount() == null) throw ApiException.badRequest("Cửa hàng chưa hỗ trợ chuyển khoản");
+            p.setMethod(PaymentMethod.BANK_TRANSFER);
+            p.setExpiresAt(LocalDateTime.now().plusMinutes(s.getTransferTimeoutMinutes()));
+            events.change(o, OrderStatus.AWAITING_PAYMENT, "Khách đổi sang chuyển khoản", null);
+        }
+        return toResponse(p);
     }
 
     Long orderIdFrom(String code, String content) {

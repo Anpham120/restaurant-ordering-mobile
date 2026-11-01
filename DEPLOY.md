@@ -56,6 +56,20 @@ sudo certbot --nginx -d order.atlasplatform12.tech --redirect
 ```
 certbot thêm khối 443/TLS, chuyển HTTP sang HTTPS và tự gia hạn chứng chỉ.
 
+## Thanh toán chuyển khoản (VietQR + SePay)
+
+Khách chọn "Chuyển khoản VietQR". App hiện mã QR có sẵn số tiền và nội dung `ATL<mã đơn>`. Khi tiền vào tài khoản quán, SePay gọi webhook, đơn tự chuyển từ "Chờ thanh toán" sang "Chờ xác nhận". Đơn chuyển khoản chưa thanh toán sẽ tự hủy sau thời hạn cài trong mục Cài đặt (mặc định 15 phút).
+
+1. Đăng ký tại https://my.sepay.vn và liên kết tài khoản ngân hàng nhận tiền của quán.
+2. Vào *Webhooks → Thêm webhook*:
+   - URL: `https://order.atlasplatform12.tech/api/payments/sepay/webhook`
+   - Sự kiện: tiền vào
+   - Kiểu chứng thực: **API Key**
+3. Đặt `SEPAY_API_KEY=<key>` trong `prod.env`, chạy `base64 -w0 prod.env > prod.env.b64`, cập nhật credential `ordering-prod-env` trong Jenkins, rồi deploy lại.
+4. Đăng nhập quản lý, vào *Cài đặt cửa hàng* và nhập mã ngân hàng (ví dụ `MB`, `VCB`), số tài khoản, tên chủ tài khoản. Chỉ khi đã nhập đủ, lựa chọn chuyển khoản mới hiện ra cho khách.
+
+Nếu khách chuyển sai nội dung, nhân viên vẫn xác nhận tay được: mở đơn → "Xác nhận đã nhận CK". Mọi giao dịch SePay báo về, kể cả giao dịch không khớp đơn nào, đều xem được ở *Quản lý → Thanh toán*. Đơn đã chuyển khoản mà sau đó bị hủy sẽ vào hàng "Chờ hoàn tiền".
+
 ## Vận hành
 
 ```bash
