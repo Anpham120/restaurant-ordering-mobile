@@ -4,6 +4,8 @@ CSDL PostgreSQL cho ứng dụng đặt món giao tận nhà của một nhà h�
 
 ![ERD](erd.png)
 
+Mã nguồn ERD dạng DBML: [`erd.dbml`](erd.dbml) – dán vào https://dbdiagram.io/d để xem và chỉnh sơ đồ.
+
 **22 bảng, 32 khóa ngoại.** Bảng nào cũng có quan hệ với ít nhất một bảng khác, và cột khóa ngoại nào cũng có index (đã kiểm tra tự động trên PostgreSQL).
 
 ## Các bảng
