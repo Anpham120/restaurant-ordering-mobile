@@ -48,10 +48,10 @@ async function closedLoop(n, secs, fn) {
 }
 
 /** Requests started at a fixed rate, whatever the response time. */
-async function openLoop(rps, secs, fn) {
+async function openLoop(rps, secs, fn, max = Infinity) {
   const end = Date.now() + secs * 1000, start = Date.now(), out = [], pending = [];
   let i = 0;
-  while (Date.now() < end) {
+  while (Date.now() < end && i < max) {
     pending.push(fn(i++).then(r => out.push(r)));
     await sleep(Math.max(0, start + (i * 1000) / rps - Date.now()));
   }
@@ -72,7 +72,8 @@ async function openLoop(rps, secs, fn) {
 
   const zone = (await json('GET', '/api/zones'))[0];
   const menu = await json('GET', '/api/menu');
-  const dish = menu.find(m => m.available) ;
+  // a dish without required options, so a plain add-to-cart is valid
+  const dish = menu.find(m => m.available && m.optionGroups.every(g => g.minSelect === 0));
 
   console.error(`preparing ${CUSTOMERS} customers…`);
   const customers = [];
@@ -83,7 +84,7 @@ async function openLoop(rps, secs, fn) {
     customers.push({ token, addressId: addr.id });
   }
   const placeOrder = async (c) => {
-    await call('PUT', `/api/me/cart/items/${dish.id}`, { quantity: 2 }, c.token);
+    await call('POST', '/api/me/cart/items', { menuItemId: dish.id, quantity: 2 }, c.token);
     return call('POST', '/api/me/orders', { addressId: c.addressId }, c.token);
   };
 
@@ -103,7 +104,7 @@ async function openLoop(rps, secs, fn) {
   const ids = [...pending, ...more];
   const confirmSecs = Math.min(SECS, Math.floor(ids.length / 10));
   results.push(summarize('PT03 Nhân viên xác nhận đơn – 10 lượt/giây',
-    await openLoop(10, confirmSecs, i => call('PATCH', `/api/manage/orders/${ids[i % ids.length]}/status`, { status: 'CONFIRMED' }, staff)), confirmSecs));
+    await openLoop(10, confirmSecs, i => call('PATCH', `/api/manage/orders/${ids[i]}/status`, { status: 'CONFIRMED' }, staff), ids.length), confirmSecs));
 
   console.error('PT04 mixed');
   const mixed = [], end = Date.now() + SECS * 1000;

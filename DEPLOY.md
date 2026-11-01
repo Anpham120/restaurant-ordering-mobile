@@ -25,7 +25,7 @@ Internet ──HTTPS──> nginx (host, certbot)
 
 | Khi nào | Các bước |
 |---|---|
-| Mọi nhánh / PR | `mvn verify`: 11 bộ test, gồm test profile prod trên PostgreSQL thật (embedded). Sau đó `tsc`, `expo lint`, `expo export --platform web` |
+| Mọi nhánh / PR | `mvn verify`: 19 bộ test, gồm test profile prod trên PostgreSQL thật (embedded). Sau đó `tsc`, `expo lint`, `expo export --platform web` |
 | `main` | Thêm bước **Deploy production** (`scripts/deploy.sh`): backup DB → build image → chờ healthy → kiểm tra `/api/health`, `/api/menu`, trang web. Lỗi ở bất kỳ bước nào thì tự quay về image trước |
 | 3 giờ sáng (nhánh `main`) | Chỉ backup DB (`scripts/backup-db.sh nightly`) |
 

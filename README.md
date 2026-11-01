@@ -44,7 +44,7 @@ Mã giảm giá mẫu: `WELCOME10` (giảm 10%, tối đa 30.000đ, đơn từ 1
 
 ```bash
 cd backend
-mvn verify     # 17 bộ test, gồm 1 bộ chạy profile prod trên PostgreSQL thật (embedded)
+mvn verify     # 19 bộ test, gồm 1 bộ chạy profile prod trên PostgreSQL thật (embedded)
 node perf/load-test.js <baseUrl> <sđt quản lý> <mật khẩu> 30    # đo tải; tạo dữ liệu thử nên KHÔNG chạy vào CSDL production
 ```
 
