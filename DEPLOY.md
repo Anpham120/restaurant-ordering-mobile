@@ -25,22 +25,22 @@ Internet ──HTTPS──> nginx (host, certbot)
 ## Quy trình nhánh
 
 ```
-feature/xxx ──PR──> develop ──PR──> main
- (làm việc)        (CI + staging tạm) (CI + production)
+feature/xxx ──PR──> develop ──(tự động)──> main
+ (làm việc)        (CI + staging tạm)       (CI + production)
 ```
 
 1. Tách nhánh tính năng từ `develop`: `git checkout develop && git pull && git checkout -b feature/ten-tinh-nang`.
 2. Đẩy nhánh lên GitHub: Jenkins chạy **CI** (test + kiểm tra mobile). Chưa deploy gì.
 3. Mở PR vào `develop`, CI xanh thì merge. Jenkins dựng **staging tạm**, chạy bộ smoke test rồi xóa sạch (giải phóng tài nguyên).
-4. Staging test đạt thì mở PR `develop` → `main`. Merge thì Jenkins **deploy production**.
-5. Không commit thẳng vào `main` và `develop`. Nên bật *Branch protection* trên GitHub cho cả hai: bắt buộc PR và CI xanh (check của Jenkins) trước khi merge.
+4. Staging test đạt thì Jenkins **tự đẩy commit đó lên `main`** (chỉ fast-forward), build `main` tự **deploy production**. Không cần PR hay merge tay. Nếu `main` có commit mà `develop` không có, Jenkins dừng lại và báo lỗi: merge `main` vào `develop` trước.
+5. Không commit thẳng vào `main`. Muốn bật *Branch protection* cho `main` thì phải cho phép tài khoản của credential `github-branch-source` đẩy thẳng (bypass), nếu không bước tự đẩy sẽ bị GitHub từ chối. Credential này cần token có quyền ghi repo (`contents: write`).
 
 ## Pipeline (`Jenkinsfile`, job multibranch `ordering`)
 
 | Khi nào | Các bước |
 |---|---|
 | Mọi nhánh / PR | **CI**: `mvn verify` (26 bộ test, gồm test profile prod trên PostgreSQL thật), sau đó `tsc`, `expo lint`, `expo export --platform web` |
-| `develop` | CI + **Staging test** (`scripts/staging-test.sh`): dựng stack riêng bằng `docker-compose.yml` và Dockerfile của production, chạy 15 kiểm tra (health, web, thực đơn, báo giá giao hàng, đăng ký và đăng nhập, sai mật khẩu, phân quyền 401/403…), rồi xóa container, volume, image, `.env` và cache build không dùng quá 3 ngày. Không cần credential |
+| `develop` | CI + **Staging test** + **Promote to main** (đạt hết thì tự đẩy lên `main`) (`scripts/staging-test.sh`): dựng stack riêng bằng `docker-compose.yml` và Dockerfile của production, chạy 15 kiểm tra (health, web, thực đơn, báo giá giao hàng, đăng ký và đăng nhập, sai mật khẩu, phân quyền 401/403…), rồi xóa container, volume, image, `.env` và cache build không dùng quá 3 ngày. Không cần credential |
 | `main` | CI + **Deploy production** (`scripts/deploy.sh`, credential `ordering-prod-env`): backup DB → build image → chờ healthy → kiểm tra. Lỗi ở bất kỳ bước nào thì tự quay về image trước |
 | `main`, khi thư mục `mobile/` có thay đổi | Sau khi deploy xong: **Build Android APK**, gửi yêu cầu build lên EAS (không chờ, 10–30 phút), Telegram báo link theo dõi. Lỗi bước này chỉ cảnh báo, không làm hỏng deploy |
 | 3 giờ sáng (nhánh `main`) | Chỉ backup DB (`scripts/backup-db.sh nightly`) |

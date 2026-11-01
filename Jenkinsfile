@@ -1,7 +1,8 @@
 // CI/CD for restaurant-ordering-system (Jenkins multibranch job "ordering", scans GitHub every minute).
-// Branch model:  feature/* ──PR──> develop ──PR──> main
+// Branch model:  feature/* ──PR──> develop ──(automatic)──> main
 //   every branch / PR : CI = backend tests (incl. prod profile on PostgreSQL) + mobile typecheck, lint, web build
 //   develop           : CI + disposable STAGING: build the stack, smoke-test it, remove it (nothing stays running)
+//                       + when all of that passes, PROMOTE: fast-forward main to this commit (fully automatic CD)
 //   main              : CI + deploy to PRODUCTION on this server (DB backup first, automatic rollback on failure)
 //   main + mobile/ changed : after the deploy, queue an Android APK build on EAS (not waited for)
 //   nightly (main)    : DB backup only
@@ -87,6 +88,29 @@ pipeline {
             }
         }
 
+        // Continuous deployment: a develop commit that passed CI and the staging test is pushed to main, whose build
+        // deploys it. Fast-forward only: if main has commits develop does not have, nothing is pushed and the build fails.
+        // Uses the GitHub credential of the branch source (username + token with write access to the repository).
+        stage('Promote to main') {
+            when {
+                allOf { branch 'develop'; not { triggeredBy 'TimerTrigger' } }
+            }
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'github-branch-source', usernameVariable: 'GH_USER', passwordVariable: 'GH_TOKEN')]) {
+                    sh '''
+                        set -e
+                        AUTH="https://${GH_USER}:${GH_TOKEN}@github.com/Anpham120/restaurant-ordering-system.git"
+                        git fetch -q "$AUTH" main
+                        if ! git merge-base --is-ancestor FETCH_HEAD "$GIT_COMMIT"; then
+                            echo "main has commits that develop does not have: merge main into develop first"; exit 1
+                        fi
+                        git push -q "$AUTH" "$GIT_COMMIT:refs/heads/main"
+                        echo "main -> $GIT_COMMIT (the main build deploys it)"
+                    '''
+                }
+            }
+        }
+
         stage('Deploy production') {
             when {
                 allOf { branch 'main'; not { triggeredBy 'TimerTrigger' } }
@@ -139,7 +163,7 @@ pipeline {
                     if (env.BRANCH_NAME == 'main') {
                         notifyTelegram("✅ [ordering] Đã deploy PRODUCTION https://order.atlasplatform12.tech")
                     } else if (env.BRANCH_NAME == 'develop') {
-                        notifyTelegram("✅ [ordering] Staging test đạt (đã dọn sạch)")
+                        notifyTelegram("✅ [ordering] Staging test đạt, đã đẩy lên main để deploy production")
                     }
                 }
             }
