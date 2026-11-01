@@ -25,6 +25,21 @@ In the output, you'll find options to open the app in a
 
 You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
+## Build APK (Android)
+
+The APK is built in the cloud with EAS Build and talks to the production API
+(`EXPO_PUBLIC_API_URL` in `eas.json`, profile `preview`). Deploy the backend to
+`https://order.atlasplatform12.tech` first, otherwise the app cannot reach the API.
+iPhone users use the web version at the same address.
+
+```bash
+npx eas-cli@latest login                                   # free Expo account
+npx eas-cli@latest build -p android --profile preview      # prints a download link for the .apk
+```
+
+The first build asks to create the EAS project and an Android keystore; let EAS
+generate and keep the keystore (losing it means installed apps cannot be updated).
+
 ## Get a fresh project
 
 When you're ready, run:

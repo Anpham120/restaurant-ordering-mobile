@@ -11,6 +11,7 @@
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "tech.atlasplatform12.order",
       "adaptiveIcon": {
         "backgroundColor": "#C2410C",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
