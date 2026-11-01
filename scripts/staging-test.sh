@@ -37,6 +37,8 @@ teardown >/dev/null
   cat > .env <<EOF
 COMPOSE_PROJECT_NAME=$PROJECT
 IMAGE_PREFIX=$PROJECT
+# no public domain; set anyway because some compose versions check ${APP_DOMAIN:?} even when APP_WEB_URL is given
+APP_DOMAIN=localhost
 BACKEND_PORT=8184
 WEB_PORT=8185
 APP_WEB_URL=$WEB
