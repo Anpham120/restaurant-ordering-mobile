@@ -50,6 +50,8 @@ rollback() {
 if docker compose up -d --no-deps --build --wait backend web && check; then
   docker rmi "$BACKEND:previous" "$WEB:previous" >/dev/null 2>&1 || true
   docker image prune -f >/dev/null
+  # build cache grows with every build (Maven and npm layers); drop what has not been used for 3 days
+  docker builder prune -f --filter until=72h >/dev/null 2>&1 || true
   echo "[deploy] done: $SHA is live at $WEB_URL"
 else
   rollback

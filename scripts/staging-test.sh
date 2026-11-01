@@ -19,8 +19,10 @@ teardown() {
   COMPOSE_PROJECT_NAME=$PROJECT POSTGRES_PASSWORD=x APP_JWT_SECRET=x APP_ADMIN_PHONE=x APP_ADMIN_PASSWORD=x APP_DOMAIN=x \
     docker compose down -v --remove-orphans >/dev/null 2>&1 || true
   docker rmi "$PROJECT-backend:latest" "$PROJECT-web:latest" >/dev/null 2>&1 || true
+  docker image prune -f >/dev/null 2>&1 || true                        # dangling layers left by the build
+  docker builder prune -f --filter until=72h >/dev/null 2>&1 || true   # build cache unused for 3 days
   rm -f .env
-  echo "[staging] removed containers, volume, images and .env"
+  echo "[staging] removed containers, volume, images, old build cache and .env"
 }
 
 if [ "$MODE" = down ]; then teardown; exit 0; fi
@@ -77,6 +79,8 @@ check "web app is served"                status_is 200 "$WEB/"
 check "menu has dishes"                  body_has '"name"' "$API/api/menu"
 check "store settings"                   body_has 'storeName' "$API/api/store"
 check "promotions"                       status_is 200 "$API/api/promotions"
+check "delivery quote near the store"    body_has '"deliverable":true' "$API/api/delivery/quote?lat=20.99&lng=105.78"
+check "delivery quote far away refused"  body_has '"deliverable":false' "$API/api/delivery/quote?lat=10.77&lng=106.70"
 check "cart needs a token (401)"         status_is 401 "$API/api/me/cart"
 MANAGER=$(login 0900000000 "$ADMIN_PASSWORD" || true)
 CUSTOMER=$(register || true)

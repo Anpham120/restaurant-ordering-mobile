@@ -1,12 +1,12 @@
 // Atlas Restaurant – CSDL đặt món giao tận nhà (PostgreSQL)
 // Dán toàn bộ file này vào https://dbdiagram.io/d để xem ERD.
-// Nguồn: backend/src/main/resources/db/migration/V1__init.sql, V2__..., V3__...
+// Nguồn: backend/src/main/resources/db/migration/V1__init.sql ... V4__distance_based_delivery.sql
 // Trong CSDL thật, các kiểu Enum dưới đây được cài bằng varchar + CHECK; ràng buộc CHECK và
 // unique index một phần được ghi trong note của từng bảng/cột.
 
 Project atlas_restaurant {
   database_type: 'PostgreSQL'
-  Note: '22 bảng, 32 khóa ngoại, chuẩn 3NF. Tổng tiền đơn, mã đơn, nội dung chuyển khoản không được lưu mà tính khi cần.'
+  Note: '21 bảng, 30 khóa ngoại, chuẩn 3NF. Tổng tiền đơn, mã đơn, nội dung chuyển khoản, phí giao theo địa chỉ không được lưu mà tính khi cần; đơn chỉ lưu lại khoảng cách và phí đã áp dụng.'
 }
 
 // ===================================================================== enums
@@ -89,31 +89,22 @@ Table password_reset_tokens {
   }
 }
 
-Table delivery_zones {
-  id bigint [pk, increment]
-  name varchar(60) [not null, unique]
-  delivery_fee "numeric(12,2)" [not null, note: 'CHECK >= 0']
-  estimated_minutes integer [not null, note: 'CHECK 5..240']
-  sort_order integer [not null, default: 0]
-  is_active boolean [not null, default: true]
-  Note: 'Khu vực giao (quận) và phí ship'
-}
-
 Table addresses {
   id bigint [pk, increment]
   user_id bigint [not null]
-  zone_id bigint [not null]
   label varchar(40) [not null]
   recipient_name varchar(100) [not null]
   recipient_phone varchar(15) [not null]
   street varchar(200) [not null]
+  latitude "numeric(9,6)" [note: 'Vị trí giao; null chỉ với địa chỉ cũ trước V4. CHECK cùng null hoặc cùng có giá trị']
+  longitude "numeric(9,6)"
   note varchar(200)
   is_default boolean [not null, default: false, note: 'UNIQUE (user_id) WHERE is_default – tối đa 1 địa chỉ mặc định']
   created_at timestamp [not null]
   indexes {
     user_id
-    zone_id
   }
+  Note: 'Sổ địa chỉ của khách: dòng địa chỉ + vị trí trên bản đồ. Phí và thời gian giao tính từ vị trí, không lưu'
 }
 
 // ===================================================================== menu
@@ -245,7 +236,6 @@ Table promotions {
 Table orders {
   id bigint [pk, increment]
   customer_id bigint [not null]
-  zone_id bigint [not null]
   voucher_id bigint
   status order_status [not null]
   recipient_name varchar(100) [not null, note: 'Chụp lại từ sổ địa chỉ lúc đặt']
@@ -253,7 +243,9 @@ Table orders {
   delivery_street varchar(200) [not null]
   delivery_note varchar(200)
   note varchar(300)
-  delivery_fee "numeric(12,2)" [not null, note: 'Phí ship thực thu']
+  distance_km "numeric(5,1)" [not null, default: 0, note: 'Quãng đường ước tính lúc đặt (đường chim bay x hệ số đường đi)']
+  estimated_minutes integer [not null, default: 30, note: 'Thời gian giao hẹn với khách lúc đặt']
+  delivery_fee "numeric(12,2)" [not null, note: 'Phí ship thực thu, tính theo khoảng cách lúc đặt']
   discount_amount "numeric(12,2)" [not null, default: 0, note: 'Số tiền giảm thực tế']
   created_at timestamp [not null]
   updated_at timestamp [not null]
@@ -261,7 +253,6 @@ Table orders {
   indexes {
     (customer_id, created_at) [name: 'ix_orders_customer_created']
     (status, created_at) [name: 'ix_orders_status_created']
-    zone_id
     voucher_id
   }
   Note: 'Tạm tính và tổng tiền tính từ order_items, không lưu'
@@ -383,14 +374,21 @@ Table store_settings {
   bank_account varchar(19)
   bank_holder varchar(80)
   transfer_timeout_minutes integer [not null, default: 15, note: 'CHECK 5..120']
+  latitude "numeric(9,6)" [note: 'Vị trí nhà hàng (Trường ĐH CMC - Cơ sở 2, Vạn Phúc Building, Hà Đông)']
+  longitude "numeric(9,6)"
+  delivery_base_km "numeric(4,1)" [not null, default: 5, note: 'Bán kính áp dụng phí cơ bản']
+  delivery_base_fee "numeric(12,2)" [not null, default: 15000]
+  delivery_extra_fee_per_km "numeric(12,2)" [not null, default: 5000, note: 'Mỗi km bắt đầu vượt bán kính cơ bản']
+  delivery_max_km "numeric(4,1)" [not null, default: 15, note: 'Xa hơn không giao. CHECK >= delivery_base_km']
+  prep_minutes integer [not null, default: 15]
+  minutes_per_km integer [not null, default: 4, note: 'CHECK 1..30']
   indexes {
     updated_by
   }
 }
 
-// ===================================================================== relationships (32)
+// ===================================================================== relationships (30)
 Ref: addresses.user_id > users.id [delete: cascade]
-Ref: addresses.zone_id > delivery_zones.id
 Ref: password_reset_tokens.user_id > users.id [delete: cascade]
 Ref: menu_items.category_id > categories.id
 Ref: option_groups.menu_item_id > menu_items.id [delete: cascade]
@@ -405,7 +403,6 @@ Ref: promotions.menu_item_id > menu_items.id
 Ref: promotions.category_id > categories.id
 Ref: promotions.voucher_id > vouchers.id
 Ref: orders.customer_id > users.id
-Ref: orders.zone_id > delivery_zones.id
 Ref: orders.voucher_id > vouchers.id
 Ref: order_items.order_id > orders.id
 Ref: order_items.menu_item_id > menu_items.id

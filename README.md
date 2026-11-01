@@ -5,7 +5,7 @@
 - **Khách hàng:** xem thực đơn có ảnh và đánh giá, chọn size và topping, giỏ hàng lưu trên máy chủ, sổ địa chỉ, mã giảm giá, đặt hàng, thanh toán COD hoặc quét QR, theo dõi đơn, thông báo, banner chương trình, hủy đơn, đặt lại, đánh giá món, món yêu thích.
 - **Nhân viên:** bảng đơn theo trạng thái; xác nhận hoặc hủy đơn (có lý do), giao hàng, thu COD; tạm ngưng nhận đơn.
 - **Bếp:** màn hình phiếu chế biến, báo hết món.
-- **Quản lý:** tổng quan, báo cáo doanh thu, thực đơn kèm tùy chọn món, danh mục, khu vực giao và phí ship, mã giảm giá, chương trình quảng bá (gửi thông báo cho khách), thanh toán (hoàn tiền, đối soát giao dịch ngân hàng), nhân viên, khách hàng, đánh giá, cài đặt cửa hàng.
+- **Quản lý:** tổng quan, báo cáo doanh thu, thực đơn kèm tùy chọn món, danh mục, vị trí cửa hàng và phí giao theo khoảng cách, mã giảm giá, chương trình quảng bá (gửi thông báo cho khách), thanh toán (hoàn tiền, đối soát giao dịch ngân hàng), nhân viên, khách hàng, đánh giá, cài đặt cửa hàng.
 
 Bản production: **https://order.atlasplatform12.tech**
 
@@ -52,12 +52,12 @@ node perf/load-test.js <baseUrl> <sđt quản lý> <mật khẩu> 30    # đo t�
 
 | Nhóm | Đường dẫn | Quyền |
 |---|---|---|
-| Công khai | `GET /api/store`, `/api/zones`, `/api/categories`, `/api/menu?categoryId=&q=`, `/api/menu/popular`, `/api/menu/{id}`, `/api/vouchers`, `/api/promotions` | Mọi người |
+| Công khai | `GET /api/store`, `/api/delivery/quote?lat=&lng=`, `/api/categories`, `/api/menu?categoryId=&q=`, `/api/menu/popular`, `/api/menu/{id}`, `/api/vouchers`, `/api/promotions` | Mọi người |
 | SePay | `POST /api/payments/sepay/webhook` (header `Authorization: Apikey <SEPAY_API_KEY>`) | SePay |
 | Tài khoản | `POST /api/auth/register`, `POST /api/auth/login` (`login` là số điện thoại hoặc email), `POST /api/auth/forgot-password`, `POST /api/auth/reset-password`, `GET /api/auth/me`, `PUT /api/auth/profile` (gồm `marketingOptIn`), `POST /api/auth/change-password` (trả token mới, đăng xuất các thiết bị khác) | Mọi người / đã đăng nhập |
 | Khách hàng | `/api/me/addresses`, `/api/me/favorites`, `GET/DELETE /api/me/cart`, `POST /api/me/cart/items` (`menuItemId`, `quantity`, `note`, `optionIds`), `PATCH /api/me/cart/items/{lineId}`, `POST /api/me/checkout/preview`, `/api/me/orders` (`paymentMethod`: `COD` hoặc `BANK_TRANSFER`), `POST /api/me/orders/{id}/cancel`, `POST /api/me/orders/{id}/reorder`, `POST /api/me/reviews`, `/api/me/notifications` (`/unread-count`, `/{id}/read`, `/read-all`) | `CUSTOMER` |
 | Cửa hàng | `GET /api/manage/orders?status=&q=&date=&sort=oldest`, `PATCH /api/manage/orders/{id}/status`, `PATCH /api/manage/orders/{id}/confirm-transfer`, `GET /api/manage/kitchen/queue`, `PATCH /api/manage/menu-items/{id}/availability`, `PATCH /api/manage/store/accepting` | `STAFF`, `KITCHEN`, `MANAGER` |
-| Quản trị | `/api/admin/dashboard`, `/api/admin/reports/revenue`, `/api/admin/categories`, `/api/admin/menu-items`, `PUT /api/admin/menu-items/{id}/options`, `/api/admin/promotions` (+ `POST /{id}/announce`), `/api/admin/payments`, `PATCH /api/admin/payments/{id}/refunded`, `/api/admin/bank-transactions`, `/api/admin/zones`, `/api/admin/vouchers`, `/api/admin/staff`, `/api/admin/customers`, `/api/admin/users/{id}/active`, `POST /api/admin/users/{id}/reset-password`, `/api/admin/reviews`, `/api/admin/settings` | `MANAGER` |
+| Quản trị | `/api/admin/dashboard`, `/api/admin/reports/revenue`, `/api/admin/categories`, `/api/admin/menu-items`, `PUT /api/admin/menu-items/{id}/options`, `/api/admin/promotions` (+ `POST /{id}/announce`), `/api/admin/payments`, `PATCH /api/admin/payments/{id}/refunded`, `/api/admin/bank-transactions`, `/api/admin/vouchers`, `/api/admin/staff`, `/api/admin/customers`, `/api/admin/users/{id}/active`, `POST /api/admin/users/{id}/reset-password`, `/api/admin/reviews`, `/api/admin/settings` | `MANAGER` |
 
 Mã lỗi:
 - Thiếu token: **401**.
@@ -70,5 +70,5 @@ Body lỗi luôn có dạng `{"status": ..., "error": "thông báo tiếng Việ
 ## Giới hạn hiện tại
 
 - Thanh toán online chỉ có chuyển khoản VietQR qua SePay, chưa có thẻ hay ví điện tử.
-- Phí giao tính theo khu vực (quận), không theo khoảng cách. App không có vai trò tài xế, nhân viên quán tự giao.
+- Phí giao tính theo khoảng cách chim bay x 1,3 (ước tính đường đi), chưa dùng dịch vụ chỉ đường thời gian thực. App không có vai trò tài xế, nhân viên quán tự giao.
 - Trạng thái đơn được cập nhật bằng cách hỏi lại định kỳ (polling), chưa có thông báo đẩy.

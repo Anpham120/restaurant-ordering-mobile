@@ -40,7 +40,7 @@ feature/xxx ──PR──> develop ──PR──> main
 | Khi nào | Các bước |
 |---|---|
 | Mọi nhánh / PR | **CI**: `mvn verify` (26 bộ test, gồm test profile prod trên PostgreSQL thật), sau đó `tsc`, `expo lint`, `expo export --platform web` |
-| `develop` | CI + **Staging test** (`scripts/staging-test.sh`): dựng stack riêng bằng `docker-compose.yml` và Dockerfile của production, chạy 13 kiểm tra (health, web, thực đơn, đăng ký và đăng nhập, sai mật khẩu, phân quyền 401/403…), rồi xóa container, volume, image và `.env`. Không cần credential |
+| `develop` | CI + **Staging test** (`scripts/staging-test.sh`): dựng stack riêng bằng `docker-compose.yml` và Dockerfile của production, chạy 15 kiểm tra (health, web, thực đơn, báo giá giao hàng, đăng ký và đăng nhập, sai mật khẩu, phân quyền 401/403…), rồi xóa container, volume, image, `.env` và cache build không dùng quá 3 ngày. Không cần credential |
 | `main` | CI + **Deploy production** (`scripts/deploy.sh`, credential `ordering-prod-env`): backup DB → build image → chờ healthy → kiểm tra. Lỗi ở bất kỳ bước nào thì tự quay về image trước |
 | `main`, khi thư mục `mobile/` có thay đổi | Sau khi deploy xong: **Build Android APK**, gửi yêu cầu build lên EAS (không chờ, 10–30 phút), Telegram báo link theo dõi. Lỗi bước này chỉ cảnh báo, không làm hỏng deploy |
 | 3 giờ sáng (nhánh `main`) | Chỉ backup DB (`scripts/backup-db.sh nightly`) |
@@ -133,7 +133,7 @@ docker compose -p restaurant-ordering-system logs -f backend
 ```
 
 - **Tài khoản quản lý đầu tiên:** đăng nhập bằng số điện thoại `APP_ADMIN_PHONE` (mặc định `0900000000`), mật khẩu là `APP_ADMIN_PASSWORD` trong `prod.env`. Đăng nhập xong nên tạo tài khoản riêng cho từng nhân viên trong mục *Nhân viên*.
-- **Dữ liệu mẫu:** `APP_SEED_DEMO=true` nạp thực đơn 19 món kèm ảnh, 8 khu vực giao và 2 mã giảm giá (`WELCOME10`, `FREESHIP`) khi DB còn trống. Không tạo tài khoản demo có mật khẩu công khai, vì đã có tài khoản quản lý.
+- **Dữ liệu mẫu:** `APP_SEED_DEMO=true` nạp thực đơn 19 món kèm ảnh, và 2 mã giảm giá (`WELCOME10`, `FREESHIP`) khi DB còn trống. Không tạo tài khoản demo có mật khẩu công khai, vì đã có tài khoản quản lý.
 - **Đổi secret:** sửa `prod.env`, chạy `base64 -w0 prod.env > prod.env.b64`, cập nhật credential `ordering-prod-env`, rồi build lại `main` trong Jenkins. Riêng `POSTGRES_PASSWORD` chỉ có tác dụng khi volume DB được tạo lần đầu, nên muốn đổi thì phải đổi trong PostgreSQL trước.
 - **Khôi phục DB:**
   ```bash
