@@ -9,6 +9,8 @@
 
 Bản production: **https://order.atlasplatform12.tech**
 
+App Android (APK) chỉ dành cho khách hàng. Quản lý, nhân viên và bếp làm việc trên web cùng địa chỉ trên; đăng nhập tài khoản cửa hàng trong app sẽ bị từ chối kèm hướng dẫn mở web. Khách dùng iPhone đặt món qua web.
+
 | Thư mục | Nội dung |
 |---|---|
 | `backend/` | REST API: Java 21, Spring Boot 3.4, JPA, Flyway, PostgreSQL (prod) / H2 (dev), JWT |

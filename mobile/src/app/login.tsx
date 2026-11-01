@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import {Pressable, StyleSheet, View} from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
@@ -10,7 +10,7 @@ import { PhoneFrame } from '@/components/phone';
 import { Txt } from '@/components/txt';
 import { ErrorBox, Field, Notice, Segmented } from '@/components/ui';
 import { errorMessage, type User } from '@/lib/api';
-import { homeFor, useSession } from '@/lib/session';
+import { homeFor, STORE_WEB_URL, useSession } from '@/lib/session';
 import { colors } from '@/lib/theme';
 
 const HERO = 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/Banh_Xeo_with_fish_sauce_and_vegetables.jpg/500px-Banh_Xeo_with_fish_sauce_and_vegetables.jpg';
@@ -93,7 +93,9 @@ export default function LoginScreen() {
             <Button title={mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'} size="lg" onPress={submit} loading={busy} disabled={!valid} />
             <Button title="Xem thực đơn trước, đăng nhập sau" variant="secondary" onPress={() => router.replace('/')} />
             <Txt size={12} color={colors.muted} style={{ textAlign: 'center', lineHeight: 18, marginTop: 'auto' }}>
-              Nhân viên cửa hàng đăng nhập cùng màn hình này – app tự chuyển tới khu vực làm việc theo vai trò.
+              {Platform.OS === 'web'
+                ? 'Nhân viên cửa hàng đăng nhập cùng màn hình này – trang tự chuyển tới khu vực làm việc theo vai trò.'
+                : `Ứng dụng dành cho khách hàng. Quản lý, nhân viên và bếp làm việc trên web: ${STORE_WEB_URL.replace('https://', '')}`}
             </Txt>
           </View>
         </KeyboardScroll>

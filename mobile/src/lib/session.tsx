@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Platform } from 'react-native';
 
 import { api, setAuthToken, setMustChangePasswordHandler, setUnauthorizedHandler, type AuthResponse, type Role, type User } from './api';
 
@@ -25,6 +26,10 @@ interface SessionValue {
 }
 
 export const SESSION_EXPIRED = 'Phiên đăng nhập đã hết hiệu lực, vui lòng đăng nhập lại.';
+/** The phone app is for customers only; manager, staff and kitchen accounts work on the web. */
+export const STORE_WEB_URL = 'https://order.atlasplatform12.tech';
+export const STORE_ON_WEB = `Tài khoản cửa hàng (quản lý, nhân viên, bếp) chỉ dùng trên web: ${STORE_WEB_URL.replace('https://', '')}`;
+export const allowedHere = (u: User): boolean => Platform.OS === 'web' || u.role === 'CUSTOMER';
 
 const Ctx = createContext<SessionValue | null>(null);
 
@@ -57,10 +62,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const raw = await AsyncStorage.getItem(KEY);
         if (raw && alive) {
           const s = JSON.parse(raw) as Stored;
-          setAuthToken(s.token);
-          setState(s);
-          // refresh the profile (role or lock may have changed); a 401 logs out via the handler
-          api.me().then((u) => alive && persist({ token: s.token, user: u })).catch(() => undefined);
+          if (!allowedHere(s.user)) {               // a store account left signed in on the phone by an older version
+            await AsyncStorage.removeItem(KEY);
+            setNotice(STORE_ON_WEB);
+          } else {
+            setAuthToken(s.token);
+            setState(s);
+            // refresh the profile (role or lock may have changed); a 401 logs out via the handler
+            api.me().then((u) => {
+              if (!alive) return;
+              if (allowedHere(u)) persist({ token: s.token, user: u }); else { persist(null); setNotice(STORE_ON_WEB); }
+            }).catch(() => undefined);
+          }
         }
       } catch { /* corrupt storage: start signed out */ }
       if (alive) setReady(true);
@@ -87,7 +100,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     ready,
     user: state?.user ?? null,
     token: state?.token ?? null,
-    login: async (login, password) => { const u = accept(await api.login(login, password)); setWelcomeSeq((n) => n + 1); return u; },
+    login: async (login, password) => {
+      const r = await api.login(login, password);
+      if (!allowedHere(r.user)) throw new Error(STORE_ON_WEB);   // nothing is stored: the app stays signed out
+      const u = accept(r); setWelcomeSeq((n) => n + 1); return u;
+    },
     register: async (b) => { const u = accept(await api.register(b)); setWelcomeSeq((n) => n + 1); return u; },
     logout: () => persist(null),
     setUser: (u) => { if (state) persist({ token: state.token, user: u }); },
