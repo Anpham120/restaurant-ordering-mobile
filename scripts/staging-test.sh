@@ -72,7 +72,7 @@ login() {   # login PHONE PASSWORD -> token
 }
 register() {   # register a customer -> token
   curl -fsS -X POST "$API/api/auth/register" -H 'Content-Type: application/json' \
-    -d '{"fullName":"Khach Staging","phone":"0911000111","password":"Staging#12345"}' | token_of
+    -d '{"fullName":"Khach Staging","phone":"0911000111","email":"staging@example.com","password":"Staging#12345"}' | token_of
 }
 
 echo "[staging] smoke tests"

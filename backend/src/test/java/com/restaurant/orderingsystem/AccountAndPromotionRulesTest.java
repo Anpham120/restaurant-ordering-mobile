@@ -73,16 +73,16 @@ class AccountAndPromotionRulesTest extends ApiTestBase {
         assertEquals(1, mail.outbox().stream().filter(m -> m.to().equals(a.email())).count());
         assertNotEquals(code, resetTokens.findAll().stream().filter(t -> true).map(PasswordResetToken::getCodeHash).findFirst().orElse(code));
 
-        send(post("/api/auth/reset-password"), "{\"login\":\"" + a.phone() + "\",\"code\":\"12345\",\"newPassword\":\"NewPassw0rd\"}")
+        send(post("/api/auth/reset-password"), "{\"login\":\"" + a.phone() + "\",\"code\":\"12345\",\"newPassword\":\"NewPassw0rd!\"}")
                 .andExpect(status().isBadRequest());                                           // not 6 digits
         String wrong = code.equals("000000") ? "111111" : "000000";
-        send(post("/api/auth/reset-password"), "{\"login\":\"" + a.phone() + "\",\"code\":\"" + wrong + "\",\"newPassword\":\"NewPassw0rd\"}")
+        send(post("/api/auth/reset-password"), "{\"login\":\"" + a.phone() + "\",\"code\":\"" + wrong + "\",\"newPassword\":\"NewPassw0rd!\"}")
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error", containsString("còn 4 lần")));
-        send(post("/api/auth/reset-password"), "{\"login\":\"" + a.phone() + "\",\"code\":\"" + code + "\",\"newPassword\":\"NewPassw0rd\"}")
+        send(post("/api/auth/reset-password"), "{\"login\":\"" + a.phone() + "\",\"code\":\"" + code + "\",\"newPassword\":\"NewPassw0rd!\"}")
                 .andExpect(status().isOk());
         as(a.token(), get("/api/auth/me")).andExpect(status().isUnauthorized());           // old sessions revoked
-        login(a.phone(), "NewPassw0rd");
-        send(post("/api/auth/reset-password"), "{\"login\":\"" + a.phone() + "\",\"code\":\"" + code + "\",\"newPassword\":\"Another123\"}")
+        login(a.phone(), "NewPassw0rd!");
+        send(post("/api/auth/reset-password"), "{\"login\":\"" + a.phone() + "\",\"code\":\"" + code + "\",\"newPassword\":\"Another123!\"}")
                 .andExpect(status().isBadRequest());                                           // a code works once
         assertTrue(mail.outbox().stream().anyMatch(m -> m.to().equals(a.email()) && m.subject().contains("đã được thay đổi")));
     }
@@ -94,9 +94,9 @@ class AccountAndPromotionRulesTest extends ApiTestBase {
         String code = codeSentTo(a.email(), 1);
         String wrong = code.equals("000000") ? "111111" : "000000";
         for (int i = 0; i < 5; i++)
-            send(post("/api/auth/reset-password"), "{\"login\":\"" + a.phone() + "\",\"code\":\"" + wrong + "\",\"newPassword\":\"NewPassw0rd\"}")
+            send(post("/api/auth/reset-password"), "{\"login\":\"" + a.phone() + "\",\"code\":\"" + wrong + "\",\"newPassword\":\"NewPassw0rd!\"}")
                     .andExpect(status().isBadRequest());
-        send(post("/api/auth/reset-password"), "{\"login\":\"" + a.phone() + "\",\"code\":\"" + code + "\",\"newPassword\":\"NewPassw0rd\"}")
+        send(post("/api/auth/reset-password"), "{\"login\":\"" + a.phone() + "\",\"code\":\"" + code + "\",\"newPassword\":\"NewPassw0rd!\"}")
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error", containsString("hết hạn")));
 
         Account b = customerWithEmail();
@@ -104,14 +104,14 @@ class AccountAndPromotionRulesTest extends ApiTestBase {
         String codeB = codeSentTo(b.email(), 1);
         tx.executeWithoutResult(s -> resetTokens.findAll().stream().filter(t -> t.getUser().getPhone().equals(b.phone()))
                 .forEach(t -> { t.setCreatedAt(LocalDateTime.now().minusMinutes(20)); t.setExpiresAt(LocalDateTime.now().minusMinutes(10)); }));
-        send(post("/api/auth/reset-password"), "{\"login\":\"" + b.phone() + "\",\"code\":\"" + codeB + "\",\"newPassword\":\"NewPassw0rd\"}")
+        send(post("/api/auth/reset-password"), "{\"login\":\"" + b.phone() + "\",\"code\":\"" + codeB + "\",\"newPassword\":\"NewPassw0rd!\"}")
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void managerResetForcesPasswordChange() throws Exception {
         String p = phone();
-        String token = json(send(post("/api/auth/register"), "{\"fullName\":\"Không email\",\"phone\":\"" + p + "\",\"password\":\"Passw0rd!\"}")).get("token").asText();
+        String token = json(send(post("/api/auth/register"), "{\"fullName\":\"Khách Quên\",\"phone\":\"" + p + "\",\"email\":\"r" + uniq() + "@example.com\",\"password\":\"Passw0rd!\"}")).get("token").asText();
         long id = json(as(token, get("/api/auth/me"))).get("id").asLong();
         String temp = json(as(manager, post("/api/admin/users/" + id + "/reset-password")).andExpect(status().isOk())).get("temporaryPassword").asText();
         assertTrue(temp.startsWith("Atlas-") && temp.length() == 12);
@@ -119,7 +119,7 @@ class AccountAndPromotionRulesTest extends ApiTestBase {
         String t2 = json(send(post("/api/auth/login"), "{\"login\":\"" + p + "\",\"password\":\"" + temp + "\"}")
                 .andExpect(jsonPath("$.user.mustChangePassword").value(true))).get("token").asText();
         as(t2, get("/api/me/cart")).andExpect(status().isForbidden()).andExpect(jsonPath("$.error", containsString("đổi mật khẩu")));
-        String t3 = json(as(t2, post("/api/auth/change-password"), "{\"currentPassword\":\"" + temp + "\",\"newPassword\":\"MyNewPass1\"}")
+        String t3 = json(as(t2, post("/api/auth/change-password"), "{\"currentPassword\":\"" + temp + "\",\"newPassword\":\"MyNewPass1!\"}")
                 .andExpect(jsonPath("$.user.mustChangePassword").value(false))).get("token").asText();
         as(t3, get("/api/me/cart")).andExpect(status().isOk());
         long managerId = json(as(manager, get("/api/auth/me"))).get("id").asLong();

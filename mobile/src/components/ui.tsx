@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import type { ComponentProps, ReactNode, Ref } from 'react';
+import { useState, type ComponentProps, type ReactNode, type Ref } from 'react';
 import {
   ActivityIndicator, Pressable, StyleSheet, TextInput, View, type StyleProp, type TextInputInstance, type TextInputProps, type ViewStyle,
 } from 'react-native';
@@ -25,18 +25,31 @@ export function SectionTitle({ children, right }: { children: ReactNode; right?:
   );
 }
 
-export function Field({ label, hint, error, style, ref, ...input }: TextInputProps & {
+export function Field({ label, hint, error, style, ref, secureTextEntry, ...input }: TextInputProps & {
   label?: string; hint?: string; error?: string | null; ref?: Ref<TextInputInstance>;
 }) {
+  // password fields get an eye button to show what was typed
+  const [shown, setShown] = useState(false);
   return (
     <View style={styles.field}>
       {label ? <Txt weight="semibold" size={14}>{label}</Txt> : null}
-      <TextInput
-        ref={ref}
-        placeholderTextColor={colors.faint}
-        {...input}
-        style={[styles.input, input.multiline && styles.inputMulti, error ? { borderColor: colors.danger } : null, style]}
-      />
+      <View>
+        <TextInput
+          ref={ref}
+          placeholderTextColor={colors.faint}
+          accessibilityLabel={input.accessibilityLabel ?? label}
+          {...input}
+          secureTextEntry={!!secureTextEntry && !shown}
+          style={[styles.input, input.multiline && styles.inputMulti, secureTextEntry ? { paddingRight: 48 } : null,
+            error ? { borderColor: colors.danger } : null, style]}
+        />
+        {secureTextEntry ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={shown ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} hitSlop={8}
+            onPress={() => setShown((v) => !v)} style={styles.eye}>
+            <Ionicons name={shown ? 'eye-off-outline' : 'eye-outline'} size={21} color={colors.muted} />
+          </Pressable>
+        ) : null}
+      </View>
       {error ? <Txt size={12} color={colors.danger}>{error}</Txt> : hint ? <Txt size={12} color={colors.muted}>{hint}</Txt> : null}
     </View>
   );
@@ -232,6 +245,7 @@ const styles = StyleSheet.create({
     borderRadius: 12, paddingHorizontal: 14, backgroundColor: colors.white,
   },
   inputMulti: { height: 76, paddingTop: 12, textAlignVertical: 'top' },
+  eye: { position: 'absolute', right: 4, top: 0, bottom: 0, width: 44, alignItems: 'center', justifyContent: 'center' },
   search: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.input, borderRadius: 12, paddingHorizontal: 14, height: 46 },
   searchInput: { flex: 1, fontFamily: fonts.regular, fontSize: 15, color: colors.text, height: 46 },
   badge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: radius.pill },

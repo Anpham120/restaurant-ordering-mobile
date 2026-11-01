@@ -18,6 +18,7 @@ public class ApiException extends RuntimeException {
     public static ApiException conflict(String m) { return new ApiException(HttpStatus.CONFLICT, m); }
     public static ApiException forbidden(String m) { return new ApiException(HttpStatus.FORBIDDEN, m); }
     public static ApiException unauthorized(String m) { return new ApiException(HttpStatus.UNAUTHORIZED, m); }
+    public static ApiException locked(String m) { return new ApiException(HttpStatus.LOCKED, m); }
     public static ApiException unavailable(String m) { return new ApiException(HttpStatus.SERVICE_UNAVAILABLE, m); }
     public static ApiException tooManyRequests(String m) { return new ApiException(HttpStatus.TOO_MANY_REQUESTS, m); }
 }

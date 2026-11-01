@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 
+import { PasswordRules } from '@/components/password-rules';
 import { Page } from '@/components/backoffice';
 import { Button } from '@/components/button';
 import { EditorPanel, WithEditor } from '@/components/editor';
@@ -14,6 +15,7 @@ import { initials, roleLabel } from '@/lib/format';
 import { useLoad } from '@/lib/hooks';
 import { useSession } from '@/lib/session';
 import { colors } from '@/lib/theme';
+import { EMAIL_HINT, isEmail, isPhone, isStrongPassword, PHONE_HINT } from '@/lib/validate';
 import { useToast } from '@/lib/toast';
 
 interface Form { id?: number; fullName: string; phone: string; email: string; password: string; role: Role; active: boolean }
@@ -49,7 +51,7 @@ export default function AdminStaff() {
     try { await api.deleteStaff(form.id); setForm(null); await list.reload(); } catch (e) { toast.show(errorMessage(e), 'error'); }
   };
   const current = list.data?.find((u) => u.id === form?.id);
-  const valid = !!form && !!form.fullName.trim() && /^0\d{9,10}$/.test(form.phone) && (form.id ? !form.password || form.password.length >= 8 : form.password.length >= 8);
+  const valid = !!form && !!form.fullName.trim() && isPhone(form.phone) && (!form.email.trim() || isEmail(form.email)) && (form.id ? !form.password || isStrongPassword(form.password) : isStrongPassword(form.password));
 
   return (
     <Page title="Nhân viên" subtitle="Tài khoản nhân viên, bếp và quản lý – đăng nhập bằng số điện thoại"
@@ -83,10 +85,12 @@ export default function AdminStaff() {
           {form ? (
             <View style={{ gap: 12 }}>
               <Field label="Họ và tên" value={form.fullName} onChangeText={(v) => set('fullName', v)} maxLength={100} />
-              <Field label="Số điện thoại (tên đăng nhập)" value={form.phone} onChangeText={(v) => set('phone', v.replace(/\D/g, ''))} keyboardType="phone-pad" maxLength={11} />
-              <Field label="Email (không bắt buộc)" value={form.email} onChangeText={(v) => set('email', v)} autoCapitalize="none" />
-              <Field label={form.id ? 'Mật khẩu mới (bỏ trống nếu không đổi)' : 'Mật khẩu'} value={form.password} onChangeText={(v) => set('password', v)} secureTextEntry
-                hint="Tối thiểu 8 ký tự" />
+              <Field label="Số điện thoại (tên đăng nhập)" value={form.phone} onChangeText={(v) => set('phone', v.replace(/\D/g, ''))} keyboardType="phone-pad" maxLength={10}
+                error={form.phone.length >= 10 && !isPhone(form.phone) ? PHONE_HINT : null} />
+              <Field label="Email (không bắt buộc)" value={form.email} onChangeText={(v) => set('email', v)} autoCapitalize="none"
+                error={form.email.trim() && !isEmail(form.email) ? EMAIL_HINT : null} />
+              <Field label={form.id ? 'Mật khẩu mới (bỏ trống nếu không đổi)' : 'Mật khẩu'} value={form.password} onChangeText={(v) => set('password', v)} secureTextEntry autoComplete="new-password" />
+              <PasswordRules value={form.password} />
               <View style={{ gap: 6 }}>
                 <Txt weight="semibold" size={14}>Vai trò</Txt>
                 <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>

@@ -37,21 +37,24 @@ class DeliveryFlowTest extends ApiTestBase {
         String p = phone();
         send(post("/api/auth/register"), "{\"fullName\":\"Lan\",\"phone\":\"" + p + "\",\"email\":\"Lan" + uniq() + "@Mail.com\",\"password\":\"Passw0rd!\"}")
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.user.role").value("CUSTOMER")).andExpect(jsonPath("$.user.passwordHash").doesNotExist());
-        send(post("/api/auth/register"), "{\"fullName\":\"Lan\",\"phone\":\"" + p + "\",\"password\":\"Passw0rd!\"}").andExpect(status().isConflict());
+        send(post("/api/auth/register"), "{\"fullName\":\"Lan\",\"phone\":\"" + p + "\",\"email\":\"other" + uniq() + "@mail.com\",\"password\":\"Passw0rd!\"}").andExpect(status().isConflict());
         send(post("/api/auth/register"), "{\"fullName\":\"X\",\"phone\":\"123\",\"password\":\"short\"}").andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error", containsString("password")));
         String t = login(p, "Passw0rd!");
         as(t, get("/api/auth/me")).andExpect(jsonPath("$.phone").value(p));
-        as(t, put("/api/auth/profile"), "{\"fullName\":\"Lan Nguyễn\",\"email\":\"\"}").andExpect(jsonPath("$.fullName").value("Lan Nguyễn"));
-        as(t, post("/api/auth/change-password"), "{\"currentPassword\":\"wrong\",\"newPassword\":\"NewPassw0rd\"}").andExpect(status().isBadRequest());
-        String fresh = json(as(t, post("/api/auth/change-password"), "{\"currentPassword\":\"Passw0rd!\",\"newPassword\":\"NewPassw0rd\"}")
+        as(t, put("/api/auth/profile"), "{\"fullName\":\"Lan Nguyễn\",\"email\":\"\"}").andExpect(status().isBadRequest());   // a customer keeps an e-mail
+        as(t, put("/api/auth/profile"), "{\"fullName\":\"Lan Nguyễn\"}").andExpect(jsonPath("$.fullName").value("Lan Nguyễn"))
+                .andExpect(jsonPath("$.email").isNotEmpty());                                                       // omitted = unchanged
+        as(t, post("/api/auth/change-password"), "{\"currentPassword\":\"wrong\",\"newPassword\":\"NewPassw0rd!\"}").andExpect(status().isBadRequest());
+        String fresh = json(as(t, post("/api/auth/change-password"), "{\"currentPassword\":\"Passw0rd!\",\"newPassword\":\"NewPassw0rd!\"}")
                 .andExpect(status().isOk())).get("token").asText();
         as(t, get("/api/auth/me")).andExpect(status().isUnauthorized());          // other sessions are signed out
         as(fresh, get("/api/auth/me")).andExpect(status().isOk());
-        login(p, "NewPassw0rd");
-        // 5 wrong attempts lock this login for 10 minutes
-        for (int i = 0; i < 5; i++) send(post("/api/auth/login"), "{\"login\":\"" + p + "\",\"password\":\"bad\"}").andExpect(status().isUnauthorized());
-        send(post("/api/auth/login"), "{\"login\":\"" + p + "\",\"password\":\"NewPassw0rd\"}").andExpect(status().isTooManyRequests());
+        login(p, "NewPassw0rd!");
+        // the 5th wrong password locks the account (423), after which even the right password is refused for a while
+        for (int i = 0; i < 4; i++) send(post("/api/auth/login"), "{\"login\":\"" + p + "\",\"password\":\"bad\"}").andExpect(status().isUnauthorized());
+        send(post("/api/auth/login"), "{\"login\":\"" + p + "\",\"password\":\"bad\"}").andExpect(status().isLocked());
+        send(post("/api/auth/login"), "{\"login\":\"" + p + "\",\"password\":\"NewPassw0rd!\"}").andExpect(status().isLocked());
     }
 
     @Test

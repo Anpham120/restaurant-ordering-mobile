@@ -4,12 +4,14 @@ import { Linking, Pressable, StyleSheet, View, type TextInputInstance } from 're
 
 import { Button } from '@/components/button';
 import { KeyboardScroll } from '@/components/keyboard';
+import { PasswordRules } from '@/components/password-rules';
 import { PhoneFrame, TopBar } from '@/components/phone';
 import { Txt } from '@/components/txt';
 import { Card, ErrorBox, Field, Notice } from '@/components/ui';
 import { api, errorMessage, type Store } from '@/lib/api';
 import { useLoad, useNow } from '@/lib/hooks';
 import { useSession } from '@/lib/session';
+import { isStrongPassword } from '@/lib/validate';
 import { colors } from '@/lib/theme';
 import { useToast } from '@/lib/toast';
 
@@ -77,7 +79,7 @@ export default function ForgotPasswordScreen() {
   };
 
   const mismatch = !!confirm && confirm !== password;
-  const canReset = /^\d{6}$/.test(code) && password.length >= 8 && password === confirm;
+  const canReset = /^\d{6}$/.test(code) && isStrongPassword(password) && password === confirm;
 
   return (
     <PhoneFrame>
@@ -107,7 +109,8 @@ export default function ForgotPasswordScreen() {
               <Field label="Mã xác nhận (6 chữ số)" value={code} onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))} ref={codeRef} autoFocus
                 keyboardType="number-pad" inputMode="numeric" maxLength={6} autoComplete="one-time-code" textContentType="oneTimeCode"
                 placeholder="••••••" style={styles.code} accessibilityLabel="Mã xác nhận" />
-              <Field label="Mật khẩu mới" value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" hint="Tối thiểu 8 ký tự" />
+              <Field label="Mật khẩu mới" value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" />
+            <PasswordRules value={password} />
               <Field label="Nhập lại mật khẩu mới" value={confirm} onChangeText={setConfirm} secureTextEntry autoComplete="new-password"
                 error={mismatch ? 'Mật khẩu nhập lại không khớp' : null} onSubmitEditing={() => { if (canReset) void reset(); }} />
               <Button title="Đặt lại mật khẩu" size="lg" onPress={reset} loading={busy === 'reset'} disabled={!canReset} />

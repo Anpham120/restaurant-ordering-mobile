@@ -15,26 +15,38 @@ import java.util.List;
 public final class Dtos {
     private Dtos() {}
 
-    public static final String PHONE = "^0[0-9]{9,10}$";
-    public static final String PHONE_MSG = "phải là số điện thoại Việt Nam (10–11 số, bắt đầu bằng 0)";
+    /** Vietnamese mobile numbers since 2018: 10 digits, 03/05/07/08/09. */
+    public static final String PHONE = "^0[35789][0-9]{8}$";
+    public static final String PHONE_MSG = "phải là số di động Việt Nam gồm 10 chữ số, bắt đầu bằng 03, 05, 07, 08 hoặc 09";
+    /** name@domain.tld (the e-mail is where password reset codes are sent, so a plausible address is required). */
+    public static final String EMAIL = "^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}$";
+    public static final String EMAIL_MSG = "không đúng định dạng email (ví dụ ten@gmail.com)";
+    /** At least 8 characters with a lowercase and an uppercase letter, a digit and a special character, no spaces. */
+    public static final String PASSWORD = "^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9\\s])\\S{8,72}$";
+    public static final String PASSWORD_MSG = "cần 8–72 ký tự, có chữ hoa, chữ thường, chữ số và ký tự đặc biệt, không có khoảng trắng";
+    /** Letters (any language, with diacritics), spaces, dots, apostrophes and hyphens; 2–100 characters. */
+    public static final String NAME = "^[\\p{L}\\p{M}][\\p{L}\\p{M} .'-]{1,99}$";
+    public static final String NAME_MSG = "chỉ gồm chữ cái và khoảng trắng, 2–100 ký tự";
     private static final String CODE = "^[A-Za-z0-9_-]+$";
     private static final String CODE_MSG = "chỉ gồm chữ, số, '-' hoặc '_'";
     private static final String URL = "^https?://.+";
     private static final String URL_MSG = "phải là liên kết http(s)";
 
     // =============================================================== auth & profile
-    public record RegisterRequest(@NotBlank @Size(max = 100) String fullName,
+    public record RegisterRequest(@NotBlank @Size(max = 100) @Pattern(regexp = NAME, message = NAME_MSG) String fullName,
                                   @NotBlank @Pattern(regexp = PHONE, message = PHONE_MSG) String phone,
-                                  @Email @Size(max = 120) String email,
-                                  @NotBlank @Size(min = 8, max = 72) String password) {}
+                                  @NotBlank(message = "là bắt buộc (dùng để nhận mã khi quên mật khẩu)") @Size(max = 120) @Pattern(regexp = EMAIL, message = EMAIL_MSG) String email,
+                                  @NotBlank @Pattern(regexp = PASSWORD, message = PASSWORD_MSG) String password) {}
     /** login = phone number or email. */
     public record LoginRequest(@NotBlank @Size(max = 120) String login, @NotBlank @Size(max = 72) String password) {}
-    public record ChangePasswordRequest(@NotBlank String currentPassword, @NotBlank @Size(min = 8, max = 72) String newPassword) {}
-    public record ProfileRequest(@NotBlank @Size(max = 100) String fullName, @Email @Size(max = 120) String email, Boolean marketingOptIn) {}
+    public record ChangePasswordRequest(@NotBlank String currentPassword, @NotBlank @Pattern(regexp = PASSWORD, message = PASSWORD_MSG) String newPassword) {}
+    /** email: null keeps the current address; "" removes it (staff only: a customer needs it for password reset). */
+    public record ProfileRequest(@NotBlank @Size(max = 100) @Pattern(regexp = NAME, message = NAME_MSG) String fullName,
+                                 @Size(max = 120) @Pattern(regexp = "^$|" + EMAIL, message = EMAIL_MSG) String email, Boolean marketingOptIn) {}
     public record ForgotPasswordRequest(@NotBlank @Size(max = 120) String login) {}
     public record ResetPasswordRequest(@NotBlank @Size(max = 120) String login,
                                        @NotBlank @Pattern(regexp = "^[0-9]{6}$", message = "gồm 6 chữ số") String code,
-                                       @NotBlank @Size(min = 8, max = 72) String newPassword) {}
+                                       @NotBlank @Pattern(regexp = PASSWORD, message = PASSWORD_MSG) String newPassword) {}
     public record MessageResponse(String message) {}
     public record TempPasswordResponse(String temporaryPassword) {}
 
@@ -185,8 +197,8 @@ public final class Dtos {
     // =============================================================== admin
     public record StaffRequest(@NotBlank @Size(max = 100) String fullName,
                                @NotBlank @Pattern(regexp = PHONE, message = PHONE_MSG) String phone,
-                               @Email @Size(max = 120) String email,
-                               @Size(min = 8, max = 72) String password,
+                               @Size(max = 120) @Pattern(regexp = "^$|" + EMAIL, message = EMAIL_MSG) String email,
+                               @Pattern(regexp = PASSWORD, message = PASSWORD_MSG) String password,
                                @NotNull Role role,
                                Boolean active) {}
     public record ActiveRequest(boolean active) {}

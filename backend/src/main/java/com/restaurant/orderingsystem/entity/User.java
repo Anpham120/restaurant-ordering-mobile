@@ -24,6 +24,9 @@ public class User {
     /** Carried by every JWT; incremented on password change/reset so older sessions stop working. */
     @Column(name = "token_version", nullable = false) private int tokenVersion;
     @Column(name = "must_change_password", nullable = false) private boolean mustChangePassword;
+    /** Consecutive wrong passwords and the end of the resulting lock (see AccountLock). */
+    @Column(name = "failed_logins", nullable = false) private int failedLogins;
+    @Column(name = "locked_until") private java.time.LocalDateTime lockedUntil;
     /** Accepts promotional notifications (order and payment notifications are always sent). */
     @Column(name = "marketing_opt_in", nullable = false) private boolean marketingOptIn = true;
     @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;

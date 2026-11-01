@@ -72,6 +72,7 @@ Mọi ràng buộc dưới đây cũng được kiểm tra ở API. CSDL giữ v
 | Nhóm tùy chọn: tối thiểu không vượt tối đa | `CHECK (max_select >= min_select)` |
 | Chương trình chỉ tham chiếu đúng loại đích đã chọn | `CHECK` trên `target_type` và 3 khóa ngoại |
 | Tài khoản ngân hàng nhập đủ cả mã ngân hàng và số tài khoản | `CHECK` trong `store_settings` |
+| Đếm lần nhập sai mật khẩu liên tiếp không âm | `CHECK` trong `users` (`failed_logins`) |
 | Vị trí là cặp (vĩ độ, kinh độ) đủ cả hai hoặc không có; phạm vi giao tối đa không nhỏ hơn bán kính phí cơ bản | `CHECK` trong `store_settings`, `addresses` |
 | Mã đặt lại mật khẩu: tối đa 10 lần sai được ghi nhận, hạn sau thời điểm tạo | `CHECK` trong `password_reset_tokens` |
 
@@ -100,3 +101,9 @@ Nhà hàng có một vị trí duy nhất (Trường Đại học CMC - Cơ sở
 | Thời gian dự kiến | 15 phút chuẩn bị + 4 phút mỗi km |
 
 Ví dụ: 9,5 km đường đi thì 15.000đ + 5 km bắt đầu vượt (4,5 làm tròn lên 5) x 5.000đ = 40.000đ, giao trong khoảng 53 phút. Cách tính nằm ở `DeliveryService`; phí đã tính được chụp lại trong đơn.
+
+## Chống dò mật khẩu
+
+- Nhập sai mật khẩu 5 lần liên tiếp (đăng nhập, hoặc mật khẩu hiện tại khi đổi mật khẩu) thì tài khoản bị khóa đăng nhập 15 phút, bất kể các lần thử đến từ IP nào. Trạng thái lưu ở `users.failed_logins` và `users.locked_until` nên khởi động lại hay deploy cũng không mất. Đăng nhập đúng thì bộ đếm về 0; đặt lại mật khẩu (mã OTP hoặc quản lý cấp mật khẩu tạm) mở khóa ngay.
+- Mỗi IP chỉ được sai 20 lần trong 10 phút trên mọi tài khoản (chặn một máy thử lần lượt nhiều tài khoản).
+- Đăng ký bắt buộc: họ tên chỉ gồm chữ, số di động Việt Nam 10 số, email đúng định dạng (nơi nhận mã khi quên mật khẩu), mật khẩu 8–72 ký tự có chữ hoa, chữ thường, chữ số và ký tự đặc biệt.

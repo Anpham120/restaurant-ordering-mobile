@@ -80,7 +80,7 @@ abstract class ApiTestBase {
     }
 
     String register() throws Exception {
-        return json(send(post("/api/auth/register"), "{\"fullName\":\"Khách " + uniq() + "\",\"phone\":\"" + phone() + "\",\"password\":\"Passw0rd!\"}")
+        return json(send(post("/api/auth/register"), "{\"fullName\":\"Khách Hàng\",\"phone\":\"" + phone() + "\",\"email\":\"k" + uniq() + "@example.com\",\"password\":\"Passw0rd!\"}")
                 .andExpect(status().isCreated())).get("token").asText();
     }
 

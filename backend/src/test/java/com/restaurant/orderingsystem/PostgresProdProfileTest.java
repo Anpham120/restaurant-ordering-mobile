@@ -64,7 +64,7 @@ class PostgresProdProfileTest {
 
     @Test
     void prodProfileOnPostgres() throws Exception {
-        assertEquals(4, jdbc.queryForObject("select count(*) from flyway_schema_history where success and version in ('1', '2', '3', '4')", Integer.class));
+        assertEquals(5, jdbc.queryForObject("select count(*) from flyway_schema_history where success and version in ('1', '2', '3', '4', '5')", Integer.class));
         assertEquals(21, jdbc.queryForObject("select count(*) from information_schema.tables where table_schema = 'public' and table_name <> 'flyway_schema_history'", Integer.class));
         assertEquals(1, jdbc.queryForObject("select count(*) from users", Integer.class));
         assertEquals(1, jdbc.queryForObject("select count(*) from store_settings", Integer.class));
@@ -81,7 +81,7 @@ class PostgresProdProfileTest {
         String staff = field(call(null, post("/api/auth/login"), "{\"login\":\"0922222222\",\"password\":\"Passw0rd!\"}"), "token");
         String kitchen = field(call(null, post("/api/auth/login"), "{\"login\":\"0933333333\",\"password\":\"Passw0rd!\"}"), "token");
 
-        String customer = field(call(null, post("/api/auth/register"), "{\"fullName\":\"An\",\"phone\":\"0944444444\",\"password\":\"Passw0rd!\"}")
+        String customer = field(call(null, post("/api/auth/register"), "{\"fullName\":\"An\",\"phone\":\"0944444444\",\"email\":\"an@example.com\",\"password\":\"Passw0rd!\"}")
                 .andExpect(status().isCreated()), "token");
         String addr = field(call(customer, post("/api/me/addresses"), "{\"label\":\"Nhà\",\"recipientName\":\"An\","
                 + "\"recipientPhone\":\"0944444444\",\"street\":\"12 Nguyễn Huệ\",\"latitude\":20.990000,\"longitude\":105.780000,\"makeDefault\":true}").andExpect(status().isCreated()), "id");

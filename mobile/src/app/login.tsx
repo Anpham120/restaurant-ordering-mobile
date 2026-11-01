@@ -6,10 +6,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { KeyboardScroll } from '@/components/keyboard';
+import { PasswordRules } from '@/components/password-rules';
 import { PhoneFrame } from '@/components/phone';
 import { Txt } from '@/components/txt';
 import { ErrorBox, Field, Notice, Segmented } from '@/components/ui';
 import { errorMessage, type User } from '@/lib/api';
+import { EMAIL_HINT, isEmail, isName, isPhone, isStrongPassword, NAME_HINT, PHONE_HINT } from '@/lib/validate';
 import { homeFor, useSession } from '@/lib/session';
 import { colors } from '@/lib/theme';
 
@@ -26,6 +28,7 @@ export default function LoginScreen() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -42,7 +45,7 @@ export default function LoginScreen() {
     try {
       const u = mode === 'login'
         ? await login(id.trim(), password)
-        : await register({ fullName: name.trim(), phone: phone.trim(), email: email.trim() || null, password });
+        : await register({ fullName: name.trim(), phone: phone.trim(), email: email.trim(), password });
       done(u);
     } catch (e) {
       setError(errorMessage(e));
@@ -51,7 +54,8 @@ export default function LoginScreen() {
     }
   };
 
-  const valid = mode === 'login' ? id.trim() && password : name.trim() && /^0\d{9,10}$/.test(phone.trim()) && password.length >= 8;
+  const valid = mode === 'login' ? id.trim() && password
+    : isName(name) && isPhone(phone) && isEmail(email) && isStrongPassword(password) && password === confirm;
 
   return (
     <PhoneFrame bg={colors.white}>
@@ -83,11 +87,17 @@ export default function LoginScreen() {
               </>
             ) : (
               <>
-                <Field label="Họ và tên" value={name} onChangeText={setName} autoComplete="name" maxLength={100} />
+                <Field label="Họ và tên" value={name} onChangeText={setName} autoComplete="name" maxLength={100}
+                  error={name.trim() && !isName(name) ? NAME_HINT : null} />
                 <Field label="Số điện thoại" value={phone} onChangeText={(v) => setPhone(v.replace(/[^0-9]/g, ''))} keyboardType="phone-pad"
-                  autoComplete="tel" maxLength={11} hint="Dùng để đăng nhập và nhận cuộc gọi giao hàng" />
-                <Field label="Email (không bắt buộc)" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-                <Field label="Mật khẩu" value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" hint="Tối thiểu 8 ký tự" />
+                  autoComplete="tel" maxLength={10} error={phone.length >= 10 && !isPhone(phone) ? PHONE_HINT : null}
+                  hint="Dùng để đăng nhập và nhận cuộc gọi giao hàng" />
+                <Field label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email"
+                  error={email.trim() && !isEmail(email) ? EMAIL_HINT : null} hint="Mã đặt lại mật khẩu sẽ được gửi về email này" />
+                <Field label="Mật khẩu" value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" />
+                <PasswordRules value={password} />
+                <Field label="Nhập lại mật khẩu" value={confirm} onChangeText={setConfirm} secureTextEntry autoComplete="new-password"
+                  error={confirm && confirm !== password ? 'Mật khẩu nhập lại không khớp' : null} />
               </>
             )}
             <Button title={mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'} size="lg" onPress={submit} loading={busy} disabled={!valid} />

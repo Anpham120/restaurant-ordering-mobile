@@ -105,6 +105,8 @@ public class UserAdminService {
         u.setPasswordHash(encoder.encode(sb.toString()));
         u.setMustChangePassword(true);
         u.setTokenVersion(u.getTokenVersion() + 1);
+        u.setFailedLogins(0);
+        u.setLockedUntil(null);   // a reset also lifts a lock from wrong passwords
         return new TempPasswordResponse(sb.toString());
     }
 

@@ -80,6 +80,8 @@ public class PasswordResetService {
         u.setPasswordHash(encoder.encode(newPassword));
         u.setMustChangePassword(false);
         u.setTokenVersion(u.getTokenVersion() + 1);
+        u.setFailedLogins(0);
+        u.setLockedUntil(null);   // a reset also lifts a lock from wrong passwords
         mail.send(u.getEmail(), "Mật khẩu Atlas Restaurant đã được thay đổi",
                 "Xin chào " + u.getFullName() + ",\n\nMật khẩu tài khoản Atlas Restaurant của bạn vừa được đặt lại. "
                         + "Nếu không phải bạn thực hiện, hãy gọi hotline của cửa hàng ngay.\n\nAtlas Restaurant");

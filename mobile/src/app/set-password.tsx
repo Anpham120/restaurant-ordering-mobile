@@ -6,11 +6,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { KeyboardScroll } from '@/components/keyboard';
+import { PasswordRules } from '@/components/password-rules';
 import { PhoneFrame } from '@/components/phone';
 import { Txt } from '@/components/txt';
 import { Card, ErrorBox, Field } from '@/components/ui';
 import { api, errorMessage } from '@/lib/api';
 import { homeFor, useSession } from '@/lib/session';
+import { isStrongPassword } from '@/lib/validate';
 import { colors } from '@/lib/theme';
 import { useToast } from '@/lib/toast';
 
@@ -32,7 +34,7 @@ export default function SetPasswordScreen() {
 
   const mismatch = !!confirm && confirm !== next;
   const same = !!next && next === temp;
-  const valid = !!temp && next.length >= 8 && next === confirm && !same;
+  const valid = !!temp && isStrongPassword(next) && next === confirm && !same;
 
   const submit = async () => {
     setBusy(true);
@@ -58,7 +60,8 @@ export default function SetPasswordScreen() {
             <Field label="Mật khẩu tạm" value={temp} onChangeText={setTemp} secureTextEntry autoComplete="current-password" autoFocus
               hint="Mật khẩu cửa hàng vừa đọc cho bạn" />
             <Field label="Mật khẩu mới" value={next} onChangeText={setNext} secureTextEntry autoComplete="new-password"
-              error={same ? 'Mật khẩu mới phải khác mật khẩu tạm' : null} hint="Tối thiểu 8 ký tự" />
+              error={same ? 'Mật khẩu mới phải khác mật khẩu tạm' : null} />
+            <PasswordRules value={next} />
             <Field label="Nhập lại mật khẩu mới" value={confirm} onChangeText={setConfirm} secureTextEntry autoComplete="new-password"
               error={mismatch ? 'Mật khẩu nhập lại không khớp' : null} onSubmitEditing={() => { if (valid) void submit(); }} />
             <Button title="Lưu mật khẩu và tiếp tục" size="lg" onPress={submit} loading={busy} disabled={!valid} />

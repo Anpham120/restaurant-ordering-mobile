@@ -7,6 +7,7 @@ import com.restaurant.orderingsystem.exception.ApiException;
 import com.restaurant.orderingsystem.repository.UserRepository;
 import com.restaurant.orderingsystem.security.Caller;
 import com.restaurant.orderingsystem.security.JwtService;
+import com.restaurant.orderingsystem.security.AccountLock;
 import com.restaurant.orderingsystem.security.LoginRateLimiter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,6 +24,7 @@ public class AuthService {
     private final PasswordEncoder encoder;
     private final JwtService jwt;
     private final LoginRateLimiter limiter;
+    private final AccountLock lock;
 
     /** Customers sign up themselves; staff accounts are created by a manager. */
     @Transactional
@@ -39,18 +41,22 @@ public class AuthService {
         return token(users.save(u));
     }
 
-    @Transactional(readOnly = true)
+    /** Failed attempts are counted (and the lock written) even though the request ends with an error. */
+    @Transactional(noRollbackFor = ApiException.class)
     public AuthResponse login(LoginRequest r, String ip) {
         String login = r.login().trim();
-        limiter.check(login, ip);
+        limiter.check(ip);
         Optional<User> found = login.contains("@") ? users.findByEmailIgnoreCase(login) : users.findByPhone(login.replaceAll("[\\s.]", ""));
+        found.ifPresent(lock::ensureNotLocked);
         User u = found.filter(x -> encoder.matches(r.password(), x.getPasswordHash())).orElse(null);
         if (u == null) {
-            limiter.failed(login, ip);
+            limiter.failed(ip);
+            if (found.isPresent() && lock.failed(found.get())) throw ApiException.locked(lock.message(found.get().getLockedUntil()));
+            // same answer for an unknown account and a wrong password: the login form must not reveal who is registered
             throw ApiException.unauthorized("Sai số điện thoại/email hoặc mật khẩu");
         }
         if (!u.isActive()) throw ApiException.forbidden("Tài khoản đã bị khóa, vui lòng liên hệ cửa hàng");
-        limiter.succeeded(login, ip);
+        lock.clear(u);
         return token(u);
     }
 
@@ -60,7 +66,9 @@ public class AuthService {
     @Transactional
     public UserResponse updateProfile(ProfileRequest r) {
         User u = current();
-        String email = normalizeEmail(r.email());
+        String email = r.email() == null ? u.getEmail() : normalizeEmail(r.email());
+        if (email == null && u.getRole() == Role.CUSTOMER)
+            throw ApiException.badRequest("Vui lòng nhập email: đây là nơi nhận mã khi bạn quên mật khẩu");
         if (email != null && users.existsByEmailIgnoreCaseAndIdNot(email, u.getId())) throw ApiException.conflict("Email đã được dùng cho tài khoản khác");
         u.setFullName(r.fullName().trim());
         u.setEmail(email);
@@ -69,10 +77,15 @@ public class AuthService {
     }
 
     /** Signs the user out of every other device (token version bump) and returns a fresh token for this one. */
-    @Transactional
+    @Transactional(noRollbackFor = ApiException.class)
     public AuthResponse changePassword(ChangePasswordRequest r) {
         User u = current();
-        if (!encoder.matches(r.currentPassword(), u.getPasswordHash())) throw ApiException.badRequest("Mật khẩu hiện tại không đúng");
+        lock.ensureNotLocked(u);
+        if (!encoder.matches(r.currentPassword(), u.getPasswordHash())) {
+            if (lock.failed(u)) throw ApiException.locked(lock.message(u.getLockedUntil()));
+            throw ApiException.badRequest("Mật khẩu hiện tại không đúng (còn " + lock.remaining(u) + " lần thử trước khi tài khoản bị tạm khóa)");
+        }
+        lock.clear(u);
         if (r.currentPassword().equals(r.newPassword())) throw ApiException.badRequest("Mật khẩu mới phải khác mật khẩu cũ");
         u.setPasswordHash(encoder.encode(r.newPassword()));
         u.setMustChangePassword(false);
