@@ -206,8 +206,9 @@ def queueApkBuild() {
                     && npx --yes eas-cli@latest build -p android --profile preview --non-interactive --no-wait 2>&1'
             ''')
             echo out
-            def m = (out =~ /https:\/\/expo\.dev\/\S+\/builds\/\S+/)
-            notifyTelegram("📱 [ordering] Đã gửi build APK lên EAS\n" + (m.find() ? m.group(0) : 'https://expo.dev'))
+            // String.find returns a String: a Matcher kept across pipeline steps cannot be serialized by Jenkins
+            String link = out.find(/https:\/\/expo\.dev\/\S+\/builds\/\S+/) ?: 'https://expo.dev'
+            notifyTelegram("📱 [ordering] Đã gửi build APK lên EAS\n" + link)
         }
     } catch (err) {
         echo "Build APK lỗi: ${err.message}"
