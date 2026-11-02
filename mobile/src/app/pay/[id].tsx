@@ -92,10 +92,10 @@ function Pay({ order, onChange }: { order: Order; onChange: (o: Order) => void }
       <View style={{ gap: 2 }}>
         <Txt weight="extrabold" size={desktop ? 15 : 17}>{desktop ? 'Đang dùng điện thoại?' : 'Mở app ngân hàng để thanh toán'}</Txt>
         <Txt size={13} color={colors.muted} style={{ lineHeight: 19 }}>
-          {desktop ? 'Chọn app ngân hàng, mọi thông tin chuyển khoản đã điền sẵn.' : 'Chọn app bạn đang dùng – số tài khoản, số tiền và nội dung đã được điền sẵn, chỉ cần xác nhận.'}
+          {'Ứng dụng có nhãn "Điền sẵn" (MB, VietinBank, BIDV, ACB, OCB) tự điền số tài khoản, số tiền và nội dung. Với ngân hàng khác, nội dung chuyển khoản được sao chép sẵn để bạn dán.'}
         </Txt>
       </View>
-      <BankAppGrid apps={p.bankApps} />
+      <BankAppGrid apps={p.bankApps} content={p.transferContent} />
     </Card>
   ) : null;
 

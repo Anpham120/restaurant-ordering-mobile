@@ -98,7 +98,7 @@ export interface Payment {
   bankApps: BankApp[]; canSwitchToCod: boolean; canSwitchToTransfer: boolean;
 }
 /** VietQR deeplink that opens a banking app with account, amount and content prefilled. */
-export interface BankApp { appId: string; name: string; logoUrl: string; url: string }
+export interface BankApp { appId: string; name: string; logoUrl: string; url: string; /** opens with account, amount and content filled in */ autofill: boolean }
 export interface StatusEvent { status: OrderStatus; at: string; byName: string | null; note: string | null }
 export interface Order {
   id: number; code: string; status: OrderStatus; createdAt: string; updatedAt: string;

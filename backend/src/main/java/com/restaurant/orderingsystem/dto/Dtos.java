@@ -175,7 +175,8 @@ public final class Dtos {
                                   String bankCode, String bankAccount, String bankHolder, List<BankAppLink> bankApps,
                                   boolean canSwitchToCod, boolean canSwitchToTransfer) {}
     /** Opens a Vietnamese banking app with the transfer prefilled (VietQR deeplink, https://www.vietqr.io). */
-    public record BankAppLink(String appId, String name, String logoUrl, String url) {}
+    /** autofill: the app fills account, amount and content from the link; otherwise it only opens and the content is pasted. */
+    public record BankAppLink(String appId, String name, String logoUrl, String url, boolean autofill) {}
     public record PaymentMethodRequest(@NotNull PaymentMethod method) {}
     public record StatusEvent(OrderStatus status, LocalDateTime at, String byName, String note) {}
     public record OrderResponse(Long id, String code, OrderStatus status, LocalDateTime createdAt, LocalDateTime updatedAt,

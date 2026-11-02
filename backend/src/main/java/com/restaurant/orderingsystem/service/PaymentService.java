@@ -48,11 +48,16 @@ public class PaymentService {
     @Value("${app.payment.code-prefix:ATL}") private String codePrefix;
     @Value("${app.public-url:http://localhost:8082}") private String publicUrl;
 
-    /** Most installed banking apps that support VietQR deeplinks (app id → name), from api.vietqr.io/v2/android-app-deeplinks. */
+    /**
+     * Most installed banking apps that open from a VietQR deeplink (app id, name, autofill), from
+     * api.vietqr.io/v2/android-app-deeplinks. Only the "autofill" apps take the account, amount and content from the link;
+     * the others just open, so the app copies the transfer content for the customer to paste. Autofill apps come first.
+     */
     private static final String[][] BANK_APPS = {
-            {"mb", "MB Bank"}, {"vcb", "VCB Digibank"}, {"vba", "Agribank Plus"}, {"icb", "VietinBank iPay"}, {"bidv", "BIDV SmartBanking"},
-            {"tcb", "Techcombank Mobile"}, {"vpb", "VPBank NEO"}, {"cake", "CAKE"}, {"tpb", "TPBank Mobile"}, {"acb", "ACB ONE"},
-            {"ocb", "OCB OMNI"}, {"timo", "Timo"}};
+            {"mb", "MB Bank", "1"}, {"icb", "VietinBank iPay", "1"}, {"bidv", "BIDV SmartBanking", "1"}, {"acb", "ACB ONE", "1"},
+            {"ocb", "OCB OMNI", "1"},
+            {"vcb", "VCB Digibank", "0"}, {"tcb", "Techcombank Mobile", "0"}, {"vba", "Agribank Plus", "0"}, {"vpb", "VPBank NEO", "0"},
+            {"tpb", "TPBank Mobile", "0"}, {"cake", "CAKE", "0"}, {"timo", "Timo", "0"}};
 
     // ---------------------------------------------------------------- codes & QR
     String transferContent(Order o) { return codePrefix + o.getId(); }
@@ -71,7 +76,7 @@ public class PaymentService {
                 "https://dl.vietqr.io/pay?app=" + a[0] + "&ba=" + enc(s.getBankAccount() + "@" + s.getBankCode().toLowerCase(Locale.ROOT))
                         + "&am=" + p.getAmount().toBigInteger() + "&tn=" + enc(content)
                         + (s.getBankHolder() == null ? "" : "&bn=" + enc(s.getBankHolder()))
-                        + "&url=" + enc(publicUrl + "/order/" + o.getId()))).toList();
+                        + "&url=" + enc(publicUrl + "/order/" + o.getId()), "1".equals(a[2]))).toList();
         boolean open = p.getStatus() == PaymentStatus.PENDING;
         boolean toCod = open && p.getMethod() == PaymentMethod.BANK_TRANSFER && o.getStatus() == OrderStatus.AWAITING_PAYMENT;
         boolean toTransfer = open && p.getMethod() == PaymentMethod.COD && o.getStatus() == OrderStatus.PENDING && s.getBankAccount() != null;

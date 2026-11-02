@@ -1,3 +1,4 @@
+import * as Clipboard from 'expo-clipboard';
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
@@ -7,10 +8,17 @@ import { colors, radius } from '@/lib/theme';
 import { useToast } from '@/lib/toast';
 import { Txt } from './txt';
 
-/** Grid of banking apps; each opens the app (VietQR deeplink) with account, amount and content already filled in. */
-export function BankAppGrid({ apps }: { apps: BankApp[] }) {
+/**
+ * Grid of banking apps opened by VietQR deeplink. Apps marked "Điền sẵn" receive account, amount and content; the others only
+ * open, so tapping them first copies the transfer content for the customer to paste.
+ */
+export function BankAppGrid({ apps, content }: { apps: BankApp[]; content: string | null }) {
   const toast = useToast();
   const open = async (a: BankApp) => {
+    if (!a.autofill && content) {
+      await Clipboard.setStringAsync(content).catch(() => undefined);
+      toast.show(`Đã sao chép nội dung "${content}". ${a.name} không tự điền: nhập số tài khoản, số tiền rồi dán nội dung.`, 'success');
+    }
     try { await Linking.openURL(a.url); } catch { toast.show(`Không mở được ${a.name}. Hãy mở app thủ công và quét mã QR.`, 'error'); }
   };
   return (
@@ -20,6 +28,7 @@ export function BankAppGrid({ apps }: { apps: BankApp[] }) {
           <Pressable onPress={() => void open(a)} accessibilityRole="link" accessibilityLabel={`Mở ${a.name} để thanh toán`}
             style={({ pressed }) => [styles.tile, pressed && { backgroundColor: colors.primarySoft, borderColor: colors.primary }]}>
             <Logo app={a} />
+            {a.autofill ? <View style={styles.badge}><Txt weight="bold" size={9} color={colors.success}>Điền sẵn</Txt></View> : null}
             <Txt size={longestWord(shortName(a.name)) > 10 ? 10 : 11} weight="semibold" color={colors.textSoft} numberOfLines={2} style={styles.name}>{shortName(a.name)}</Txt>
           </Pressable>
         </View>
@@ -64,4 +73,5 @@ const styles = StyleSheet.create({
   logo: { width: 44, height: 44, borderRadius: 12 },
   fallback: { backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   name: { textAlign: 'center', lineHeight: 14, minHeight: 28 },
+  badge: { position: 'absolute', top: 4, right: 4, backgroundColor: colors.successSoft, borderRadius: 6, paddingHorizontal: 4, paddingVertical: 1 },
 });
