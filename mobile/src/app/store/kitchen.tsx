@@ -12,7 +12,7 @@ import { confirmAction } from '@/lib/confirm';
 import { minutesSince, mmss } from '@/lib/format';
 import { useLoad, useNow } from '@/lib/hooks';
 import { homeFor, useSession } from '@/lib/session';
-import { colors } from '@/lib/theme';
+import { colors, shadow } from '@/lib/theme';
 import { useToast } from '@/lib/toast';
 
 /** Kitchen display: large tickets, timers coloured by waiting time, one tap per step. */
@@ -50,46 +50,46 @@ export default function Kitchen() {
     <View style={[styles.root, { paddingTop: insets.top + 20 }]}>
       <View style={styles.head}>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 14, flexWrap: 'wrap' }}>
-          <Txt weight="extrabold" size={26} color={colors.kitchenText}>Bếp</Txt>
-          <Txt size={15} color={colors.kitchenMuted}>{tickets.length} phiếu đang chờ · {items} món</Txt>
+          <Txt weight="extrabold" size={26} color={colors.text}>Bếp</Txt>
+          <Txt size={15} color={colors.muted}>{tickets.length} phiếu đang chờ · {items} món</Txt>
         </View>
         <View style={styles.headActions}>
-          <Txt size={14} color={colors.kitchenMuted}>Báo hết món:</Txt>
+          <Txt size={14} color={colors.muted}>Báo hết món:</Txt>
           {soldOut.map((m) => (
             <Pressable key={m.id} accessibilityRole="button" accessibilityLabel={`${m.name} đang hết, chạm để báo còn hàng`}
               onPress={() => void setStock(m, true)} style={styles.soldOut}>
-              <Txt weight="bold" size={14} color="#FCA5A5">{m.name} · Hết</Txt>
+              <Txt weight="bold" size={14} color={colors.danger}>{m.name} · Hết</Txt>
             </Pressable>
           ))}
           <Pressable accessibilityRole="button" onPress={() => setStockOpen(true)} style={styles.outline}>
-            <Ionicons name="add" size={16} color={colors.sidebarText} />
-            <Txt weight="semibold" size={14} color={colors.sidebarText}>Chọn món</Txt>
+            <Ionicons name="add" size={16} color={colors.textSoft} />
+            <Txt weight="semibold" size={14} color={colors.textSoft}>Chọn món</Txt>
           </Pressable>
           {user?.role === 'MANAGER' ? (
             <Pressable accessibilityRole="button" onPress={() => router.replace(homeFor(user.role))} style={styles.outline}>
-              <Txt weight="semibold" size={14} color={colors.sidebarText}>Về trang quản lý</Txt>
+              <Txt weight="semibold" size={14} color={colors.textSoft}>Về trang quản lý</Txt>
             </Pressable>
           ) : (
             <Pressable accessibilityRole="button" style={styles.outline}
               onPress={async () => { if (await confirmAction('Đăng xuất khỏi màn hình bếp?', 'Đăng xuất')) { logout(); router.replace('/login'); } }}>
-              <Txt weight="semibold" size={14} color={colors.sidebarText}>Đăng xuất</Txt>
+              <Txt weight="semibold" size={14} color={colors.textSoft}>Đăng xuất</Txt>
             </Pressable>
           )}
         </View>
       </View>
 
       {queue.error ? <ErrorBox message={queue.error} onRetry={queue.reload} /> : null}
-      {queue.loading && !queue.data ? <Loading dark /> : tickets.length === 0 ? (
+      {queue.loading && !queue.data ? <Loading /> : tickets.length === 0 ? (
         <View style={styles.empty}>
-          <Ionicons name="checkmark-done-circle-outline" size={56} color={colors.kitchenLine} />
-          <Txt weight="bold" size={20} color={colors.kitchenMuted}>Chưa có phiếu nào cần làm</Txt>
-          <Txt size={15} color={colors.kitchenMuted}>Đơn mới sẽ hiện ở đây ngay khi nhân viên xác nhận.</Txt>
+          <Ionicons name="checkmark-done-circle-outline" size={56} color={colors.faint} />
+          <Txt weight="bold" size={20} color={colors.textSoft}>Chưa có phiếu nào cần làm</Txt>
+          <Txt size={15} color={colors.muted}>Đơn mới sẽ hiện ở đây ngay khi nhân viên xác nhận.</Txt>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.grid}>
           {tickets.map((o) => {
             const mins = minutesSince(o.createdAt, now);
-            const tone = mins >= 15 ? { bg: '#B91C1C', fg: colors.white } : mins >= 10 ? { bg: '#B45309', fg: colors.white } : { bg: '#3F3A36', fg: colors.kitchenText };
+            const tone = mins >= 15 ? { bg: colors.danger, fg: colors.white } : mins >= 10 ? { bg: colors.warning, fg: colors.white } : { bg: colors.neutralSoft, fg: colors.text };
             const cooking = o.status === 'PREPARING';
             return (
               <View key={o.id} style={styles.ticket}>
@@ -101,22 +101,22 @@ export default function Kitchen() {
                   </View>
                 </View>
                 <View style={styles.ticketBody}>
-                  {cooking ? <Txt weight="bold" size={13} color={colors.kitchenAccent}>ĐANG NẤU</Txt> : null}
+                  {cooking ? <Txt weight="bold" size={13} color={colors.primary}>ĐANG NẤU</Txt> : null}
                   {o.items.map((i) => (
                     <View key={i.id} style={styles.line}>
-                      <Txt weight="extrabold" size={22} color={colors.kitchenAccent} style={{ minWidth: 38 }}>{i.quantity}×</Txt>
+                      <Txt weight="extrabold" size={22} color={colors.primary} style={{ minWidth: 38 }}>{i.quantity}×</Txt>
                       <View style={{ flex: 1, gap: 4 }}>
-                        <Txt weight="bold" size={20} color={colors.kitchenText} style={{ lineHeight: 26 }}>{i.name}</Txt>
+                        <Txt weight="bold" size={20} color={colors.text} style={{ lineHeight: 26 }}>{i.name}</Txt>
                         {i.options.length ? (
                           <View style={styles.opts}>
-                            {i.options.map((op) => <View key={op.id} style={styles.opt}><Txt weight="bold" size={15} color="#FED7AA">{op.name}</Txt></View>)}
+                            {i.options.map((op) => <View key={op.id} style={styles.opt}><Txt weight="bold" size={15} color={colors.primaryText}>{op.name}</Txt></View>)}
                           </View>
                         ) : null}
                         {i.note ? <View style={styles.note}><Txt weight="bold" size={15} color={colors.text}>{i.note}</Txt></View> : null}
                       </View>
                     </View>
                   ))}
-                  {o.note ? <Txt size={14} color="#D6D3D1" style={styles.orderNote}>Ghi chú đơn: {o.note}</Txt> : null}
+                  {o.note ? <Txt size={14} color={colors.textSoft} style={styles.orderNote}>Ghi chú đơn: {o.note}</Txt> : null}
                   <Pressable accessibilityRole="button" disabled={busy === o.id} onPress={() => void step(o)}
                     style={({ pressed }) => [styles.btn, { backgroundColor: cooking ? colors.success : colors.primary, opacity: pressed || busy === o.id ? 0.8 : 1 }]}>
                     <Txt weight="extrabold" size={18} color={colors.white}>{cooking ? 'Xong – chuyển giao' : 'Bắt đầu nấu'}</Txt>
@@ -143,20 +143,20 @@ export default function Kitchen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.kitchenBg, paddingHorizontal: 24, paddingBottom: 20, gap: 18 },
+  root: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 24, paddingBottom: 20, gap: 18 },
   head: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' },
   headActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
-  soldOut: { height: 40, paddingHorizontal: 14, borderRadius: 999, backgroundColor: '#3F1D17', justifyContent: 'center' },
-  outline: { height: 40, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1.5, borderColor: colors.kitchenLine, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  soldOut: { height: 40, paddingHorizontal: 14, borderRadius: 999, backgroundColor: colors.dangerSoft, justifyContent: 'center' },
+  outline: { height: 40, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card, flexDirection: 'row', alignItems: 'center', gap: 4 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, alignItems: 'flex-start', paddingBottom: 24 },
-  ticket: { width: 320, flexGrow: 1, maxWidth: 420, backgroundColor: colors.kitchenCard, borderRadius: 16, overflow: 'hidden' },
+  ticket: { width: 320, flexGrow: 1, maxWidth: 420, backgroundColor: colors.card, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, ...shadow },
   ticketHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
   ticketBody: { padding: 16, gap: 12 },
   line: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   note: { alignSelf: 'flex-start', backgroundColor: colors.noteBg, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
   opts: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  opt: { backgroundColor: '#7C2D12', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
-  orderNote: { borderTopWidth: 1, borderTopColor: colors.kitchenLine, paddingTop: 10 },
+  opt: { backgroundColor: colors.primarySoft, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
+  orderNote: { borderTopWidth: 1, borderTopColor: colors.divider, paddingTop: 10 },
   btn: { height: 56, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
   stockRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.divider },
