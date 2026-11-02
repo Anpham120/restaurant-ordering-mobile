@@ -1,0 +1,112 @@
+@startuml usecase
+' Sơ đồ use-case tổng quát – Atlas Restaurant (đặt món giao tận nhà)
+' Render: java -jar plantuml.jar -tpng docs/usecase.puml   (hoặc dán vào https://www.plantuml.com/plantuml)
+!pragma layout smetana
+left to right direction
+skinparam dpi 200
+skinparam defaultFontName "DejaVu Sans"
+skinparam shadowing false
+skinparam actorStyle stick
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #B5451B
+  ArrowColor #555E6E
+}
+skinparam rectangle {
+  BackgroundColor #FBF7F4
+  BorderColor #334155
+}
+
+actor "Khách hàng" as KH
+actor "Nhân viên" as NV
+actor "Bếp" as BEP
+actor "Quản lý" as QL
+actor "SePay\n(hệ thống ngân hàng)" as SP
+
+QL -up-|> NV
+QL -up-|> BEP
+
+rectangle "Atlas Restaurant – đặt món giao tận nhà" {
+  usecase "Đăng ký / đăng nhập" as UC01
+  usecase "Quên mật khẩu (OTP email)" as UC02
+  usecase "Xem thực đơn, chương trình" as UC03
+  usecase "Chọn size, topping" as UC04
+  usecase "Quản lý giỏ hàng" as UC05
+  usecase "Quản lý sổ địa chỉ" as UC06
+  usecase "Áp dụng mã giảm giá" as UC07
+  usecase "Đặt hàng" as UC08
+  usecase "Thanh toán VietQR" as UC09
+  usecase "Theo dõi đơn hàng" as UC10
+  usecase "Xem thông báo" as UC11
+  usecase "Hủy đơn" as UC12
+  usecase "Đặt lại đơn cũ" as UC13
+  usecase "Đánh giá món" as UC14
+  usecase "Món yêu thích" as UC15
+
+  usecase "Xác nhận chuyển khoản tự động" as UC16
+  usecase "Xác nhận / hủy đơn" as UC17
+  usecase "Giao hàng, thu tiền COD" as UC18
+  usecase "Bật / tắt nhận đơn" as UC19
+  usecase "Xem phiếu chế biến" as UC20
+  usecase "Cập nhật chế biến" as UC21
+  usecase "Báo hết món" as UC22
+  usecase "Quản lý thực đơn, tùy chọn món" as UC23
+  usecase "Quản lý vị trí và phí giao theo km" as UC24
+  usecase "Quản lý mã giảm giá" as UC25
+  usecase "Quản lý chương trình quảng bá" as UC26
+  usecase "Đối soát thanh toán, hoàn tiền" as UC27
+  usecase "Quản lý nhân viên, khách hàng" as UC28
+  usecase "Xem tổng quan, báo cáo" as UC29
+  usecase "Cài đặt cửa hàng" as UC30
+}
+
+KH --> UC01
+KH --> UC02
+KH --> UC03
+KH --> UC04
+KH --> UC05
+KH --> UC06
+KH --> UC08
+KH --> UC10
+KH --> UC11
+KH --> UC12
+KH --> UC13
+KH --> UC14
+KH --> UC15
+UC07 .> UC08 : <<extend>>
+UC09 .> UC08 : <<extend>>
+
+UC16 <-- SP
+UC17 <-- NV
+UC18 <-- NV
+UC19 <-- NV
+UC20 <-- BEP
+UC21 <-- BEP
+UC22 <-- BEP
+UC23 <-- QL
+UC24 <-- QL
+UC25 <-- QL
+UC26 <-- QL
+UC27 <-- QL
+UC28 <-- QL
+UC29 <-- QL
+UC30 <-- QL
+
+' Cột trái: use-case của khách; cột phải: use-case của cửa hàng (liên kết ẩn chỉ để dàn trang)
+UC01 -[hidden]-> UC16
+UC02 -[hidden]-> UC17
+UC03 -[hidden]-> UC18
+UC04 -[hidden]-> UC19
+UC05 -[hidden]-> UC20
+UC06 -[hidden]-> UC21
+UC07 -[hidden]-> UC22
+UC08 -[hidden]-> UC23
+UC09 -[hidden]-> UC24
+UC10 -[hidden]-> UC25
+UC11 -[hidden]-> UC26
+UC12 -[hidden]-> UC27
+UC13 -[hidden]-> UC28
+UC14 -[hidden]-> UC29
+UC15 -[hidden]-> UC30
+@enduml
