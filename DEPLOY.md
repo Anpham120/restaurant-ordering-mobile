@@ -73,7 +73,7 @@ Tạo bản ghi A `order.atlasplatform12.tech` → `163.61.182.201`. Kiểm tra 
    - ID: `ordering-prod-env`
    - Secret: nội dung file `/home/coder/ordering-secrets/prod.env.b64` (một dòng)
 2. **Job.** Vào *New Item → `ordering` → Multibranch Pipeline*.
-   - Branch Source GitHub: `https://github.com/Anpham120/restaurant-ordering-system`. Repo public nên không cần credential, nhưng chọn `github-branch-source` để tránh giới hạn số lần gọi API.
+   - Branch Source GitHub: `https://github.com/Anpham120/restaurant-ordering-mobile`. Repo public nên không cần credential, nhưng chọn `github-branch-source` để tránh giới hạn số lần gọi API.
    - Build Configuration: *by Jenkinsfile*, Script Path `Jenkinsfile`.
    - Scan triggers: *Periodically if not otherwise run*, interval **1 minute**, giống job `rsm`.
 3. Lưu job. Jenkins quét nhánh, chạy build `main` (deploy production) và `develop` (staging test).

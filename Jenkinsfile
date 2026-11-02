@@ -25,7 +25,7 @@ pipeline {
 
     environment {
         JENKINS_CONTAINER = 'jenkins'
-        REPO_URL = 'https://github.com/Anpham120/restaurant-ordering-system.git'
+        REPO_URL = 'https://github.com/Anpham120/restaurant-ordering-mobile.git'
         // Deploy directory on the host: checkout of main + .env (written only during the deploy)
         DEPLOY_DIR = '/home/coder/ordering-deploy'
         // Checkout used by the disposable staging stack (its .env is generated and deleted by the script)
@@ -99,7 +99,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'github-branch-source', usernameVariable: 'GH_USER', passwordVariable: 'GH_TOKEN')]) {
                     sh '''
                         set -e
-                        AUTH="https://${GH_USER}:${GH_TOKEN}@github.com/Anpham120/restaurant-ordering-system.git"
+                        AUTH="https://${GH_USER}:${GH_TOKEN}@github.com/Anpham120/restaurant-ordering-mobile.git"
                         git fetch -q "$AUTH" main
                         if ! git merge-base --is-ancestor FETCH_HEAD "$GIT_COMMIT"; then
                             echo "main has commits that develop does not have: merge main into develop first"; exit 1
