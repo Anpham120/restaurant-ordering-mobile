@@ -13,7 +13,7 @@ import { colors, radius } from '@/lib/theme';
 const CTA: Record<Promotion['targetType'], string> = { VOUCHER: 'Lấy mã', MENU_ITEM: 'Xem món', CATEGORY: 'Xem thực đơn', NONE: 'Đã hiểu' };
 
 /**
- * Pop-up with the newest running campaigns, shown once after the customer signs in. Swipe sideways to read all of them
+ * Pop-up with the newest running campaigns, shown once when the app opens and once after each sign-in. Swipe sideways to read all of them
  * (arrows and dots for mouse users); the campaigns stay in the banner on the home screen afterwards.
  */
 export function PromoPopup({ promotions, visible, onClose, onOpen }: {

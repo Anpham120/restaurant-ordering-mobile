@@ -65,9 +65,10 @@ export default function Home() {
     else if (p.targetType === 'CATEGORY' && p.categoryId) setCat(p.categoryId);
     else if (p.targetType === 'VOUCHER') setPromo(p);
   };
-  // once per sign-in: the newest running campaigns in a popup, swipeable; they stay in the banner below afterwards
+  // once per app start and once per sign-in, guests included: the newest running campaigns in a popup, swipeable;
+  // they stay in the banner below afterwards
   const popupPromos = useMemo(() => [...(data?.promotions ?? [])].sort((a, b) => b.id - a.id).slice(0, 5), [data?.promotions]);
-  const showPopup = user?.role === 'CUSTOMER' && welcomeSeq > dismissedSeq && popupPromos.length > 0 && !!data;
+  const showPopup = (!user || user.role === 'CUSTOMER') && welcomeSeq > dismissedSeq && popupPromos.length > 0 && !!data;
   const closePopup = () => { dismissWelcome(welcomeSeq); setDismissedSeq(welcomeSeq); };
   const promoVoucher = promo ? data?.vouchers.find((v) => v.id === promo.voucherId) : undefined;
 

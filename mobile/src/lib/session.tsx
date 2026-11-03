@@ -42,7 +42,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [state, setState] = useState<Stored | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [welcomeSeq, setWelcomeSeq] = useState(0);
+  // 1: opening the app is a visit too (promotion popup), every sign-in adds one
+  const [welcomeSeq, setWelcomeSeq] = useState(1);
 
   const persist = useCallback((s: Stored | null) => {
     setAuthToken(s?.token ?? null);
