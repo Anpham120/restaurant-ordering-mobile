@@ -6,6 +6,11 @@
 //   main              : CI + deploy to PRODUCTION on this server (DB backup first, automatic rollback on failure)
 //   main + mobile/ changed : after the deploy, queue an Android APK build on EAS (not waited for)
 //   nightly (main)    : DB backup only
+// Skipped work (stage "Plan"):
+//   - only docs/** or *.md changed since the last successful build: no tests, no staging, no deploy (develop still
+//     promotes, so main keeps up with develop)
+//   - main: a commit already on develop passed CI + staging there (main only receives fast-forward promotions of the
+//     same commit), so it is not tested again; a commit pushed straight to main is
 // Production runs scripts/deploy.sh with the credential's .env; staging runs scripts/staging-test.sh with random secrets.
 // Maven and Node run in throwaway containers that share the Jenkins volume, so $WORKSPACE paths match.
 
@@ -35,8 +40,30 @@ pipeline {
     }
 
     stages {
-        stage('Test backend') {
+        stage('Plan') {
             when { not { triggeredBy 'TimerTrigger' } }
+            steps {
+                script {
+                    // any doubt (first build, history rewritten, nothing changed) -> run everything
+                    env.DOCS_ONLY = sh(returnStatus: true, script: '''
+                        prev="${GIT_PREVIOUS_SUCCESSFUL_COMMIT:-}"
+                        [ -n "$prev" ] || exit 1
+                        files=$(git diff --name-only "$prev" "$GIT_COMMIT") || exit 1
+                        [ -n "$files" ] || exit 1
+                        ! printf '%s\n' "$files" | grep -qvE '^docs/|\.md$'
+                    ''') == 0 ? 'true' : 'false'
+                    env.TESTED_ON_DEVELOP = (env.BRANCH_NAME == 'main' && sh(returnStatus: true, script: '''
+                        git fetch -q "$REPO_URL" develop && git merge-base --is-ancestor "$GIT_COMMIT" FETCH_HEAD
+                    ''') == 0) ? 'true' : 'false'
+                    echo "docs only: ${env.DOCS_ONLY}, already tested on develop: ${env.TESTED_ON_DEVELOP}"
+                }
+            }
+        }
+
+        stage('Test backend') {
+            when {
+                allOf { not { triggeredBy 'TimerTrigger' }; expression { env.DOCS_ONLY != 'true' && env.TESTED_ON_DEVELOP != 'true' } }
+            }
             steps {
                 sh '''
                     docker run --rm -v ordering-m2-cache:/m2 alpine:3.20 chown "$(id -u):$(id -g)" /m2
@@ -54,7 +81,9 @@ pipeline {
         }
 
         stage('Test mobile') {
-            when { not { triggeredBy 'TimerTrigger' } }
+            when {
+                allOf { not { triggeredBy 'TimerTrigger' }; expression { env.DOCS_ONLY != 'true' && env.TESTED_ON_DEVELOP != 'true' } }
+            }
             steps {
                 sh '''
                     docker run --rm --volumes-from "$JENKINS_CONTAINER" -w "$WORKSPACE/mobile" \
@@ -70,7 +99,7 @@ pipeline {
         // removed when the checks end (pass or fail). No credential is needed.
         stage('Staging test') {
             when {
-                allOf { branch 'develop'; not { triggeredBy 'TimerTrigger' } }
+                allOf { branch 'develop'; not { triggeredBy 'TimerTrigger' }; expression { env.DOCS_ONLY != 'true' } }
             }
             steps {
                 sh '''
@@ -113,7 +142,7 @@ pipeline {
 
         stage('Deploy production') {
             when {
-                allOf { branch 'main'; not { triggeredBy 'TimerTrigger' } }
+                allOf { branch 'main'; not { triggeredBy 'TimerTrigger' }; expression { env.DOCS_ONLY != 'true' } }
             }
             steps {
                 // ordering-prod-env: the whole production .env, base64 on one line (Secret text)
@@ -160,7 +189,9 @@ pipeline {
         success {
             script {
                 if (!currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause')) {
-                    if (env.BRANCH_NAME == 'main') {
+                    if (env.DOCS_ONLY == 'true') {
+                        notifyTelegram("📄 [ordering] ${env.BRANCH_NAME}: chỉ đổi tài liệu, bỏ qua test và deploy")
+                    } else if (env.BRANCH_NAME == 'main') {
                         notifyTelegram("✅ [ordering] Đã deploy PRODUCTION https://order.atlasplatform12.tech")
                     } else if (env.BRANCH_NAME == 'develop') {
                         notifyTelegram("✅ [ordering] Staging test đạt, đã đẩy lên main để deploy production")
