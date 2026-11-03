@@ -170,8 +170,8 @@ export default function AdminPromotions() {
                 ) : <Txt size={13} color={colors.warningText}>Chưa có mã giảm giá nào đang áp dụng.</Txt>
               ) : null}
               <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={{ flex: 1 }}><Field label="Bắt đầu" value={form.startAt} onChangeText={(v) => set('startAt', v)} placeholder="yyyy-mm-dd" /></View>
-                <View style={{ flex: 1 }}><Field label="Kết thúc" value={form.endAt} onChangeText={(v) => set('endAt', v)} placeholder="yyyy-mm-dd" /></View>
+                <View style={{ flex: 1 }}><Field label="Bắt đầu" value={form.startAt} onChangeText={(v) => set('startAt', v)} mask="date" placeholder="yyyy-mm-dd" /></View>
+                <View style={{ flex: 1 }}><Field label="Kết thúc" value={form.endAt} onChangeText={(v) => set('endAt', v)} mask="date" placeholder="yyyy-mm-dd" /></View>
               </View>
               {!datesOk ? <Txt size={12} color={colors.danger}>Ngày theo định dạng yyyy-mm-dd</Txt> : null}
               <Field label="Thứ tự hiển thị" value={form.sortOrder} onChangeText={(v) => set('sortOrder', v.replace(/\D/g, ''))} keyboardType="numeric" />

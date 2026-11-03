@@ -181,3 +181,27 @@ export function countdown(s: string | null | undefined, now: number): string {
   const sec = Math.max(0, Math.floor((d.getTime() - now) / 1000));
   return `${pad(Math.floor(sec / 60))}:${pad(sec % 60)}`;
 }
+
+export type InputMask = 'date' | 'time';
+
+/**
+ * Formats what was typed into a date (yyyy-mm-dd) or time (HH:mm) as the user types: only digits are kept and the
+ * separators are inserted for them ("2026" -> "2026-", "07" -> "07:"). Backspace never gets stuck on a separator.
+ */
+export function applyMask(mask: InputMask, next: string, prev = ''): string {
+  const groups = mask === 'date' ? [4, 2, 2] : [2, 2];
+  const sep = mask === 'date' ? '-' : ':';
+  let digits = next.replace(/\D/g, '').slice(0, groups.reduce((a, b) => a + b, 0));
+  const deleting = next.length < prev.length;
+  // backspace at the end removed only the separator: remove the digit before it too
+  if (deleting && prev.startsWith(next) && digits === prev.replace(/\D/g, '')) digits = digits.slice(0, -1);
+  let out = '', at = 0;
+  groups.forEach((n, g) => {
+    const part = digits.slice(at, at + n);
+    if (!part) return;
+    out += (g > 0 ? sep : '') + part;
+    at += n;
+    if (!deleting && g < groups.length - 1 && part.length === n && digits.length === at) out += sep;
+  });
+  return out;
+}

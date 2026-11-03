@@ -91,8 +91,8 @@ export default function AdminVouchers() {
               ) : null}
               <Field label="Đơn tối thiểu (đ)" value={form.minOrder} onChangeText={(v) => set('minOrder', v.replace(/\D/g, ''))} keyboardType="numeric" />
               <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={{ flex: 1 }}><Field label="Bắt đầu" value={form.startAt} onChangeText={(v) => set('startAt', v)} placeholder="yyyy-mm-dd" /></View>
-                <View style={{ flex: 1 }}><Field label="Kết thúc" value={form.endAt} onChangeText={(v) => set('endAt', v)} placeholder="yyyy-mm-dd" /></View>
+                <View style={{ flex: 1 }}><Field label="Bắt đầu" value={form.startAt} onChangeText={(v) => set('startAt', v)} mask="date" placeholder="yyyy-mm-dd" /></View>
+                <View style={{ flex: 1 }}><Field label="Kết thúc" value={form.endAt} onChangeText={(v) => set('endAt', v)} mask="date" placeholder="yyyy-mm-dd" /></View>
               </View>
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <View style={{ flex: 1 }}><Field label="Tổng lượt dùng" value={form.usageLimit} onChangeText={(v) => set('usageLimit', v.replace(/\D/g, ''))} keyboardType="numeric" placeholder="Không giới hạn" /></View>

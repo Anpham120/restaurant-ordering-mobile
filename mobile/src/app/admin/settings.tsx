@@ -74,9 +74,9 @@ export default function AdminSettings() {
           <Field label="Hotline" value={f.hotline} onChangeText={(v) => setF({ ...f, hotline: v.replace(/\D/g, '') })} keyboardType="phone-pad" maxLength={15} />
           <Field label="Địa chỉ cửa hàng" value={f.storeAddress} onChangeText={(v) => setF({ ...f, storeAddress: v })} maxLength={200} />
           <View style={{ flexDirection: 'row', gap: 12 }}>
-            <View style={{ flex: 1 }}><Field label="Giờ mở nhận đơn" value={f.openTime} onChangeText={(v) => setF({ ...f, openTime: v })} placeholder="07:00"
+            <View style={{ flex: 1 }}><Field label="Giờ mở nhận đơn" value={f.openTime} onChangeText={(v) => setF({ ...f, openTime: v })} mask="time" placeholder="07:00"
               error={HM.test(f.openTime) ? null : 'Định dạng HH:mm'} /></View>
-            <View style={{ flex: 1 }}><Field label="Giờ ngừng nhận đơn" value={f.closeTime} onChangeText={(v) => setF({ ...f, closeTime: v })} placeholder="22:00"
+            <View style={{ flex: 1 }}><Field label="Giờ ngừng nhận đơn" value={f.closeTime} onChangeText={(v) => setF({ ...f, closeTime: v })} mask="time" placeholder="22:00"
               error={HM.test(f.closeTime) ? (f.closeTime > f.openTime ? null : 'Phải sau giờ mở') : 'Định dạng HH:mm'} /></View>
           </View>
           <Field label="Giá trị đơn tối thiểu (đ, chưa tính phí giao)" value={f.minOrderAmount} onChangeText={(v) => setF({ ...f, minOrderAmount: v.replace(/\D/g, '') })} keyboardType="numeric" />

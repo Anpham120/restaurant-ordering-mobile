@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 
 import type { OrderStatus } from '@/lib/api';
-import { statusLabel, statusTone } from '@/lib/format';
+import { applyMask, statusLabel, statusTone, type InputMask } from '@/lib/format';
 import { colors, fonts, radius, shadow } from '@/lib/theme';
 import { Txt } from './txt';
 
@@ -25,11 +25,20 @@ export function SectionTitle({ children, right }: { children: ReactNode; right?:
   );
 }
 
-export function Field({ label, hint, error, style, ref, secureTextEntry, ...input }: TextInputProps & {
+export function Field({ label, hint, error, style, ref, secureTextEntry, mask, ...input }: TextInputProps & {
   label?: string; hint?: string; error?: string | null; ref?: Ref<TextInputInstance>;
+  /** Digits only, separators typed for you: 'date' -> yyyy-mm-dd, 'time' -> HH:mm. */
+  mask?: InputMask;
 }) {
   // password fields get an eye button to show what was typed
   const [shown, setShown] = useState(false);
+  if (mask) {
+    const onChangeText = input.onChangeText;
+    input = {
+      keyboardType: 'number-pad', maxLength: mask === 'date' ? 10 : 5, ...input,
+      onChangeText: (t) => onChangeText?.(applyMask(mask, t, String(input.value ?? ''))),
+    };
+  }
   return (
     <View style={styles.field}>
       {label ? <Txt weight="semibold" size={14}>{label}</Txt> : null}

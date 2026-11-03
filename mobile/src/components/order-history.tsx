@@ -37,7 +37,7 @@ export function OrderHistory({ title = 'Lịch sử đơn hàng' }: { title?: st
     <Page title={title} subtitle={q.trim() ? 'Kết quả tìm kiếm' : `Ngày ${validDate ?? '—'} · ${orders.length} đơn · đã giao ${delivered.length} (${money(delivered.reduce((s, o) => s + o.total, 0))})`}
       actions={<>
         <View style={{ width: 240 }}><SearchBox value={q} onChangeText={setQ} placeholder="Mã đơn, SĐT, tên khách…" accessibilityLabel="Tìm đơn" /></View>
-        <View style={{ width: 150 }}><Field value={date} onChangeText={setDate} placeholder="yyyy-mm-dd" accessibilityLabel="Ngày" style={{ height: 46 }} /></View>
+        <View style={{ width: 150 }}><Field value={date} onChangeText={setDate} mask="date" placeholder="yyyy-mm-dd" accessibilityLabel="Ngày" style={{ height: 46 }} /></View>
       </>}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {FILTERS.map((s) => <Chip key={s} label={s === 'ALL' ? 'Tất cả' : statusLabel[s]} active={status === s} onPress={() => setStatus(s)} />)}

@@ -29,8 +29,8 @@ export default function AdminReport() {
         <Chip label="30 ngày" onPress={() => preset(30)} active={range.from === todayIso(-29) && range.to === todayIso()} />
       </>}>
       <Card style={styles.range}>
-        <View style={{ width: 160 }}><Field label="Từ ngày" value={from} onChangeText={setFrom} placeholder="yyyy-mm-dd" /></View>
-        <View style={{ width: 160 }}><Field label="Đến ngày" value={to} onChangeText={setTo} placeholder="yyyy-mm-dd" /></View>
+        <View style={{ width: 160 }}><Field label="Từ ngày" value={from} onChangeText={setFrom} mask="date" placeholder="yyyy-mm-dd" /></View>
+        <View style={{ width: 160 }}><Field label="Đến ngày" value={to} onChangeText={setTo} mask="date" placeholder="yyyy-mm-dd" /></View>
         <Button title="Xem báo cáo" onPress={() => setRange({ from, to })} disabled={!DATE.test(from) || !DATE.test(to)} style={{ alignSelf: 'flex-end' }} />
       </Card>
       {report.error ? <ErrorBox message={report.error} onRetry={report.reload} /> : null}
