@@ -50,7 +50,7 @@ pipeline {
                         [ -n "$prev" ] || exit 1
                         files=$(git diff --name-only "$prev" "$GIT_COMMIT") || exit 1
                         [ -n "$files" ] || exit 1
-                        ! printf '%s\n' "$files" | grep -qvE '^docs/|\.md$'
+                        ! echo "$files" | grep -qvE '^docs/|[.]md$'
                     ''') == 0 ? 'true' : 'false'
                     env.TESTED_ON_DEVELOP = (env.BRANCH_NAME == 'main' && sh(returnStatus: true, script: '''
                         git fetch -q "$REPO_URL" develop && git merge-base --is-ancestor "$GIT_COMMIT" FETCH_HEAD
