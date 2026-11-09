@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Page } from '@/components/backoffice';
 import { Button } from '@/components/button';
 import { EditorPanel, WithEditor } from '@/components/editor';
+import { problems } from '@/lib/validate';
 import { OptionsEditor } from '@/components/options-editor';
 import { Txt } from '@/components/txt';
 import { Badge, Card, Chip, Empty, ErrorBox, Field, FoodImage, Loading, SearchBox, Toggle } from '@/components/ui';
@@ -28,7 +29,7 @@ export default function AdminMenu() {
   const current = form?.id ? (items.data ?? []).find((m) => m.id === form.id) : undefined;
 
   const list = (items.data ?? []).filter((m) => (cat == null || m.categoryId === cat) && (!q.trim() || m.name.toLowerCase().includes(q.trim().toLowerCase())));
-  const edit = (m: MenuItem) => setForm({ id: m.id, categoryId: m.categoryId, name: m.name, description: m.description ?? '', price: String(m.price),
+  const edit = (m: MenuItem) => setForm({ id: m.id, categoryId: m.categoryId, name: m.name, description: m.description ?? '', price: String(Math.round(m.price)),
     imageUrl: m.imageUrl ?? '', available: m.available, active: m.active });
   const create = () => setForm({ categoryId: cat ?? cats.data?.[0]?.id ?? 0, name: '', description: '', price: '', imageUrl: '', available: true, active: true });
 
@@ -117,13 +118,13 @@ export default function AdminMenu() {
         </>}
         editor={
           <EditorPanel open={!!form} title={form?.id ? 'Sửa món' : 'Thêm món mới'} onClose={() => setForm(null)} onSave={save} saving={saving}
-            canSave={!!form && !!form.name.trim() && priceOk && urlOk && !!form.categoryId}
+            problems={!form ? [] : problems(!form.name.trim() && 'Nhập tên món', !priceOk && 'Nhập giá hợp lệ (chỉ chữ số)', !urlOk && 'Link ảnh phải bắt đầu bằng http:// hoặc https://', !form.categoryId && 'Chọn danh mục cho món')}
             extra={form?.id ? <Button title={form.active ? 'Ngừng bán' : 'Bán lại'} variant="secondary" onPress={() => set('active', !form.active)} /> : null}>
             {form ? (
               <>
                 {form.imageUrl.trim() && urlOk ? <FoodImage uri={form.imageUrl.trim()} style={{ width: '100%', height: 160 }} rounded={12} /> : null}
                 <Field label="Tên món" value={form.name} onChangeText={(v) => set('name', v)} maxLength={120} />
-                <Field label="Giá (đ)" value={form.price} onChangeText={(v) => set('price', v.replace(/[^0-9.]/g, ''))} keyboardType="numeric" error={form.price && !priceOk ? 'Giá không hợp lệ' : null} />
+                <Field label="Giá (đ)" value={form.price} onChangeText={(v) => set('price', v)} mask="money" error={form.price && !priceOk ? 'Giá không hợp lệ' : null} />
                 <View style={{ gap: 6 }}>
                   <Txt weight="semibold" size={14}>Danh mục</Txt>
                   <View style={styles.filters}>

@@ -22,3 +22,24 @@ export function passwordRules(v: string): Rule[] {
   ];
 }
 export const isStrongPassword = (v: string) => passwordRules(v).every((r) => r.ok);
+
+/** A real calendar date written yyyy-mm-dd (2026-02-30 is refused). */
+export function isDate(v: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  if (!m) return false;
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  return d.getUTCFullYear() === +m[1] && d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3];
+}
+export const DATE_HINT = 'Ngày chưa đúng, nhập dạng năm-tháng-ngày, ví dụ 2026-11-09';
+
+/** What is wrong with an optional start/end period (both ends inclusive), in words for the form. */
+export function periodProblems(start: string, end: string): string[] {
+  const out: string[] = [];
+  if (start && !isDate(start)) out.push(`Ngày bắt đầu: ${DATE_HINT.charAt(0).toLowerCase()}${DATE_HINT.slice(1)}`);
+  if (end && !isDate(end)) out.push(`Ngày kết thúc: ${DATE_HINT.charAt(0).toLowerCase()}${DATE_HINT.slice(1)}`);
+  if (start && end && isDate(start) && isDate(end) && end < start) out.push('Ngày kết thúc phải từ ngày bắt đầu trở về sau');
+  return out;
+}
+
+/** Keeps the messages of the rules that fail: problems(['Nhập tên', !name], …) style lists. */
+export const problems = (...items: (string | false | null | undefined)[]): string[] => items.filter((x): x is string => !!x);

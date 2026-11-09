@@ -6,8 +6,9 @@ import {
 } from 'react-native';
 
 import type { OrderStatus } from '@/lib/api';
-import { applyMask, statusLabel, statusTone, type InputMask } from '@/lib/format';
+import { applyMask, completeMask, statusLabel, statusTone, thousands, type InputMask } from '@/lib/format';
 import { colors, fonts, radius, shadow } from '@/lib/theme';
+import { DatePickerSheet, TimePickerSheet } from './pickers';
 import { Txt } from './txt';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -27,16 +28,28 @@ export function SectionTitle({ children, right }: { children: ReactNode; right?:
 
 export function Field({ label, hint, error, style, ref, secureTextEntry, mask, ...input }: TextInputProps & {
   label?: string; hint?: string; error?: string | null; ref?: Ref<TextInputInstance>;
-  /** Digits only, separators typed for you: 'date' -> yyyy-mm-dd, 'time' -> HH:mm. */
-  mask?: InputMask;
+  /**
+   * Digits only, separators typed for you: 'date' -> yyyy-mm-dd and 'time' -> HH:mm (both with a picker button),
+   * 'money' -> shown as 1.250.000 while the value stays plain digits.
+   */
+  mask?: InputMask | 'money';
 }) {
   // password fields get an eye button to show what was typed
   const [shown, setShown] = useState(false);
-  if (mask) {
-    const onChangeText = input.onChangeText;
+  const [picking, setPicking] = useState(false);
+  const pickerValue = String(input.value ?? '');
+  const onPickerChange = input.onChangeText;
+  if (mask === 'money') {
+    const { onChangeText } = input;
+    input = { keyboardType: 'number-pad', ...input, value: thousands(pickerValue), onChangeText: (t) => onChangeText?.(t.replace(/\D/g, '')) };
+  } else if (mask) {
+    const { onChangeText, onBlur } = input;
+    const value = String(input.value ?? '');
     input = {
       keyboardType: 'number-pad', maxLength: mask === 'date' ? 10 : 5, ...input,
-      onChangeText: (t) => onChangeText?.(applyMask(mask, t, String(input.value ?? ''))),
+      onChangeText: (t) => onChangeText?.(applyMask(mask, t, value)),
+      // a single-digit day or a bare hour is completed when the field is left
+      onBlur: (e) => { const done = completeMask(mask, value); if (done !== value) onChangeText?.(done); onBlur?.(e); },
     };
   }
   return (
@@ -49,9 +62,20 @@ export function Field({ label, hint, error, style, ref, secureTextEntry, mask, .
           accessibilityLabel={input.accessibilityLabel ?? label}
           {...input}
           secureTextEntry={!!secureTextEntry && !shown}
-          style={[styles.input, input.multiline && styles.inputMulti, secureTextEntry ? { paddingRight: 48 } : null,
+          style={[styles.input, input.multiline && styles.inputMulti, secureTextEntry ? { paddingRight: 48 } : mask === 'date' || mask === 'time' ? { paddingLeft: 12, paddingRight: 38 } : null,
             error ? { borderColor: colors.danger } : null, style]}
         />
+        {mask === 'date' || mask === 'time' ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={mask === 'date' ? `Chọn ngày${label ? `: ${label}` : ''}` : `Chọn giờ${label ? `: ${label}` : ''}`}
+            hitSlop={8} onPress={() => setPicking(true)} style={styles.pick}>
+            <Ionicons name={mask === 'date' ? 'calendar-outline' : 'time-outline'} size={21} color={colors.primary} />
+          </Pressable>
+        ) : null}
+        {mask === 'date' ? (
+          <DatePickerSheet visible={picking} value={pickerValue} title={label ?? 'Chọn ngày'} onClose={() => setPicking(false)} onPick={(v) => onPickerChange?.(v)} />
+        ) : mask === 'time' ? (
+          <TimePickerSheet visible={picking} value={pickerValue} title={label ?? 'Chọn giờ'} onClose={() => setPicking(false)} onPick={(v) => onPickerChange?.(v)} />
+        ) : null}
         {secureTextEntry ? (
           <Pressable accessibilityRole="button" accessibilityLabel={shown ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} hitSlop={8}
             onPress={() => setShown((v) => !v)} style={styles.eye}>
@@ -255,6 +279,7 @@ const styles = StyleSheet.create({
   },
   inputMulti: { height: 76, paddingTop: 12, textAlignVertical: 'top' },
   eye: { position: 'absolute', right: 4, top: 0, bottom: 0, width: 44, alignItems: 'center', justifyContent: 'center' },
+  pick: { position: 'absolute', right: 2, top: 0, bottom: 0, width: 38, alignItems: 'center', justifyContent: 'center' },
   search: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.input, borderRadius: 12, paddingHorizontal: 14, height: 46 },
   searchInput: { flex: 1, fontFamily: fonts.regular, fontSize: 15, color: colors.text, height: 46 },
   badge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: radius.pill },

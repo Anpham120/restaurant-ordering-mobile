@@ -3,6 +3,7 @@ import { Linking, Pressable, View } from 'react-native';
 
 import { Page } from '@/components/backoffice';
 import { Button } from '@/components/button';
+import { SaveBlockers } from '@/components/editor';
 import { Txt } from '@/components/txt';
 import { LocationPicker } from '@/components/location-picker';
 import { Card, Chip, ErrorBox, Field, Loading, Notice, Toggle } from '@/components/ui';
@@ -11,6 +12,7 @@ import { BANKS, money } from '@/lib/format';
 import { useLoad } from '@/lib/hooks';
 import { colors } from '@/lib/theme';
 import { useToast } from '@/lib/toast';
+import { problems } from '@/lib/validate';
 
 const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -62,7 +64,17 @@ export default function AdminSettings() {
     const raw = num(f.baseFee) + (d > num(f.baseKm) ? Math.ceil(d - num(f.baseKm)) * num(f.extraFee) : 0);
     return Math.ceil(raw / 1000) * 1000;
   };
-  const valid = !!f && deliveryOk && bankOk && timeoutOk && !!f.storeName.trim() && /^\d{8,15}$/.test(f.hotline) && !!f.storeAddress.trim() && HM.test(f.openTime) && HM.test(f.closeTime) && f.closeTime > f.openTime;
+  const blockers = !f ? [] : problems(
+    !f.storeName.trim() && 'Nhập tên cửa hàng',
+    !/^\d{8,15}$/.test(f.hotline) && 'Hotline gồm 8–15 chữ số',
+    !f.storeAddress.trim() && 'Nhập địa chỉ cửa hàng',
+    !HM.test(f.openTime) && 'Giờ mở nhận đơn dạng HH:mm, ví dụ 07:00',
+    !HM.test(f.closeTime) && 'Giờ ngừng nhận đơn dạng HH:mm, ví dụ 22:00',
+    HM.test(f.openTime) && HM.test(f.closeTime) && f.closeTime <= f.openTime && 'Giờ ngừng nhận đơn phải sau giờ mở',
+    !deliveryOk && 'Kiểm tra lại phần phí và phạm vi giao hàng',
+    !bankOk && 'Chọn ngân hàng và nhập số tài khoản (4–19 chữ số/chữ)',
+    !timeoutOk && 'Thời hạn chuyển khoản từ 5 đến 120 phút',
+  );
 
   return (
     <Page title="Cài đặt cửa hàng">
@@ -79,7 +91,7 @@ export default function AdminSettings() {
             <View style={{ flex: 1 }}><Field label="Giờ ngừng nhận đơn" value={f.closeTime} onChangeText={(v) => setF({ ...f, closeTime: v })} mask="time" placeholder="22:00"
               error={HM.test(f.closeTime) ? (f.closeTime > f.openTime ? null : 'Phải sau giờ mở') : 'Định dạng HH:mm'} /></View>
           </View>
-          <Field label="Giá trị đơn tối thiểu (đ, chưa tính phí giao)" value={f.minOrderAmount} onChangeText={(v) => setF({ ...f, minOrderAmount: v.replace(/\D/g, '') })} keyboardType="numeric" />
+          <Field label="Giá trị đơn tối thiểu (đ, chưa tính phí giao)" value={f.minOrderAmount} onChangeText={(v) => setF({ ...f, minOrderAmount: v.replace(/\D/g, '') })} mask="money" />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Txt size={14} style={{ flex: 1 }}>Đang nhận đơn (tắt để tạm ngưng, ví dụ khi quá tải)</Txt>
             <Toggle value={f.acceptingOrders} onChange={(v) => setF({ ...f, acceptingOrders: v })} label="Đang nhận đơn" />
@@ -100,11 +112,11 @@ export default function AdminSettings() {
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <View style={{ flex: 1 }}><Field label="Bán kính phí cơ bản (km)" value={f.baseKm} onChangeText={(v) => setF({ ...f, baseKm: v.replace(/[^0-9.,]/g, '') })} keyboardType="decimal-pad"
                 error={num(f.baseKm) >= 0.5 ? null : 'Tối thiểu 0,5 km'} /></View>
-              <View style={{ flex: 1 }}><Field label="Phí cơ bản (đ)" value={f.baseFee} onChangeText={(v) => setF({ ...f, baseFee: v.replace(/\D/g, '') })} keyboardType="numeric"
+              <View style={{ flex: 1 }}><Field label="Phí cơ bản (đ)" value={f.baseFee} onChangeText={(v) => setF({ ...f, baseFee: v.replace(/\D/g, '') })} mask="money"
                 error={num(f.baseFee) >= 0 ? null : 'Nhập số tiền'} /></View>
             </View>
             <View style={{ flexDirection: 'row', gap: 12 }}>
-              <View style={{ flex: 1 }}><Field label="Phụ phí mỗi km vượt (đ)" value={f.extraFee} onChangeText={(v) => setF({ ...f, extraFee: v.replace(/\D/g, '') })} keyboardType="numeric"
+              <View style={{ flex: 1 }}><Field label="Phụ phí mỗi km vượt (đ)" value={f.extraFee} onChangeText={(v) => setF({ ...f, extraFee: v.replace(/\D/g, '') })} mask="money"
                 error={num(f.extraFee) >= 0 ? null : 'Nhập số tiền'} /></View>
               <View style={{ flex: 1 }}><Field label="Giao xa nhất (km)" value={f.maxKm} onChangeText={(v) => setF({ ...f, maxKm: v.replace(/[^0-9.,]/g, '') })} keyboardType="decimal-pad"
                 error={num(f.maxKm) >= num(f.baseKm) && num(f.maxKm) <= 99 ? null : 'Phải ≥ bán kính phí cơ bản'} /></View>
@@ -143,7 +155,8 @@ export default function AdminSettings() {
             <Field label="Thời hạn chuyển khoản (phút)" value={f.timeout} onChangeText={(v) => setF({ ...f, timeout: v.replace(/\D/g, '') })} keyboardType="numeric"
               error={timeoutOk ? null : 'Từ 5 đến 120 phút'} hint="Quá hạn chưa nhận tiền, đơn tự hủy" />
           </View>
-          <Button title="Lưu cài đặt" onPress={save} loading={saving} disabled={!valid} />
+          <SaveBlockers problems={blockers} />
+          <Button title="Lưu cài đặt" onPress={save} loading={saving} disabled={blockers.length > 0} />
         </Card>
       )}
     </Page>

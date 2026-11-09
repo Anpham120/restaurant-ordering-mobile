@@ -205,3 +205,16 @@ export function applyMask(mask: InputMask, next: string, prev = ''): string {
   });
   return out;
 }
+
+/** Completes a masked value when the field is left: "2026-11-9" -> "2026-11-09", "7" or "07:" -> "07:00". */
+export function completeMask(mask: InputMask, v: string): string {
+  if (mask === 'date') {
+    const m = /^(\d{4})-(\d{1,2})-(\d)$/.exec(v);
+    return m ? `${m[1]}-${m[2].padStart(2, '0')}-0${m[3]}` : v;
+  }
+  const m = /^(\d{1,2}):?$/.exec(v);
+  return m ? `${m[1].padStart(2, '0')}:00` : v;
+}
+
+/** "1250000" -> "1.250.000" (Vietnamese thousands separator) for money typed into a field; "" stays "". */
+export const thousands = (digits: string): string => digits.replace(/\D/g, '').replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');

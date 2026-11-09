@@ -15,7 +15,7 @@ import { initials, roleLabel } from '@/lib/format';
 import { useLoad } from '@/lib/hooks';
 import { useSession } from '@/lib/session';
 import { colors } from '@/lib/theme';
-import { EMAIL_HINT, isEmail, isPhone, isStrongPassword, PHONE_HINT } from '@/lib/validate';
+import { EMAIL_HINT, isEmail, isPhone, isStrongPassword, PHONE_HINT, problems } from '@/lib/validate';
 import { useToast } from '@/lib/toast';
 
 interface Form { id?: number; fullName: string; phone: string; email: string; password: string; role: Role; active: boolean }
@@ -51,7 +51,12 @@ export default function AdminStaff() {
     try { await api.deleteStaff(form.id); setForm(null); await list.reload(); } catch (e) { toast.show(errorMessage(e), 'error'); }
   };
   const current = list.data?.find((u) => u.id === form?.id);
-  const valid = !!form && !!form.fullName.trim() && isPhone(form.phone) && (!form.email.trim() || isEmail(form.email)) && (form.id ? !form.password || isStrongPassword(form.password) : isStrongPassword(form.password));
+  const blockers = !form ? [] : problems(
+    !form.fullName.trim() && 'Nhập họ tên',
+    !isPhone(form.phone) && PHONE_HINT,
+    !!form.email.trim() && !isEmail(form.email) && EMAIL_HINT,
+    (form.id ? !!form.password && !isStrongPassword(form.password) : !isStrongPassword(form.password)) && 'Mật khẩu chưa đủ mạnh (xem các yêu cầu bên trên)',
+  );
 
   return (
     <Page title="Nhân viên" subtitle="Tài khoản nhân viên, bếp và quản lý – đăng nhập bằng số điện thoại"
@@ -76,7 +81,7 @@ export default function AdminStaff() {
             </ListRow>
           ))}
         </Card>}
-        editor={<EditorPanel open={!!form} title={form?.id ? 'Sửa tài khoản' : 'Thêm nhân viên'} onClose={() => setForm(null)} onSave={save} saving={saving} canSave={valid}
+        editor={<EditorPanel open={!!form} title={form?.id ? 'Sửa tài khoản' : 'Thêm nhân viên'} onClose={() => setForm(null)} onSave={save} saving={saving} problems={blockers}
           extra={current && current.id !== user?.id ? <>
             <Button title="Đặt lại mật khẩu" variant="secondary" icon="key-outline" loading={pw.busy === current.id} onPress={() => void pw.reset(current)} />
             <Button title={current.active ? 'Khóa' : 'Mở khóa'} variant="secondary" onPress={() => void lock(current)} />

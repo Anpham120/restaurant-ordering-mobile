@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import { Page } from '@/components/backoffice';
 import { Button } from '@/components/button';
 import { EditorPanel, WithEditor } from '@/components/editor';
+import { problems } from '@/lib/validate';
 import { ListRow } from '@/components/list-row';
 import { Txt } from '@/components/txt';
 import { Card, Empty, ErrorBox, Field, FoodImage, Loading } from '@/components/ui';
@@ -56,7 +57,7 @@ export default function AdminCategories() {
           ))}
         </Card>}
         editor={<EditorPanel open={!!form} title={form?.id ? 'Sửa danh mục' : 'Thêm danh mục'} onClose={() => setForm(null)} onSave={save} saving={saving}
-          canSave={!!form?.name.trim()} extra={form?.id ? <Button title="Xóa" variant="danger" onPress={() => void remove()} /> : null}>
+          problems={problems(!form?.name.trim() && 'Nhập tên danh mục')} extra={form?.id ? <Button title="Xóa" variant="danger" onPress={() => void remove()} /> : null}>
           {form ? (
             <View style={{ gap: 12 }}>
               <Field label="Tên danh mục" value={form.name} onChangeText={(v) => set('name', v)} maxLength={60} />

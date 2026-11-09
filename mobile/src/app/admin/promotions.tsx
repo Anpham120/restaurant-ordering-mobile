@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { Page } from '@/components/backoffice';
 import { Button } from '@/components/button';
 import { EditorPanel, WithEditor } from '@/components/editor';
+import { DATE_HINT, isDate, periodProblems, problems } from '@/lib/validate';
 import { Txt } from '@/components/txt';
 import { Badge, Card, Chip, Empty, ErrorBox, Field, FoodImage, Loading, SearchBox, Segmented, Toggle } from '@/components/ui';
 import { api, errorMessage, type Category, type MenuItem, type Promotion, type PromotionInput, type PromotionTarget, type Voucher } from '@/lib/api';
@@ -19,7 +20,6 @@ interface Form {
 }
 interface Refs { items: MenuItem[]; categories: Category[]; vouchers: Voucher[] }
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const toInput = (s: string | null) => (s ? s.slice(0, 10) : '');
 const TARGETS: { value: PromotionTarget; label: string }[] = [
   { value: 'NONE', label: 'Không' }, { value: 'MENU_ITEM', label: 'Món' }, { value: 'CATEGORY', label: 'Danh mục' }, { value: 'VOUCHER', label: 'Mã giảm' },
@@ -54,9 +54,14 @@ export default function AdminPromotions() {
     startAt: '', endAt: '', sortOrder: String((list.data?.length ?? 0) + 1), active: true });
 
   const urlOk = !!form && /^https?:\/\/.+/.test(form.imageUrl.trim());
-  const datesOk = !!form && (!form.startAt || DATE.test(form.startAt)) && (!form.endAt || DATE.test(form.endAt));
   const targetOk = !!form && (form.targetType === 'NONE' || (form.targetType === 'MENU_ITEM' && !!form.menuItemId)
     || (form.targetType === 'CATEGORY' && !!form.categoryId) || (form.targetType === 'VOUCHER' && !!form.voucherId));
+  const blockers = !form ? [] : problems(
+    !form.title.trim() && 'Nhập tiêu đề chương trình',
+    !urlOk && 'Nhập link ảnh bắt đầu bằng http:// hoặc https://',
+    !targetOk && (form.targetType === 'MENU_ITEM' ? 'Chọn món được quảng bá' : form.targetType === 'CATEGORY' ? 'Chọn danh mục được quảng bá' : 'Chọn mã giảm giá được quảng bá'),
+    ...periodProblems(form.startAt, form.endAt),
+  );
 
   const save = async () => {
     if (!form) return;
@@ -127,7 +132,7 @@ export default function AdminPromotions() {
           </View>
         )}
         editor={<EditorPanel open={!!form} title={form?.id ? 'Sửa chương trình' : 'Tạo chương trình'} onClose={() => setForm(null)} onSave={save} saving={saving}
-          canSave={!!form?.title.trim() && urlOk && datesOk && targetOk} extra={form?.id ? <Button title="Xóa" variant="danger" onPress={() => void remove()} /> : null}>
+          problems={blockers} extra={form?.id ? <Button title="Xóa" variant="danger" onPress={() => void remove()} /> : null}>
           {form ? (
             <View style={{ gap: 12 }}>
               <View style={styles.preview}>
@@ -170,10 +175,11 @@ export default function AdminPromotions() {
                 ) : <Txt size={13} color={colors.warningText}>Chưa có mã giảm giá nào đang áp dụng.</Txt>
               ) : null}
               <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={{ flex: 1 }}><Field label="Bắt đầu" value={form.startAt} onChangeText={(v) => set('startAt', v)} mask="date" placeholder="yyyy-mm-dd" /></View>
-                <View style={{ flex: 1 }}><Field label="Kết thúc" value={form.endAt} onChangeText={(v) => set('endAt', v)} mask="date" placeholder="yyyy-mm-dd" /></View>
+                <View style={{ flex: 1 }}><Field label="Bắt đầu" value={form.startAt} onChangeText={(v) => set('startAt', v)} mask="date" placeholder="yyyy-mm-dd"
+                  error={!form.startAt || isDate(form.startAt) ? null : DATE_HINT} /></View>
+                <View style={{ flex: 1 }}><Field label="Kết thúc" value={form.endAt} onChangeText={(v) => set('endAt', v)} mask="date" placeholder="yyyy-mm-dd"
+                  error={!form.endAt || isDate(form.endAt) ? null : DATE_HINT} /></View>
               </View>
-              {!datesOk ? <Txt size={12} color={colors.danger}>Ngày theo định dạng yyyy-mm-dd</Txt> : null}
               <Field label="Thứ tự hiển thị" value={form.sortOrder} onChangeText={(v) => set('sortOrder', v.replace(/\D/g, ''))} keyboardType="numeric" />
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <Txt size={14} style={{ flex: 1 }}>Đang hiển thị</Txt>

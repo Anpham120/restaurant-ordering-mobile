@@ -4,6 +4,7 @@ import { View } from 'react-native';
 import { Page } from '@/components/backoffice';
 import { Button } from '@/components/button';
 import { EditorPanel, WithEditor } from '@/components/editor';
+import { DATE_HINT, isDate, periodProblems, problems } from '@/lib/validate';
 import { ListRow } from '@/components/list-row';
 import { Txt } from '@/components/txt';
 import { Badge, Card, Empty, ErrorBox, Field, Loading, Segmented, Toggle } from '@/components/ui';
@@ -19,7 +20,6 @@ interface Form {
   startAt: string; endAt: string; usageLimit: string; perUserLimit: string; active: boolean;
 }
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const toInput = (s: string | null) => (s ? s.slice(0, 10) : '');
 const num = (s: string) => (s.trim() ? Number(s) : null);
 
@@ -34,7 +34,12 @@ export default function AdminVouchers() {
     maxDiscount: v.maxDiscount ? String(v.maxDiscount) : '', minOrder: String(v.minOrder), startAt: toInput(v.startAt), endAt: toInput(v.endAt),
     usageLimit: v.usageLimit ? String(v.usageLimit) : '', perUserLimit: v.perUserLimit ? String(v.perUserLimit) : '', active: v.active });
 
-  const datesOk = !!form && (!form.startAt || DATE.test(form.startAt)) && (!form.endAt || DATE.test(form.endAt));
+  const blockers = !form ? [] : problems(
+    !form.code.trim() && 'Nhập mã giảm giá',
+    !(Number(form.discountValue) > 0) && (form.discountType === 'PERCENT' ? 'Nhập phần trăm giảm lớn hơn 0' : 'Nhập số tiền giảm lớn hơn 0'),
+    form.discountType === 'PERCENT' && Number(form.discountValue) > 100 && 'Phần trăm giảm tối đa là 100',
+    ...periodProblems(form.startAt, form.endAt),
+  );
   const save = async () => {
     if (!form) return;
     setSaving(true);
@@ -78,21 +83,24 @@ export default function AdminVouchers() {
           ))}
         </Card>}
         editor={<EditorPanel open={!!form} title={form?.id ? `Sửa mã ${form.code}` : 'Tạo mã giảm giá'} onClose={() => setForm(null)} onSave={save} saving={saving}
-          canSave={!!form?.code.trim() && Number(form.discountValue) > 0 && datesOk} extra={form?.id ? <Button title="Xóa" variant="danger" onPress={() => void remove()} /> : null}>
+          problems={blockers} extra={form?.id ? <Button title="Xóa" variant="danger" onPress={() => void remove()} /> : null}>
           {form ? (
             <View style={{ gap: 12 }}>
               <Field label="Mã" value={form.code} onChangeText={(v) => set('code', v.toUpperCase().replace(/[^A-Z0-9_-]/g, ''))} autoCapitalize="characters" maxLength={40} />
               <Field label="Mô tả cho khách" value={form.description} onChangeText={(v) => set('description', v)} placeholder="Mô tả ngắn cho khách" maxLength={200} />
               <Segmented value={form.discountType} onChange={(v) => set('discountType', v)} options={[{ value: 'PERCENT', label: 'Giảm %' }, { value: 'AMOUNT', label: 'Giảm tiền' }]} />
               <Field label={form.discountType === 'PERCENT' ? 'Phần trăm (≤ 100)' : 'Số tiền giảm (đ)'} value={form.discountValue}
-                onChangeText={(v) => set('discountValue', v.replace(/\D/g, ''))} keyboardType="numeric" />
+                onChangeText={(v) => set('discountValue', v.replace(/\D/g, ''))} keyboardType="numeric"
+                mask={form.discountType === 'AMOUNT' ? 'money' : undefined} />
               {form.discountType === 'PERCENT' ? (
-                <Field label="Giảm tối đa (đ, bỏ trống = không giới hạn)" value={form.maxDiscount} onChangeText={(v) => set('maxDiscount', v.replace(/\D/g, ''))} keyboardType="numeric" />
+                <Field label="Giảm tối đa (đ, bỏ trống = không giới hạn)" value={form.maxDiscount} onChangeText={(v) => set('maxDiscount', v.replace(/\D/g, ''))} mask="money" />
               ) : null}
-              <Field label="Đơn tối thiểu (đ)" value={form.minOrder} onChangeText={(v) => set('minOrder', v.replace(/\D/g, ''))} keyboardType="numeric" />
+              <Field label="Đơn tối thiểu (đ)" value={form.minOrder} onChangeText={(v) => set('minOrder', v.replace(/\D/g, ''))} mask="money" />
               <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={{ flex: 1 }}><Field label="Bắt đầu" value={form.startAt} onChangeText={(v) => set('startAt', v)} mask="date" placeholder="yyyy-mm-dd" /></View>
-                <View style={{ flex: 1 }}><Field label="Kết thúc" value={form.endAt} onChangeText={(v) => set('endAt', v)} mask="date" placeholder="yyyy-mm-dd" /></View>
+                <View style={{ flex: 1 }}><Field label="Bắt đầu" value={form.startAt} onChangeText={(v) => set('startAt', v)} mask="date" placeholder="yyyy-mm-dd"
+                  error={!form.startAt || isDate(form.startAt) ? null : DATE_HINT} /></View>
+                <View style={{ flex: 1 }}><Field label="Kết thúc" value={form.endAt} onChangeText={(v) => set('endAt', v)} mask="date" placeholder="yyyy-mm-dd"
+                  error={!form.endAt || isDate(form.endAt) ? null : DATE_HINT} /></View>
               </View>
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <View style={{ flex: 1 }}><Field label="Tổng lượt dùng" value={form.usageLimit} onChangeText={(v) => set('usageLimit', v.replace(/\D/g, ''))} keyboardType="numeric" placeholder="Không giới hạn" /></View>
