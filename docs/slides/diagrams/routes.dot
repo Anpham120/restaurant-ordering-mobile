@@ -1,0 +1,23 @@
+// Cây điều hướng Expo Router (mobile/src/app): mỗi file là một màn hình; sau đăng nhập homeFor(role) chọn nơi đến
+// Render: dot -Tpng -Gdpi=220 routes.dot -o routes.png
+digraph routes {
+  rankdir=LR; bgcolor="white"; nodesep=0.22; ranksep=0.7;
+  node [fontname="Liberation Sans", fontsize=20, shape=box, style="rounded,filled", fillcolor="#EAF3FB", color="#0070C0", fontcolor="#0B2E59", margin="0.12,0.05", penwidth=1.2];
+  edge [color="#7A8796", arrowsize=0.6, penwidth=1.2, fontname="Liberation Sans", fontsize=18];
+
+  root [label=<<b>_layout.tsx</b><br/>Gate: phiên đăng nhập,<br/>bắt đổi mật khẩu tạm>, fillcolor="#FFFFFF", color="#0B2E59"];
+  auth [label="login · forgot-password\nset-password", fillcolor="#F2F2F2", color="#7A8796"];
+  cust [label=<<b>(customer)/</b> · tab bar<br/>index · orders · favorites · account>, fillcolor="#FFF4E6", color="#D9822B"];
+  cflow [label="item/[id] → cart → pay/[id]\n→ order/[id] → receipt/[id]", fillcolor="#FFF4E6", color="#D9822B"];
+  cmore [label="addresses · notifications\nfeedback · profile", fillcolor="#FFF4E6", color="#D9822B"];
+  store [label=<<b>store/</b><br/>orders (bảng đơn) · kitchen<br/>history · feedback>];
+  admin [label=<<b>admin/</b> · 12 trang<br/>tổng quan, thực đơn, khuyến mãi,<br/>thanh toán, nhân viên, cài đặt…>];
+  ship [label=<<b>shipper/</b><br/>index (chờ nhận · đang giao) · [id]>, fillcolor="#E6F4EA", color="#2E9E5B"];
+
+  root -> auth;
+  root -> cust [label="CUSTOMER\n(hoặc khách vãng lai)"];
+  cust -> cflow; cust -> cmore;
+  root -> store [label="STAFF → orders\nKITCHEN → kitchen"];
+  root -> admin [label="MANAGER"];
+  root -> ship [label="SHIPPER"];
+}

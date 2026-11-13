@@ -1,0 +1,36 @@
+// Kiến trúc mã nguồn app (mobile/src) và kết nối backend, đọc từ trên xuống
+// Render: dot -Tpng -Gdpi=220 app-architecture.dot -o app-architecture.png
+digraph app {
+  rankdir=TB; bgcolor="white"; nodesep=0.2; ranksep=0.35; newrank=true; compound=true;
+  node [fontname="Liberation Sans", fontsize=22, shape=box, style="rounded,filled", fillcolor="#EAF3FB", color="#0070C0", fontcolor="#0B2E59", margin="0.12,0.06", penwidth=1.2];
+  edge [fontname="Liberation Sans", fontsize=20, color="#3A4A5C", penwidth=1.4, arrowsize=0.7];
+  graph [fontname="Liberation Sans", fontsize=21, fontcolor="#0070C0", style="rounded", color="#9CC3E6", labeljust=l];
+
+  subgraph cluster_rn { label="React Native + Expo · một mã nguồn cho Android và web"; color="#0070C0";
+    subgraph cluster_app { label="app/ · màn hình (Expo Router)";
+      s1 [label="(customer)/ · tab bar\ntrang chủ, đơn hàng,\nyêu thích, tài khoản"];
+      s2 [label="item · cart · pay\norder · receipt"];
+      s3 [label="store/ · admin/\nbảng đơn, bếp, quản lý"];
+    }
+    subgraph cluster_cmp { label="components/ · UI dùng chung";
+      c1 [label="ui · button · modal\npickers · dish"];
+      c2 [label="location-picker\nbank-apps · promo-popup"];
+    }
+    subgraph cluster_lib { label="lib/ · logic, trạng thái";
+      l1 [label="session\nJWT + AsyncStorage"];
+      l2 [label="cart · order-flow\nformat · validate"];
+      l3 [label="api.ts\nfetch + kiểu DTO"];
+    }
+  }
+  dev [label="Thiết bị\nGPS · app ngân hàng\nclipboard", fillcolor="#F2F2F2", color="#7A8796"];
+  be [label="Backend Spring Boot\nREST API /api/**", fillcolor="#FFF4E6", color="#D9822B"];
+  db [label="PostgreSQL", shape=cylinder, style=filled, fillcolor="#FFF4E6", color="#D9822B", margin="0.1,0.05"];
+
+  s2 -> c1 [ltail=cluster_app, lhead=cluster_cmp];
+  c1 -> l2 [ltail=cluster_cmp, lhead=cluster_lib];
+  l1 -> l3; l2 -> l3 [style=invis];
+  l3 -> be [label="HTTPS\nBearer JWT"];
+  be -> db;
+  c2 -> dev [label="expo-location\nexpo-linking"];
+  { rank=same; be; dev; }
+}

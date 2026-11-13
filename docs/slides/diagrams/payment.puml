@@ -1,0 +1,35 @@
+@startuml payment
+' Thanh toán chuyển khoản VietQR, SePay tự xác nhận
+!include style.iuml
+skinparam defaultFontSize 18
+hide footbox
+skinparam sequence {
+  ParticipantBackgroundColor #EAF3FB
+  ParticipantBorderColor #0070C0
+  ParticipantFontColor #0B2E59
+  LifeLineBorderColor #9CC3E6
+  ActorBorderColor #0B2E59
+  ActorBackgroundColor #FFFFFF
+  ArrowColor #3A4A5C
+}
+autonumber "<b>0."
+actor "Khách" as K
+participant "App Atlas\n(React Native)" as A
+participant "Backend\n(Spring Boot)" as B
+participant "App ngân hàng" as N
+participant "SePay" as S
+
+K -> A : Đặt hàng, chọn "Chuyển khoản VietQR"
+A -> B : POST /api/me/orders
+B --> A : Đơn AWAITING_PAYMENT,\nmã QR, nội dung ATL<mã đơn>
+A -> N : Mở app ngân hàng (deep link)\nđiền sẵn tài khoản, số tiền, nội dung
+K -> N : Xác nhận chuyển tiền
+N -> S : Tiền vào tài khoản quán
+S -> B : Webhook (Authorization: Apikey)
+B -> B : Khớp nội dung + số tiền\nđơn → PENDING, tạo thông báo
+loop mỗi 3 giây
+  A -> B : GET /api/me/orders/{id}
+end
+B --> A : Đã thanh toán
+A --> K : "Đã nhận thanh toán"
+@enduml

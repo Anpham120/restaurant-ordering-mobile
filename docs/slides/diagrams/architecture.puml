@@ -1,0 +1,28 @@
+@startuml architecture
+' Kiến trúc chạy thực tế của Atlas Restaurant (production)
+!include style.iuml
+left to right direction
+
+actor "Khách hàng\napp Android · web" as KH
+actor "Nhân viên · Bếp · Quản lý\nweb cửa hàng" as NV
+
+node "Máy chủ Ubuntu (163.61.182.201)" as HOST {
+  component "nginx (host)\nHTTPS · Let's Encrypt" as NG
+  frame "Docker Compose" {
+    component "web\nnginx + bundle Expo web" as WEB
+    component "backend\nSpring Boot 3.4 · Java 21" as BE
+    database "db\nPostgreSQL 16" as DB
+  }
+}
+
+cloud "SePay\n(ngân hàng)" as SP
+cloud "SMTP\n(Brevo)" as SMTP
+
+KH --> NG : https://order.atlasplatform12.tech
+NV --> NG
+NG --> WEB : "/  →  :8085"
+NG --> BE : "/api/  →  :8084"
+BE --> DB : JDBC · Flyway
+SP --> NG : webhook tiền vào
+BE --> SMTP : OTP email
+@enduml

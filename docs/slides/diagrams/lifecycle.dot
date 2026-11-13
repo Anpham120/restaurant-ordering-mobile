@@ -1,0 +1,40 @@
+// Vòng đời đơn hàng (OrderStatus) và vai trò được phép chuyển trạng thái (khớp OrderService ở backend, lib/order-flow.ts ở app)
+// Vị trí cố định (neato -n): hàng trên đặt và xác nhận, hàng dưới chế biến, giao và hủy.
+// Render: neato -n -Tpng -Gdpi=220 lifecycle.dot -o lifecycle.png
+digraph lifecycle {
+  bgcolor="white"; splines=false;
+  node [fontname="Liberation Sans", fontsize=17, shape=box, style="rounded,filled", fillcolor="#EAF3FB", color="#0070C0", fontcolor="#0B2E59", margin="0.12,0.06", penwidth=1.3, width=2.05, height=0.72, fixedsize=true];
+  edge [fontname="Liberation Sans", fontsize=15, color="#3A4A5C", penwidth=1.5, arrowsize=0.75];
+
+  start [pos="336,379!", shape=circle, label="", width=0.22, height=0.22, style=filled, fillcolor="#1F2937", color="#1F2937"];
+  AP [pos="192,264!", label="Chờ thanh toán\nAWAITING_PAYMENT", fillcolor="#FFF4E6", color="#D9822B", width=2.6];
+  P  [pos="480,264!", label="Chờ xác nhận\nPENDING"];
+  C  [pos="744,264!", label="Đã xác nhận\nCONFIRMED"];
+  PR [pos="1008,264!", label="Đang chuẩn bị\nPREPARING"];
+  R  [pos="1008,103!", label="Món sẵn sàng\nREADY"];
+  D  [pos="744,103!", label="Đang giao\nDELIVERING"];
+  DV [pos="744,-46!", label="Đã giao\nDELIVERED", fillcolor="#E6F4EA", color="#2E9E5B"];
+  X  [pos="192,103!", label="Đã hủy\nCANCELLED", fillcolor="#FDECEA", color="#D64545"];
+
+  // labels as separate plaintext nodes so they never sit on a line
+  node [shape=plaintext, style="", fixedsize=false, width=0, height=0, fontsize=16, margin=0];
+  t0 [pos="446,343!", label="đặt, COD", fontcolor="#3A4A5C"];
+  t1 [pos="210,343!", label="đặt, chuyển khoản", fontcolor="#3A4A5C"];
+  t2 [pos="334,302!", label="SePay báo tiền về", fontcolor="#B4661A"];
+  t3 [pos="612,290!", label="Nhân viên", fontcolor="#3A4A5C"];
+  t4 [pos="876,290!", label="Bếp", fontcolor="#3A4A5C"];
+  t5 [pos="1056,184!", label="Bếp", fontcolor="#3A4A5C"];
+  t6 [pos="876,124!", label="Shipper nhận", fontcolor="#3A4A5C"];
+  t7 [pos="830,29!", label="Shipper chụp ảnh\nxác nhận, thu COD", fontcolor="#2E7D4F"];
+  t8 [pos="144,184!", label="quá hạn CK", fontcolor="#B33636"];
+  t9 [pos="278,209!", label="khách /\nnhân viên hủy", fontcolor="#B33636"];
+  t10 [pos="564,190!", label="hủy có lý do", fontcolor="#B33636"];
+  t11 [pos="468,124!", label="shipper báo giao thất bại (có lý do)", fontcolor="#B33636"];
+
+  start -> P;
+  start -> AP; AP -> P [color="#D9822B"]; P -> C; C -> PR; PR -> R; R -> D;
+  D -> DV [color="#2E9E5B"];
+  edge [color="#D64545", style=dashed];
+  AP -> X; P -> X; C -> X;
+  D -> X;
+}

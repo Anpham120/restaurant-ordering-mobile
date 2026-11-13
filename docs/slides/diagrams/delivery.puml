@@ -1,0 +1,36 @@
+@startuml delivery
+' Shipper xác nhận giao hàng bằng ảnh, cửa hàng nhận thông báo (ShipperService, lib/camera.ts, store-alerts.tsx)
+' Render: java -Djava.awt.headless=true -jar plantuml.jar -tpng -charset UTF-8 delivery.puml
+!include style.iuml
+skinparam defaultFontSize 18
+hide footbox
+skinparam sequence {
+  ParticipantBackgroundColor #EAF3FB
+  ParticipantBorderColor #0070C0
+  ParticipantFontColor #0B2E59
+  LifeLineBorderColor #9CC3E6
+  ActorBorderColor #0B2E59
+  ActorBackgroundColor #FFFFFF
+  ArrowColor #3A4A5C
+}
+autonumber "<b>0."
+actor "Shipper" as SH
+participant "App shipper\n(camera)" as A
+participant "Backend\n(Spring Boot)" as B
+participant "App cửa hàng\n(nhân viên, quản lý)" as C
+participant "App khách" as K
+
+SH -> A : Chọn đơn "Chờ nhận"
+A -> B : POST /api/shipper/orders/{id}/claim
+B --> K : Thông báo "Shipper X đang giao"
+SH -> A : Tới nơi, bấm "Chụp ảnh giao hàng"
+A -> A : expo-image-picker mở camera,\nexpo-image-manipulator thu nhỏ ≤ 700 KB
+A -> B : POST .../deliver {photo, note}
+B -> B : Kiểm tra đúng shipper, đúng loại ảnh;\nlưu delivery_proofs, đơn → DELIVERED, COD → đã thu
+B --> K : Thông báo "Giao hàng thành công"
+loop mỗi 10 giây
+  C -> B : GET /api/manage/notifications/unread-count
+end
+B --> C : "Giao thành công DH…", có ảnh xác nhận
+C -> B : Mở đơn: GET .../delivery-proof
+@enduml

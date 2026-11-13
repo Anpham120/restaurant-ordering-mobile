@@ -1,0 +1,55 @@
+' Shared look for the presentation diagrams (CMC blue). Included by every .puml here.
+skinparam dpi 220
+skinparam defaultFontName "Liberation Sans"
+skinparam defaultFontSize 15
+skinparam shadowing false
+skinparam roundCorner 12
+skinparam ArrowColor #3A4A5C
+skinparam ArrowThickness 1.4
+skinparam BackgroundColor #FFFFFF
+skinparam component {
+  BackgroundColor #EAF3FB
+  BorderColor #0070C0
+  FontColor #0B2E59
+}
+skinparam database {
+  BackgroundColor #FFF4E6
+  BorderColor #D9822B
+}
+skinparam storage {
+  BackgroundColor #FFF4E6
+  BorderColor #D9822B
+}
+skinparam node {
+  BackgroundColor #FFFFFF
+  BorderColor #0B2E59
+  FontColor #0B2E59
+}
+skinparam frame {
+  BackgroundColor #F7FAFD
+  BorderColor #0070C0
+  FontColor #0070C0
+}
+skinparam cloud {
+  BackgroundColor #F2F2F2
+  BorderColor #7A8796
+}
+skinparam actor {
+  BackgroundColor #FFFFFF
+  BorderColor #0B2E59
+}
+skinparam activity {
+  BackgroundColor #EAF3FB
+  BorderColor #0070C0
+  FontColor #0B2E59
+  DiamondBackgroundColor #FFFFFF
+  DiamondBorderColor #0B2E59
+}
+skinparam note {
+  BackgroundColor #FFF8E1
+  BorderColor #D9A400
+}
+skinparam partition {
+  BorderColor #0070C0
+  FontColor #0070C0
+}
