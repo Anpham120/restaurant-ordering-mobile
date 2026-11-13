@@ -75,7 +75,7 @@ class DeliveryFlowTest extends ApiTestBase {
         as(staff, get("/api/manage/orders").param("q", order.get("code").asText())).andExpect(jsonPath("$.content[0].id").value(id));
         deliver(id);
         as(customer, get("/api/me/orders/" + id)).andExpect(jsonPath("$.status").value("DELIVERED")).andExpect(jsonPath("$.payment.status").value("PAID")).andExpect(jsonPath("$.payment.method").value("COD"))
-                .andExpect(jsonPath("$.payment.confirmedByName").value("STAFF test"))
+                .andExpect(jsonPath("$.payment.confirmedByName").value("SHIPPER test")) // the shipper collected the cash
                 .andExpect(jsonPath("$.timeline", hasSize(6))).andExpect(jsonPath("$.timeline[1].status").value("CONFIRMED"))
                 .andExpect(jsonPath("$.timeline[1].byName").value("STAFF test")).andExpect(jsonPath("$.reviewable").value(true));
 
@@ -172,7 +172,7 @@ class DeliveryFlowTest extends ApiTestBase {
         setStatus(staff, third, "CONFIRMED", null);
         setStatus(kitchen, third, "PREPARING", null);
         setStatus(kitchen, third, "READY", null);
-        setStatus(staff, third, "DELIVERING", null);
+        as(shipper, post("/api/shipper/orders/" + third + "/claim")).andExpect(status().isOk());
         setStatus(staff, third, "CANCELLED", "Khách không nghe máy").andExpect(jsonPath("$.status").value("CANCELLED"));
 
         // privacy and route protection

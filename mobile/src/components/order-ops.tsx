@@ -9,6 +9,7 @@ import { useSession } from '@/lib/session';
 import { colors, radius, shadow } from '@/lib/theme';
 import { useToast } from '@/lib/toast';
 import { Button } from './button';
+import { DeliveryProofPhoto, ShipperLine } from './delivery-proof';
 import { ReasonDialog, Sheet } from './modal';
 import { Txt } from './txt';
 import { Badge, Line, StatusBadge } from './ui';
@@ -83,17 +84,25 @@ export function OrderCard({ order, now, onAction, busy, onOpen }: {
           <Txt weight="bold" size={16}>{money(order.total)}</Txt>
         </View>
       </Pressable>
+      {!primary.length ? <Waiting order={order} /> : null}
       {primary.length || danger.length ? (
         <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
           {primary.map((a) => <Button key={a.to} title={a.label} size="sm" variant={a.variant === 'success' ? 'success' : 'primary'} style={{ flex: 1 }}
             loading={busy === `${order.id}:${a.to}`} onPress={() => onAction(a)} />)}
           {danger.map((a) => <Button key={a.label} title={a.label} size="sm" variant="danger" onPress={() => onAction(a)} />)}
         </View>
-      ) : (
-        <View style={styles.waiting}><Ionicons name="flame-outline" size={15} color={colors.neutralText} /><Txt weight="semibold" size={13} color={colors.neutralText}>Bếp đang làm</Txt></View>
-      )}
+      ) : null}
     </View>
   );
+}
+
+/** What the card is waiting for when the signed-in role has nothing to do on it. */
+function Waiting({ order }: { order: Order }) {
+  const [icon, text]: [keyof typeof Ionicons.glyphMap, string] =
+    order.status === 'READY' ? ['time-outline', 'Chờ shipper nhận đơn']
+      : order.status === 'DELIVERING' ? ['bicycle-outline', order.shipperName ? `${order.shipperName} đang giao` : 'Shipper đang giao']
+        : ['flame-outline', 'Bếp đang làm'];
+  return <View style={styles.waiting}><Ionicons name={icon} size={15} color={colors.neutralText} /><Txt weight="semibold" size={13} color={colors.neutralText} numberOfLines={1}>{text}</Txt></View>;
 }
 
 /** Staff confirm by hand a bank transfer that arrived but was not matched automatically. */
@@ -158,6 +167,12 @@ export function OrderDetailSheet({ order, onClose, onAction, busy, onConfirmTran
           <Line label="Tổng cộng" value={money(order.total)} strong />
         </View>
       </View>
+      {order.shipperName ? (
+        <View style={[styles.block, { gap: 12 }]}>
+          <ShipperLine order={order} />
+          {order.deliveryProof ? <DeliveryProofPhoto orderId={order.id} load={api.storeDeliveryProof} /> : null}
+        </View>
+      ) : null}
       <View style={[styles.block, { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }]}>
         <Txt weight="bold" size={14}>Thanh toán</Txt>
         <Badge label={pay.label} bg={pay.bg} fg={pay.fg} />

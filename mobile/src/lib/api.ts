@@ -1,13 +1,14 @@
 import { getApiBase } from './config';
 
 // =============================================================== models (mirror backend Dtos.java)
-export type Role = 'CUSTOMER' | 'STAFF' | 'KITCHEN' | 'MANAGER';
+export type Role = 'CUSTOMER' | 'STAFF' | 'KITCHEN' | 'MANAGER' | 'SHIPPER';
 export type OrderStatus = 'AWAITING_PAYMENT' | 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERING' | 'DELIVERED' | 'CANCELLED';
 export type DiscountType = 'PERCENT' | 'AMOUNT';
 export type PaymentMethod = 'COD' | 'BANK_TRANSFER';
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUND_PENDING' | 'REFUNDED';
 export type PromotionTarget = 'NONE' | 'MENU_ITEM' | 'CATEGORY' | 'VOUCHER';
-export type NotificationType = 'ORDER' | 'PAYMENT' | 'PROMOTION';
+export type NotificationType = 'ORDER' | 'PAYMENT' | 'PROMOTION' | 'FEEDBACK';
+export type FeedbackTopic = 'ORDER' | 'FOOD' | 'DELIVERY' | 'APP' | 'OTHER';
 
 export interface User {
   id: number; fullName: string; phone: string; email: string | null; role: Role; active: boolean; createdAt: string;
@@ -106,7 +107,15 @@ export interface Order {
   recipientName: string; recipientPhone: string; deliveryStreet: string; distanceKm: number; deliveryNote: string | null; note: string | null;
   items: OrderItem[]; itemCount: number; subtotal: number; deliveryFee: number; voucherCode: string | null; discount: number; total: number;
   payment: Payment | null; estimatedDeliveryAt: string | null; cancellable: boolean; reviewable: boolean; timeline: StatusEvent[];
+  /** Courier who took the order (set when a shipper claims it). */
+  shipperName: string | null; shipperPhone: string | null;
+  /** A doorstep photo exists (load it with deliveryProof). */
+  deliveryProof: boolean;
 }
+/** Shipper app: orders waiting for a courier, the shipper's own trips, what they finished today. */
+export interface ShipperBoard { available: Order[]; delivering: Order[]; finishedToday: Order[] }
+/** `photo` is a data URL. */
+export interface DeliveryProof { orderId: number; photo: string; takenAt: string; shipperName: string | null }
 export interface Page<T> { content: T[]; page: number; size: number; totalElements: number; totalPages: number }
 
 export interface StaffInput { fullName: string; phone: string; email?: string | null; password?: string | null; role: Role; active?: boolean }
@@ -149,6 +158,11 @@ export interface Notification {
   id: number; type: NotificationType; title: string; body: string; orderId: number | null; promotionId: number | null; read: boolean; createdAt: string;
 }
 export interface Count { count: number }
+/** Customer feedback; answered = `reply` present. */
+export interface Feedback {
+  id: number; topic: FeedbackTopic; orderId: number | null; orderCode: string | null; message: string; createdAt: string;
+  reply: string | null; repliedByName: string | null; repliedAt: string | null; customerId: number; customerName: string; customerPhone: string;
+}
 /** Unread notifications: `count` (orders + payments) drives the red badge, `promotions` only a dot. */
 export interface Unread { count: number; promotions: number }
 export type NotificationCategory = 'ORDER' | 'PROMOTION';
@@ -262,11 +276,31 @@ export const api = {
   unreadCount: () => get<Unread>('/api/me/notifications/unread-count'),
   readNotification: (id: number) => post<void>(`/api/me/notifications/${id}/read`),
   readAllNotifications: () => post<Count>('/api/me/notifications/read-all'),
+  myFeedback: () => get<Feedback[]>('/api/me/feedback'),
+  sendFeedback: (topic: FeedbackTopic, message: string, orderId?: number | null) => post<Feedback>('/api/me/feedback', { topic, message, orderId: orderId ?? null }),
+  myDeliveryProof: (id: number) => get<DeliveryProof>(`/api/me/orders/${id}/delivery-proof`),
 
   // store
   storeOrders: (p: { status?: OrderStatus[]; q?: string; date?: string; page?: number; size?: number; sort?: 'oldest' | 'newest' }) =>
     get<Page<Order>>(`/api/manage/orders${qs({ status: p.status, q: p.q, date: p.date, page: p.page, size: p.size, sort: p.sort })}`),
   storeOrder: (id: number) => get<Order>(`/api/manage/orders/${id}`),
+  storeDeliveryProof: (id: number) => get<DeliveryProof>(`/api/manage/orders/${id}/delivery-proof`),
+  storeFeedback: (answered?: boolean) => get<Feedback[]>(`/api/manage/feedback${qs({ answered })}`),
+  storeFeedbackWaiting: () => get<Count>('/api/manage/feedback/waiting'),
+  replyFeedback: (id: number, reply: string) => post<Feedback>(`/api/manage/feedback/${id}/reply`, { reply }),
+  storeNotifications: (limit = 30) => get<Notification[]>(`/api/manage/notifications${qs({ limit })}`),
+  storeUnread: () => get<Unread>('/api/manage/notifications/unread-count'),
+  storeReadNotification: (id: number) => post<void>(`/api/manage/notifications/${id}/read`),
+  storeReadAllNotifications: () => post<Count>('/api/manage/notifications/read-all'),
+
+  // shipper
+  shipperBoard: () => get<ShipperBoard>('/api/shipper/board'),
+  shipperOrder: (id: number) => get<Order>(`/api/shipper/orders/${id}`),
+  claimOrder: (id: number) => post<Order>(`/api/shipper/orders/${id}/claim`),
+  /** `photo`: base64 JPEG (or a data URL), at most 700 KB once decoded. */
+  confirmDelivered: (id: number, photo: string, note?: string | null) => post<Order>(`/api/shipper/orders/${id}/deliver`, { photo, note: note ?? null }),
+  reportFailed: (id: number, note: string) => post<Order>(`/api/shipper/orders/${id}/fail`, { note }),
+  shipperDeliveryProof: (id: number) => get<DeliveryProof>(`/api/shipper/orders/${id}/delivery-proof`),
   setStatus: (id: number, status: OrderStatus, note?: string | null) => patch<Order>(`/api/manage/orders/${id}/status`, { status, note: note ?? null }),
   kitchenQueue: () => get<Order[]>('/api/manage/kitchen/queue'),
   confirmTransfer: (orderId: number) => patch<Payment>(`/api/manage/orders/${orderId}/confirm-transfer`),

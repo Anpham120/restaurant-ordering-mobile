@@ -185,7 +185,24 @@ public final class Dtos {
                                 String note, List<OrderItemResponse> items, int itemCount,
                                 BigDecimal subtotal, BigDecimal deliveryFee, String voucherCode, BigDecimal discount, BigDecimal total,
                                 PaymentResponse payment, LocalDateTime estimatedDeliveryAt,
-                                boolean cancellable, boolean reviewable, List<StatusEvent> timeline) {}
+                                boolean cancellable, boolean reviewable, List<StatusEvent> timeline,
+                                String shipperName, String shipperPhone, boolean deliveryProof) {}
+
+    // ---------------------------------------------------------------- feedback
+    public record FeedbackRequest(@NotNull(message = "Vui lòng chọn chủ đề góp ý") FeedbackTopic topic, Long orderId,
+                                  @NotBlank(message = "Vui lòng nhập nội dung góp ý") @Size(max = 1000, message = "Góp ý tối đa 1000 ký tự") String message) {}
+    public record FeedbackReplyRequest(@NotBlank(message = "Vui lòng nhập câu trả lời") @Size(max = 1000, message = "Câu trả lời tối đa 1000 ký tự") String reply) {}
+    public record FeedbackResponse(Long id, FeedbackTopic topic, Long orderId, String orderCode, String message, LocalDateTime createdAt,
+                                   String reply, String repliedByName, LocalDateTime repliedAt, Long customerId, String customerName, String customerPhone) {}
+
+    // ---------------------------------------------------------------- shipper
+    /** Everything the shipper app shows: orders waiting for a courier, the shipper's own trips, what they finished today. */
+    public record ShipperBoard(List<OrderResponse> available, List<OrderResponse> delivering, List<OrderResponse> finishedToday) {}
+    /** {@code photo}: base64 image (JPEG/PNG/WebP), optionally as a data URL; taken at the door. */
+    public record DeliverRequest(@NotBlank String photo, @Size(max = 300) String note) {}
+    public record FailRequest(@NotBlank(message = "Vui lòng nhập lý do giao thất bại") @Size(max = 300) String note) {}
+    /** {@code photo} is a data URL ready for an image component. */
+    public record DeliveryProofResponse(Long orderId, String photo, LocalDateTime takenAt, String shipperName) {}
     public record PageResponse<T>(List<T> content, int page, int size, long totalElements, int totalPages) {
         public static <T> PageResponse<T> of(Page<T> p) { return new PageResponse<>(p.getContent(), p.getNumber(), p.getSize(), p.getTotalElements(), p.getTotalPages()); }
     }

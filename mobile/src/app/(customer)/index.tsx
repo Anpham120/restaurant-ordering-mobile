@@ -11,6 +11,7 @@ import { DishCard, DishRow } from '@/components/dish';
 import { Sheet } from '@/components/modal';
 import { PromoCarousel } from '@/components/promo-carousel';
 import { PromoPopup } from '@/components/promo-popup';
+import { useHiddenPromos } from '@/lib/hidden-promos';
 import { dismissWelcome, lastDismissedWelcome } from '@/lib/welcome';
 import { Txt } from '@/components/txt';
 import { Empty, ErrorBox, FoodImage, Loading, Notice, SearchBox } from '@/components/ui';
@@ -67,9 +68,17 @@ export default function Home() {
   };
   // once per app start and once per sign-in, guests included: the newest running campaigns in a popup, swipeable;
   // they stay in the banner below afterwards
-  const popupPromos = useMemo(() => [...(data?.promotions ?? [])].sort((a, b) => b.id - a.id).slice(0, 5), [data?.promotions]);
-  const showPopup = (!user || user.role === 'CUSTOMER') && welcomeSeq > dismissedSeq && popupPromos.length > 0 && !!data;
+  // campaigns muted with "Không hiển thị lại" never come back in the pop-up (they stay in the banner)
+  const muted = useHiddenPromos();
+  const popupPromos = useMemo(() => [...(data?.promotions ?? [])].filter((p) => !muted.hidden.has(p.id)).sort((a, b) => b.id - a.id).slice(0, 5),
+    [data?.promotions, muted.hidden]);
+  const showPopup = (!user || user.role === 'CUSTOMER') && muted.ready && welcomeSeq > dismissedSeq && popupPromos.length > 0 && !!data;
   const closePopup = () => { dismissWelcome(welcomeSeq); setDismissedSeq(welcomeSeq); };
+  const mutePromo = (p: Promotion) => {
+    muted.hide(p.id);
+    if (popupPromos.length <= 1) closePopup();
+    toast.show('Đã ẩn quảng cáo này. Ưu đãi vẫn xem được ở banner trang chủ', 'info');
+  };
   const promoVoucher = promo ? data?.vouchers.find((v) => v.id === promo.voucherId) : undefined;
 
   return (
@@ -163,7 +172,7 @@ export default function Home() {
       ) : null}
       <CartBar />
 
-      <PromoPopup promotions={popupPromos} visible={showPopup} onClose={closePopup} onOpen={(p) => { closePopup(); openPromo(p); }} />
+      <PromoPopup promotions={popupPromos} visible={showPopup} onClose={closePopup} onOpen={(p) => { closePopup(); openPromo(p); }} onHide={mutePromo} />
 
       <Sheet visible={!!promo} onClose={() => setPromo(null)} title={promo?.title ?? ''} width={420}
         footer={promo?.voucherCode ? (

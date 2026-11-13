@@ -1,6 +1,6 @@
 # Cơ sở dữ liệu – Atlas Restaurant
 
-CSDL PostgreSQL cho ứng dụng đặt món giao tận nhà của một nhà hàng. Khách thanh toán bằng tiền mặt khi nhận hàng (COD) hoặc chuyển khoản VietQR (SePay tự xác nhận). Schema do Flyway quản lý: `backend/src/main/resources/db/migration/V1__init.sql` (lõi) `V2__payments_options_notifications_promotions.sql` (thanh toán, tùy chọn món, thông báo, chương trình quảng bá) và `V3__password_reset_and_marketing_rules.sql` (quên mật khẩu, thu hồi phiên đăng nhập, quy tắc gửi khuyến mãi). Hibernate chạy ở chế độ `ddl-auto=validate`: nếu entity lệch với schema thì app không khởi động.
+CSDL PostgreSQL cho ứng dụng đặt món giao tận nhà của một nhà hàng. Khách thanh toán bằng tiền mặt khi nhận hàng (COD) hoặc chuyển khoản VietQR (SePay tự xác nhận). Schema do Flyway quản lý: `backend/src/main/resources/db/migration/V1__init.sql` (lõi) `V2__payments_options_notifications_promotions.sql` (thanh toán, tùy chọn món, thông báo, chương trình quảng bá) và `V3__password_reset_and_marketing_rules.sql` (quên mật khẩu, thu hồi phiên đăng nhập, quy tắc gửi khuyến mãi), V4–V6 (phí theo khoảng cách, khóa đăng nhập, chương trình mặc định), `V7__shipper_delivery_proof.sql` (vai trò shipper, ảnh xác nhận giao hàng) và `V8__customer_feedback.sql` (góp ý của khách). Hibernate chạy ở chế độ `ddl-auto=validate`: nếu entity lệch với schema thì app không khởi động.
 
 ![ERD](erd.png)
 
@@ -22,7 +22,8 @@ Mã nguồn ERD dạng DBML: [`erd.dbml`](erd.dbml) – dán vào https://dbdiag
 | `cart_items` | Dòng giỏ hàng trên máy chủ, giữ nguyên khi đổi thiết bị. Cùng một món có thể nằm ở hai dòng nếu khác tùy chọn | `id` | N–1 `users` (xóa theo), N–1 `menu_items` |
 | `cart_item_options` | Tùy chọn đã chọn cho một dòng giỏ hàng | `(cart_item_id, option_id)` | Bảng nối N–N giữa `cart_items` và `options` |
 | `vouchers` | Mã giảm giá: theo % (có mức giảm tối đa) hoặc số tiền; đơn tối thiểu, thời hạn, giới hạn lượt dùng tổng và theo từng khách | `id`; unique `code` | 1–N `orders` |
-| `orders` | Đơn giao hàng | `id` | N–1 `users`, `vouchers`; 1–N `order_items`, `order_status_history` |
+| `orders` | Đơn giao hàng; `shipper_id` là shipper đã nhận đơn đi giao (rỗng với đơn chưa giao hoặc giao trước V7) | `id` | N–1 `users` (khách, shipper), `vouchers`; 1–N `order_items`, `order_status_history`; 1–1 `delivery_proofs` |
+| `delivery_proofs` | Ảnh shipper chụp lúc trao hàng, bắt buộc để chuyển đơn sang "Đã giao"; tách khỏi `orders` để danh sách đơn không tải ảnh. Loại ảnh lấy từ chữ ký file, tối đa 700 KB | `order_id` | 1–1 `orders` (xóa theo) |
 | `order_items` | Các dòng món trong đơn; `unit_price` là giá gốc lúc đặt | `id` | N–1 `orders`, `menu_items`; 1–1 `reviews` |
 | `order_item_options` | Tùy chọn của một dòng đơn, kèm giá cộng thêm lúc đặt | `(order_item_id, option_id)` | Bảng nối N–N giữa `order_items` và `options` |
 | `payments` | Thanh toán của đơn (mỗi đơn đúng một bản ghi): phương thức COD hoặc BANK_TRANSFER, số tiền, trạng thái chờ / đã thanh toán / thất bại / chờ hoàn / đã hoàn, hạn chuyển khoản, người xác nhận | `id`; unique `order_id` | 1–1 `orders`; N–1 `users`; 1–N `bank_transactions` |
@@ -31,7 +32,8 @@ Mã nguồn ERD dạng DBML: [`erd.dbml`](erd.dbml) – dán vào https://dbdiag
 | `reviews` | Đánh giá 1–5 sao cho từng món trong đơn đã giao | `id`; unique `order_item_id` | 1–1 `order_items` |
 | `password_reset_tokens` | Mã OTP 6 số để đặt lại mật khẩu (chỉ lưu bản băm), hạn 10 phút, số lần nhập sai, thời điểm đã dùng | `id` | N–1 `users` (xóa theo) |
 | `promotions` | Chương trình quảng bá hiển thị thành banner trong app, dẫn tới một món, một danh mục hoặc một mã giảm giá; có thời gian hiển thị; `announce_at` (hẹn gửi thông báo sau giờ yên lặng) và `announced_at` (đã gửi) | `id` | N–1 `menu_items`, `categories`, `vouchers` (đúng một tham chiếu tương ứng với `target_type`, kiểm tra bằng CHECK) |
-| `notifications` | Thông báo trong app gửi khách: tiến trình đơn, thanh toán, chương trình mới | `id` | N–1 `users` (xóa theo), `orders`, `promotions` |
+| `notifications` | Thông báo trong app: gửi khách (tiến trình đơn, thanh toán, chương trình mới, cửa hàng trả lời góp ý) và gửi nhân viên, quản lý (shipper giao thành công / thất bại, góp ý mới) | `id` | N–1 `users` (xóa theo), `orders`, `promotions` |
+| `feedback` | Góp ý khách gửi từ app: chủ đề, nội dung, đơn liên quan (nếu có) và câu trả lời của cửa hàng. "Đã trả lời" suy ra từ `reply` khác rỗng, không có cột trạng thái riêng; `reply`, `replied_by`, `replied_at` phải cùng có hoặc cùng rỗng (CHECK) | `id` | N–1 `users` (khách, xóa theo; người trả lời), N–1 `orders` (có thể rỗng) |
 | `store_settings` | Cài đặt cửa hàng, chỉ có đúng một dòng (`id = 1`): giờ mở cửa, hotline, đơn tối thiểu, bật/tắt nhận đơn, tài khoản nhận chuyển khoản, **vị trí nhà hàng và bảng phí giao theo khoảng cách** (bán kính phí cơ bản, phí cơ bản, phụ phí mỗi km, phạm vi giao tối đa, thời gian chuẩn bị và di chuyển), hạn thanh toán | `id` | N–1 `users` (người sửa gần nhất) |
 
 ## Vì sao đạt 3NF

@@ -64,8 +64,8 @@ class PostgresProdProfileTest {
 
     @Test
     void prodProfileOnPostgres() throws Exception {
-        assertEquals(5, jdbc.queryForObject("select count(*) from flyway_schema_history where success and version in ('1', '2', '3', '4', '5')", Integer.class));
-        assertEquals(21, jdbc.queryForObject("select count(*) from information_schema.tables where table_schema = 'public' and table_name <> 'flyway_schema_history'", Integer.class));
+        assertEquals(8, jdbc.queryForObject("select count(*) from flyway_schema_history where success and version in ('1', '2', '3', '4', '5', '6', '7', '8')", Integer.class));
+        assertEquals(23, jdbc.queryForObject("select count(*) from information_schema.tables where table_schema = 'public' and table_name <> 'flyway_schema_history'", Integer.class));
         assertEquals(1, jdbc.queryForObject("select count(*) from users", Integer.class));
         assertEquals(1, jdbc.queryForObject("select count(*) from store_settings", Integer.class));
         assertEquals(0, jdbc.queryForObject("select count(*) from menu_items", Integer.class));
@@ -80,6 +80,8 @@ class PostgresProdProfileTest {
         call(admin, post("/api/admin/staff"), "{\"fullName\":\"Bếp\",\"phone\":\"0933333333\",\"password\":\"Passw0rd!\",\"role\":\"KITCHEN\"}").andExpect(status().isCreated());
         String staff = field(call(null, post("/api/auth/login"), "{\"login\":\"0922222222\",\"password\":\"Passw0rd!\"}"), "token");
         String kitchen = field(call(null, post("/api/auth/login"), "{\"login\":\"0933333333\",\"password\":\"Passw0rd!\"}"), "token");
+        call(admin, post("/api/admin/staff"), "{\"fullName\":\"Giao\",\"phone\":\"0955555555\",\"password\":\"Passw0rd!\",\"role\":\"SHIPPER\"}").andExpect(status().isCreated());
+        String shipper = field(call(null, post("/api/auth/login"), "{\"login\":\"0955555555\",\"password\":\"Passw0rd!\"}"), "token");
 
         String customer = field(call(null, post("/api/auth/register"), "{\"fullName\":\"An\",\"phone\":\"0944444444\",\"email\":\"an@example.com\",\"password\":\"Passw0rd!\"}")
                 .andExpect(status().isCreated()), "token");
@@ -88,9 +90,13 @@ class PostgresProdProfileTest {
         call(customer, post("/api/me/cart/items"), "{\"menuItemId\":" + pho + ",\"quantity\":2}").andExpect(status().isOk());
         String order = field(call(customer, post("/api/me/orders"), "{\"addressId\":" + addr + "}").andExpect(status().isCreated())
                 .andExpect(jsonPath("$.total").value(145000.0)), "id");
-        for (String[] s : new String[][]{{staff, "CONFIRMED"}, {kitchen, "PREPARING"}, {kitchen, "READY"}, {staff, "DELIVERING"}, {staff, "DELIVERED"}}) {
+        for (String[] s : new String[][]{{staff, "CONFIRMED"}, {kitchen, "PREPARING"}, {kitchen, "READY"}}) {
             call(s[0], patch("/api/manage/orders/" + order + "/status"), "{\"status\":\"" + s[1] + "\"}").andExpect(status().isOk());
         }
+        call(shipper, post("/api/shipper/orders/" + order + "/claim"), null).andExpect(status().isOk());
+        call(shipper, post("/api/shipper/orders/" + order + "/deliver"), "{\"photo\":\"/9j/4AAQSkZJRgABAQ==\"}").andExpect(status().isOk());
+        assertEquals(1, jdbc.queryForObject("select count(*) from delivery_proofs where order_id = " + order, Integer.class));
+        call(staff, get("/api/manage/notifications"), null).andExpect(jsonPath("$[0].title").value(org.hamcrest.Matchers.startsWith("Giao thành công")));
         assertEquals(6, jdbc.queryForObject("select count(*) from order_status_history where order_id = " + order, Integer.class));
         call(admin, get("/api/admin/dashboard"), null).andExpect(status().isOk()).andExpect(jsonPath("$.revenueToday").value(145000.0));
 

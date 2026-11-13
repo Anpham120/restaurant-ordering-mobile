@@ -4,6 +4,7 @@ import { useState, type ComponentProps } from 'react';
 import { Linking, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { Button } from '@/components/button';
+import { DeliveryProofPhoto, ShipperLine } from '@/components/delivery-proof';
 import { ReasonDialog } from '@/components/modal';
 import { PhoneFrame, TopBar } from '@/components/phone';
 import { Txt } from '@/components/txt';
@@ -114,6 +115,13 @@ function Tracking({ order, hotline, onChange, reload }: { order: Order; hotline:
         ))}
       </Card>
 
+      {order.shipperName ? (
+        <Card style={{ gap: 12 }}>
+          <ShipperLine order={order} />
+          {order.deliveryProof ? <DeliveryProofPhoto orderId={order.id} load={api.myDeliveryProof} /> : null}
+        </Card>
+      ) : null}
+
       <Card style={{ gap: 10 }}>
         <View style={styles.rowBetween}>
           <Txt weight="extrabold" size={15}>Chi tiết đơn</Txt>
@@ -143,6 +151,7 @@ function Tracking({ order, hotline, onChange, reload }: { order: Order; hotline:
         {order.note ? <Txt size={13} color={colors.muted}>Ghi chú: {order.note}</Txt> : null}
       </Card>
 
+      <Button title="Góp ý về đơn này" icon="chatbubble-ellipses-outline" variant="secondary" onPress={() => router.push(`/feedback?orderId=${order.id}`)} />
       {OrderService.hasReceipt(order) ? (
         <Button title="Xem biên nhận" icon="receipt-outline" variant="secondary" onPress={() => router.push(`/receipt/${order.id}`)} />
       ) : null}

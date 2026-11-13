@@ -50,6 +50,7 @@ export default function AccountTab() {
             <Row icon="location-outline" label="Sổ địa chỉ" onPress={() => router.push('/addresses')} />
             <Row icon="receipt-outline" label="Đơn hàng của tôi" onPress={() => router.push('/orders')} />
             <Row icon="heart-outline" label="Món yêu thích" onPress={() => router.push('/favorites')} />
+            <Row icon="chatbubble-ellipses-outline" label="Góp ý & hỗ trợ" onPress={() => router.push('/feedback')} />
             <Row icon="key-outline" label="Thông tin & mật khẩu" onPress={() => router.push('/profile')} last />
           </View>
         ) : null}

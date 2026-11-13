@@ -41,6 +41,14 @@
         {
           "locationWhenInUsePermission": "Atlas Restaurant dùng vị trí của bạn để tính phí và thời gian giao hàng."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Atlas Restaurant dùng camera để shipper chụp ảnh xác nhận khi giao hàng.",
+          "photosPermission": false,
+          "microphonePermission": false
+        }
       ]
     ],
     "experiments": {

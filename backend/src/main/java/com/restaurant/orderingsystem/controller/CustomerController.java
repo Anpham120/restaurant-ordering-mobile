@@ -25,6 +25,8 @@ public class CustomerController {
     private final OrderService orders;
     private final ReviewService reviews;
     private final NotificationService notifications;
+    private final ShipperService shipper;
+    private final FeedbackService feedback;
 
     // addresses
     @GetMapping("/addresses") public List<AddressResponse> addresses() { return addresses.list(); }
@@ -57,6 +59,14 @@ public class CustomerController {
 
     // reviews
     @PostMapping("/reviews") @ResponseStatus(HttpStatus.CREATED) public ReviewResponse review(@Valid @RequestBody ReviewRequest r) { return reviews.create(r); }
+
+    /** Photo the shipper took when handing the order over. */
+    @GetMapping("/orders/{id}/delivery-proof") public DeliveryProofResponse proof(@PathVariable Long id) { return shipper.proof(id); }
+
+    // feedback to the store (the reply arrives as a notification)
+    @GetMapping("/feedback") public List<FeedbackResponse> myFeedback() { return feedback.mine(); }
+    @PostMapping("/feedback") @ResponseStatus(HttpStatus.CREATED)
+    public FeedbackResponse sendFeedback(@Valid @RequestBody FeedbackRequest r) { return feedback.send(r); }
 
     // notifications
     @GetMapping("/notifications")

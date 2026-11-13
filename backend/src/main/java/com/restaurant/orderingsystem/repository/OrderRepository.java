@@ -16,6 +16,10 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     boolean existsByVoucherId(Long voucherId);
     boolean existsByCustomerId(Long customerId);
     List<Order> findByStatusInOrderByCreatedAtAsc(Collection<OrderStatus> statuses);
+    List<Order> findByStatusAndShipperIdOrderByUpdatedAtAsc(OrderStatus status, Long shipperId);
+    boolean existsByShipperId(Long shipperId);
+    @Query("select o from Order o where o.shipper.id = :shipperId and o.status in :statuses and o.updatedAt >= :since order by o.updatedAt desc")
+    List<Order> findFinishedByShipperSince(@Param("shipperId") Long shipperId, @Param("statuses") Collection<OrderStatus> statuses, @Param("since") LocalDateTime since);
     @Query("select distinct h.order from OrderStatusHistory h where h.status = :status and h.changedAt >= :from and h.changedAt < :to")
     List<Order> findReachedStatusBetween(@Param("status") OrderStatus status, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 }

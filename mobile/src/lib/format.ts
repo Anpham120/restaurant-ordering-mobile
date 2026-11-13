@@ -1,4 +1,4 @@
-import type { ChosenOption, DiscountType, OrderStatus, Payment, Role } from './api';
+import type { ChosenOption, DiscountType, FeedbackTopic, OrderStatus, Payment, Role } from './api';
 import { colors } from './theme';
 
 const nf = new Intl.NumberFormat('vi-VN');
@@ -122,11 +122,16 @@ export const statusTone: Record<OrderStatus, { bg: string; fg: string }> = {
   CANCELLED: { bg: colors.neutralSoft, fg: colors.neutralText },
 };
 
+export const feedbackTopicLabel: Record<FeedbackTopic, string> = {
+  ORDER: 'Đơn hàng', FOOD: 'Món ăn', DELIVERY: 'Giao hàng', APP: 'Ứng dụng', OTHER: 'Khác',
+};
+
 export const roleLabel: Record<Role, string> = {
   CUSTOMER: 'Khách hàng',
   STAFF: 'Nhân viên',
   KITCHEN: 'Bếp',
   MANAGER: 'Quản lý',
+  SHIPPER: 'Shipper',
 };
 
 export function discountLabel(type: DiscountType, value: number, max: number | null): string {

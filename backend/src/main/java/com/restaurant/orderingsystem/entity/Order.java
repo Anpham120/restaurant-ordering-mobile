@@ -18,6 +18,8 @@ public class Order {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
     @ManyToOne(optional = false, fetch = FetchType.LAZY) @JoinColumn(name = "customer_id") private User customer;
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "voucher_id") private Voucher voucher;
+    /** Courier who took the order out for delivery (set when a shipper claims a READY order). */
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "shipper_id") private User shipper;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private OrderStatus status = OrderStatus.PENDING;
     @Column(name = "recipient_name", nullable = false, length = 100) private String recipientName;
     @Column(name = "recipient_phone", nullable = false, length = 15) private String recipientPhone;

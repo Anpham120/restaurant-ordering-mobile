@@ -107,6 +107,7 @@ public class DemoDataSeeder implements CommandLineRunner {
         user("Quản lý Atlas", "0900000001", Role.MANAGER);
         User staff = user("Trần Thị Bình", "0900000002", Role.STAFF);
         user("Lê Văn Bếp", "0900000003", Role.KITCHEN);
+        user("Phạm Văn Giao", "0900000005", Role.SHIPPER);
         User an = user("Nguyễn Văn An", "0900000004", Role.CUSTOMER);
         Address a = new Address();
         a.setUser(an); a.setLabel("Nhà riêng"); a.setRecipientName(an.getFullName());

@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 public class UserAdminService {
     private final UserRepository users;
     private final OrderRepository orders;
+    private final FeedbackRepository feedbackRepo;
     private final OrderStatusHistoryRepository history;
     private final StoreSettingsRepository settings;
     private final PaymentRepository payments;
@@ -62,7 +63,7 @@ public class UserAdminService {
         User u = user(id);
         if (u.getRole() == Role.CUSTOMER) throw ApiException.badRequest("Không xóa tài khoản khách hàng, hãy khóa tài khoản");
         if (u.getId().equals(Caller.id())) throw ApiException.badRequest("Không thể xóa tài khoản của chính mình");
-        if (history.existsByChangedById(id) || settings.existsByUpdatedById(id) || payments.existsByConfirmedById(id))
+        if (history.existsByChangedById(id) || settings.existsByUpdatedById(id) || payments.existsByConfirmedById(id) || orders.existsByShipperId(id) || feedbackRepo.existsByRepliedById(id))
             throw ApiException.conflict("Nhân viên đã có lịch sử xử lý đơn, hãy khóa tài khoản thay vì xóa");
         if (u.getRole() == Role.MANAGER && u.isActive() && users.countByRoleAndActiveTrue(Role.MANAGER) <= 1)
             throw ApiException.badRequest("Phải còn ít nhất một quản lý đang hoạt động");

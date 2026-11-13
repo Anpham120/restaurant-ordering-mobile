@@ -21,15 +21,16 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /**
- * Delivery order lifecycle (no courier role – store staff deliver):
+ * Delivery order lifecycle:
  * <pre>
  * AWAITING_PAYMENT --transfer received (SePay)--> PENDING   (bank transfer only; expires → CANCELLED)
- * PENDING  --staff-->   CONFIRMED --kitchen--> PREPARING --kitchen--> READY --staff--> DELIVERING --staff--> DELIVERED
- *    |customer/staff        |staff                                                       |staff (failed delivery)
- *    v                      v                                                            v
- * CANCELLED              CANCELLED                                                   CANCELLED
+ * PENDING  --staff-->   CONFIRMED --kitchen--> PREPARING --kitchen--> READY --shipper claims--> DELIVERING --shipper + photo--> DELIVERED
+ *    |customer/staff        |staff                                                                    |shipper/staff (failed delivery)
+ *    v                      v                                                                         v
+ * CANCELLED              CANCELLED                                                                CANCELLED
  * </pre>
- * Every change goes through {@link OrderEvents}: history row, payment side effects, customer notification.
+ * The shipper steps live in {@link ShipperService}. Every change goes through {@link OrderEvents}: history row,
+ * payment side effects, customer notification.
  */
 @Service
 @RequiredArgsConstructor
@@ -216,11 +217,13 @@ public class OrderService {
             case CONFIRMED -> from == OrderStatus.PENDING && staff;
             case PREPARING -> from == OrderStatus.CONFIRMED && kitchen;
             case READY -> from == OrderStatus.PREPARING && kitchen;
-            case DELIVERING -> from == OrderStatus.READY && staff;
-            case DELIVERED -> from == OrderStatus.DELIVERING && staff;
+            // a shipper claims the order and confirms delivery with a photo (ShipperService)
+            case DELIVERING, DELIVERED -> false;
             case CANCELLED -> (from == OrderStatus.PENDING || from == OrderStatus.CONFIRMED || from == OrderStatus.DELIVERING) && staff;
             case PENDING, AWAITING_PAYMENT -> false;
         };
+        if (!allowed && (to == OrderStatus.DELIVERING || to == OrderStatus.DELIVERED))
+            throw ApiException.badRequest("Chỉ shipper được nhận đơn đi giao và xác nhận đã giao (kèm ảnh chụp lúc giao)");
         if (!allowed) throw ApiException.badRequest("Không thể chuyển đơn từ \"" + label(from) + "\" sang \"" + label(to) + "\" với vai trò của bạn");
         String reason = CatalogService.blankToNull(note);
         if (to == OrderStatus.CANCELLED && reason == null) throw ApiException.badRequest("Vui lòng nhập lý do hủy đơn");
@@ -271,7 +274,10 @@ public class OrderService {
                 items, o.getItems().stream().mapToInt(OrderItem::getQuantity).sum(),
                 subtotal(o), o.getDeliveryFee(), o.getVoucher() == null ? null : o.getVoucher().getCode(), o.getDiscountAmount(), total(o),
                 payments.toResponse(o.getPayment()), eta,
-                o.getStatus() == OrderStatus.PENDING || o.getStatus() == OrderStatus.AWAITING_PAYMENT, reviewable, timeline);
+                o.getStatus() == OrderStatus.PENDING || o.getStatus() == OrderStatus.AWAITING_PAYMENT, reviewable, timeline,
+                o.getShipper() == null ? null : o.getShipper().getFullName(), o.getShipper() == null ? null : o.getShipper().getPhone(),
+                // the shipper flow cannot reach DELIVERED without saving a photo; orders delivered before it have no shipper
+                o.getStatus() == OrderStatus.DELIVERED && o.getShipper() != null);
     }
 
     static String label(OrderStatus s) {

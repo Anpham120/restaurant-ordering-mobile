@@ -31,10 +31,12 @@ public class AuthInterceptor implements HandlerInterceptor {
     private static final Set<Role> CUSTOMER = EnumSet.of(Role.CUSTOMER);
     private static final Set<Role> STORE = EnumSet.of(Role.STAFF, Role.KITCHEN, Role.MANAGER);
     private static final Set<Role> MANAGER = EnumSet.of(Role.MANAGER);
+    private static final Set<Role> SHIPPER = EnumSet.of(Role.SHIPPER);
 
     private static final List<Rule> RULES = List.of(
             new Rule("*", "/api/admin/**", MANAGER),
             new Rule("*", "/api/manage/**", STORE),
+            new Rule("*", "/api/shipper/**", SHIPPER),
             new Rule("*", "/api/me/**", CUSTOMER),
             new Rule("*", "/api/geocode/**", ANY),
             new Rule("*", "/api/auth/me", ANY),

@@ -17,5 +17,6 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     boolean existsByEmailIgnoreCaseAndIdNot(String email, Long id);
     long countByRoleAndActiveTrue(Role role);
     long countByRole(Role role);
+    List<User> findByRoleInAndActiveTrue(Collection<Role> roles);
     long countByRoleAndActiveTrueAndMarketingOptInTrue(Role role);
 }

@@ -11,6 +11,7 @@ import { navFor } from '@/lib/nav';
 import { useSession } from '@/lib/session';
 import { colors, radius } from '@/lib/theme';
 import { KeyboardScroll } from './keyboard';
+import { StoreBell } from './store-alerts';
 import { Txt } from './txt';
 
 /** Store and admin pages: dark sidebar on wide screens, scrollable top navigation on phones. */
@@ -32,9 +33,12 @@ export function BackOffice({ children }: { children: ReactNode }) {
         <View style={[styles.topbar, { paddingTop: insets.top + 8 }]}>
           <View style={styles.topRow}>
             <Txt weight="extrabold" size={18} color={colors.white}>Atlas Restaurant</Txt>
-            <Pressable accessibilityRole="button" accessibilityLabel="Đăng xuất" onPress={signOut} style={styles.topIcon}>
-              <Ionicons name="log-out-outline" size={22} color={colors.sidebarText} />
-            </Pressable>
+            <View style={{ flexDirection: 'row' }}>
+              <StoreBell />
+              <Pressable accessibilityRole="button" accessibilityLabel="Đăng xuất" onPress={signOut} style={styles.topIcon}>
+                <Ionicons name="log-out-outline" size={22} color={colors.sidebarText} />
+              </Pressable>
+            </View>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingRight: 12 }}>
             {items.map((n) => (
@@ -53,7 +57,10 @@ export function BackOffice({ children }: { children: ReactNode }) {
   return (
     <View style={styles.wide}>
       <View style={styles.side}>
-        <Txt weight="extrabold" size={20} color={colors.white} style={{ paddingHorizontal: 10, paddingBottom: 14 }}>Atlas Restaurant</Txt>
+        <View style={styles.brand}>
+          <Txt weight="extrabold" size={20} color={colors.white} style={{ flex: 1 }}>Atlas Restaurant</Txt>
+          <StoreBell />
+        </View>
         <ScrollView contentContainerStyle={{ gap: 4 }}>
           {items.map((n) => {
             const on = isActive(n.href);
@@ -111,6 +118,7 @@ const styles = StyleSheet.create({
   side: { width: 240, backgroundColor: colors.sidebar, paddingVertical: 20, paddingHorizontal: 14 },
   item: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 42, paddingHorizontal: 10, borderRadius: radius.md },
   itemOn: { backgroundColor: colors.primary },
+  brand: { flexDirection: 'row', alignItems: 'center', paddingLeft: 10, paddingBottom: 10 },
   me: { borderTopWidth: 1, borderTopColor: '#292524', paddingTop: 12, paddingHorizontal: 10, marginTop: 10 },
   topbar: { backgroundColor: colors.sidebar, paddingHorizontal: 12, paddingBottom: 10, gap: 8 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingLeft: 4 },

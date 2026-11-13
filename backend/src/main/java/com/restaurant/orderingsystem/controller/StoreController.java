@@ -23,6 +23,9 @@ public class StoreController {
     private final CatalogService catalog;
     private final StoreService store;
     private final PaymentService payments;
+    private final ShipperService shipper;
+    private final NotificationService notifications;
+    private final FeedbackService feedback;
 
     @GetMapping("/orders")
     public PageResponse<OrderResponse> orders(@RequestParam(required = false) List<OrderStatus> status,
@@ -44,6 +47,27 @@ public class StoreController {
     public PaymentResponse confirmTransfer(@PathVariable Long id) {
         if (!Caller.is(Role.STAFF, Role.MANAGER)) throw ApiException.forbidden("Chỉ nhân viên hoặc quản lý được xác nhận thanh toán");
         return payments.confirmTransfer(id);
+    }
+
+    /** Photo the shipper took at the door. */
+    @GetMapping("/orders/{id}/delivery-proof") public DeliveryProofResponse proof(@PathVariable Long id) { return shipper.proof(id); }
+
+    // notifications for staff and managers: delivery confirmed / failed (sent by ShipperService)
+    @GetMapping("/notifications")
+    public List<NotificationResponse> notifications(@RequestParam(defaultValue = "50") int limit) { return notifications.mine(limit, "ORDER"); }
+    @GetMapping("/notifications/unread-count") public UnreadResponse unread() { return notifications.unread(); }
+    @PostMapping("/notifications/{id}/read") @ResponseStatus(HttpStatus.NO_CONTENT) public void read(@PathVariable Long id) { notifications.markRead(id); }
+    @PostMapping("/notifications/read-all") public CountResponse readAll() { return notifications.markAllRead(); }
+
+    // customer feedback: staff and managers answer it
+    @GetMapping("/feedback")
+    public List<FeedbackResponse> feedback(@RequestParam(required = false) Boolean answered) { desk(); return feedback.list(answered); }
+    @GetMapping("/feedback/waiting") public CountResponse feedbackWaiting() { desk(); return feedback.waiting(); }
+    @PostMapping("/feedback/{id}/reply")
+    public FeedbackResponse reply(@PathVariable Long id, @Valid @RequestBody FeedbackReplyRequest r) { desk(); return feedback.reply(id, r); }
+
+    private static void desk() {
+        if (!Caller.is(Role.STAFF, Role.MANAGER)) throw ApiException.forbidden("Chỉ nhân viên hoặc quản lý xem và trả lời góp ý");
     }
 
     @GetMapping("/kitchen/queue") public List<OrderResponse> kitchen() { return orders.kitchenQueue(); }

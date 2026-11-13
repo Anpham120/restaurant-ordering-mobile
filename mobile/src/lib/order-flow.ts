@@ -18,6 +18,11 @@ export const OrderService = {
     return order.status === 'DELIVERED' || (order.payment?.method === 'BANK_TRANSFER' && !!order.payment.paidAt);
   },
 
+  /** Cash the shipper must collect at the door; 0 when the customer already paid by transfer. */
+  cashToCollect(order: Order): number {
+    return order.payment?.method === 'COD' && order.payment.status === 'PENDING' ? order.total : 0;
+  },
+
   /** Customer timeline: what happened (from history) plus the steps still to come. */
   timeline(order: Order): Step[] {
     const at = new Map<OrderStatus, { at: string; note: string | null }>();
@@ -37,7 +42,7 @@ export const OrderService = {
     }));
   },
 
-  /** Status changes the signed-in store role may make (mirrors the backend rules). */
+  /** Status changes the signed-in store role may make on the board (mirrors the backend rules; shipper steps excluded). */
   actions(status: OrderStatus, role: Role | undefined): Action[] {
     const staff = role === 'STAFF' || role === 'MANAGER';
     const kitchen = role === 'KITCHEN' || role === 'MANAGER';
@@ -45,8 +50,7 @@ export const OrderService = {
     if (status === 'PENDING' && staff) out.push({ to: 'CONFIRMED', label: 'Xác nhận', variant: 'primary' });
     if (status === 'CONFIRMED' && kitchen) out.push({ to: 'PREPARING', label: 'Bắt đầu nấu', variant: 'primary' });
     if (status === 'PREPARING' && kitchen) out.push({ to: 'READY', label: 'Món đã xong', variant: 'success' });
-    if (status === 'READY' && staff) out.push({ to: 'DELIVERING', label: 'Bắt đầu giao', variant: 'primary' });
-    if (status === 'DELIVERING' && staff) out.push({ to: 'DELIVERED', label: 'Đã giao', variant: 'success' });
+    // READY → DELIVERING → DELIVERED belong to the shipper app (claim, then confirm with a doorstep photo)
     if ((status === 'PENDING' || status === 'CONFIRMED') && staff)
       out.push({ to: 'CANCELLED', label: 'Hủy', variant: 'danger', needsReason: true, reasonTitle: 'Hủy đơn hàng' });
     if (status === 'DELIVERING' && staff)

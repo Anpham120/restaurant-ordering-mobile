@@ -29,11 +29,12 @@ export const SESSION_EXPIRED = 'Phiên đăng nhập đã hết hiệu lực, vu
 const Ctx = createContext<SessionValue | null>(null);
 
 /** Where each role lands after signing in. */
-export function homeFor(role: Role | undefined): '/' | '/store/orders' | '/store/kitchen' | '/admin' {
+export function homeFor(role: Role | undefined): '/' | '/store/orders' | '/store/kitchen' | '/admin' | '/shipper' {
   switch (role) {
     case 'STAFF': return '/store/orders';
     case 'KITCHEN': return '/store/kitchen';
     case 'MANAGER': return '/admin';
+    case 'SHIPPER': return '/shipper';
     default: return '/';
   }
 }

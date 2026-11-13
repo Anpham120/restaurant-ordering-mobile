@@ -19,7 +19,12 @@ import { EMAIL_HINT, isEmail, isPhone, isStrongPassword, PHONE_HINT, problems } 
 import { useToast } from '@/lib/toast';
 
 interface Form { id?: number; fullName: string; phone: string; email: string; password: string; role: Role; active: boolean }
-const ROLES: Role[] = ['STAFF', 'KITCHEN', 'MANAGER'];
+const ROLES: Role[] = ['STAFF', 'KITCHEN', 'SHIPPER', 'MANAGER'];
+const ROLE_TONE: Partial<Record<Role, { bg: string; fg: string }>> = {
+  MANAGER: { bg: colors.primarySoft, fg: colors.primaryText },
+  KITCHEN: { bg: colors.warningSoft, fg: colors.warningText },
+  SHIPPER: { bg: colors.successSoft, fg: colors.success },
+};
 
 export default function AdminStaff() {
   const toast = useToast();
@@ -74,8 +79,7 @@ export default function AdminStaff() {
                 <Txt weight="bold" size={15}>{u.fullName}{u.id === user?.id ? <Txt size={13} color={colors.muted}> (bạn)</Txt> : null}</Txt>
                 <Txt size={13} color={colors.muted}>{u.phone}{u.email ? ` · ${u.email}` : ''}</Txt>
               </View>
-              <Badge label={roleLabel[u.role]} bg={u.role === 'MANAGER' ? colors.primarySoft : u.role === 'KITCHEN' ? colors.warningSoft : colors.infoSoft}
-                fg={u.role === 'MANAGER' ? colors.primaryText : u.role === 'KITCHEN' ? colors.warningText : colors.info} />
+              <Badge label={roleLabel[u.role]} bg={ROLE_TONE[u.role]?.bg ?? colors.infoSoft} fg={ROLE_TONE[u.role]?.fg ?? colors.info} />
               {u.mustChangePassword ? <Badge label="Chờ đổi mật khẩu" bg={colors.warningSoft} fg={colors.warningText} /> : null}
               {!u.active ? <Badge label="Đã khóa" bg={colors.dangerSoft} fg={colors.danger} /> : null}
             </ListRow>

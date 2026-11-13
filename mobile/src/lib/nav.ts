@@ -18,6 +18,7 @@ const ADMIN: NavItem[] = [
   { href: '/admin/staff', label: 'Nhân viên', icon: 'people-outline' },
   { href: '/admin/customers', label: 'Khách hàng', icon: 'person-circle-outline' },
   { href: '/admin/reviews', label: 'Đánh giá', icon: 'star-outline' },
+  { href: '/store/feedback', label: 'Góp ý khách hàng', icon: 'chatbubbles-outline' },
   { href: '/admin/report', label: 'Báo cáo', icon: 'bar-chart-outline' },
   { href: '/admin/settings', label: 'Cài đặt cửa hàng', icon: 'settings-outline' },
 ];
@@ -26,6 +27,7 @@ const STAFF: NavItem[] = [
   { href: '/store/orders', label: 'Bảng đơn hàng', icon: 'albums-outline' },
   { href: '/store/history', label: 'Lịch sử đơn', icon: 'time-outline' },
   { href: '/store/stock', label: 'Món hết hàng', icon: 'remove-circle-outline' },
+  { href: '/store/feedback', label: 'Góp ý khách hàng', icon: 'chatbubbles-outline' },
 ];
 
 export function navFor(role: Role | undefined): NavItem[] {

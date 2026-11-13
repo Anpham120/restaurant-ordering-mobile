@@ -32,7 +32,9 @@ abstract class ApiTestBase {
     @Autowired StoreSettingsRepository settingsRepo;
     @Autowired PasswordEncoder encoder;
 
-    String manager, staff, kitchen, customer;
+    String manager, staff, kitchen, shipper, customer;
+    /** Smallest thing that passes the JPEG signature check: what the shipper app uploads as the doorstep photo. */
+    static final String PHOTO = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ==";
     long categoryId, pho, tea, archived;
 
     /** About 1 km from the restaurant (Vạn Phúc Building, Hà Đông): inside the base radius, fee 15,000. */
@@ -53,6 +55,7 @@ abstract class ApiTestBase {
         manager = tokenFor(Role.MANAGER);
         staff = tokenFor(Role.STAFF);
         kitchen = tokenFor(Role.KITCHEN);
+        shipper = tokenFor(Role.SHIPPER);
         customer = register();
 
         categoryId = json(as(manager, post("/api/admin/categories"), "{\"name\":\"C" + uniq() + "\",\"sortOrder\":1}")
@@ -114,8 +117,8 @@ abstract class ApiTestBase {
         setStatus(staff, orderId, "CONFIRMED", null).andExpect(status().isOk());
         setStatus(kitchen, orderId, "PREPARING", null).andExpect(status().isOk());
         setStatus(kitchen, orderId, "READY", null).andExpect(status().isOk());
-        setStatus(staff, orderId, "DELIVERING", null).andExpect(status().isOk());
-        setStatus(staff, orderId, "DELIVERED", null).andExpect(status().isOk());
+        as(shipper, post("/api/shipper/orders/" + orderId + "/claim")).andExpect(status().isOk());
+        as(shipper, post("/api/shipper/orders/" + orderId + "/deliver"), "{\"photo\":\"" + PHOTO + "\"}").andExpect(status().isOk());
     }
 
     ResultActions send(MockHttpServletRequestBuilder b, String body) throws Exception {

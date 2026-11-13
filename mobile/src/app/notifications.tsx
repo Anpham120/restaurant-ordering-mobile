@@ -19,6 +19,7 @@ const KIND: Record<NotificationType, { icon: IconName | 'moped'; bg: string }> =
   ORDER: { icon: 'moped', bg: colors.primary },
   PAYMENT: { icon: 'card-outline', bg: colors.success },
   PROMOTION: { icon: 'gift-outline', bg: colors.info },
+  FEEDBACK: { icon: 'chatbubble-ellipses-outline', bg: colors.warning },
 };
 const TABS: { value: NotificationCategory; label: string }[] = [{ value: 'ORDER', label: 'Đơn hàng' }, { value: 'PROMOTION', label: 'Khuyến mãi' }];
 const EMPTY: Record<NotificationCategory, { title: string; text: string }> = {
@@ -62,6 +63,7 @@ function List() {
       list.setData((d) => (d ? d.map((x) => (x.id === n.id ? { ...x, read: true } : x)) : d));
       api.readNotification(n.id).then(counts.reload).catch(() => undefined);
     }
+    if (n.type === 'FEEDBACK') { router.push('/feedback'); return; }
     if (n.orderId) { router.push(`/order/${n.orderId}`); return; }
     if (n.promotionId) {
       try {

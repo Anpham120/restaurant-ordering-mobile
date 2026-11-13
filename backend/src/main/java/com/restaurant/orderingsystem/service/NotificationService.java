@@ -4,6 +4,7 @@ import com.restaurant.orderingsystem.dto.Dtos.*;
 import com.restaurant.orderingsystem.entity.*;
 import com.restaurant.orderingsystem.exception.ApiException;
 import com.restaurant.orderingsystem.repository.NotificationRepository;
+import com.restaurant.orderingsystem.repository.UserRepository;
 import com.restaurant.orderingsystem.security.Caller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -12,11 +13,32 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-/** In-app notifications for customers: order progress, payments and restaurant promotions. */
+/** In-app notifications: order progress, payments and promotions for customers; delivery results for the store. */
 @Service
 @RequiredArgsConstructor
 public class NotificationService {
+    private static final List<Role> STORE_DESK = List.of(Role.STAFF, Role.MANAGER);
     private final NotificationRepository notifications;
+    private final UserRepository users;
+
+    /** Tells every active staff member and manager (the back-office bell shows the unread count). */
+    void toStore(Order o, String title, String body) { toStore(NotificationType.ORDER, o, title, body); }
+
+    void toStore(NotificationType type, Order o, String title, String body) {
+        for (User u : users.findByRoleInAndActiveTrue(STORE_DESK)) toUser(u, type, o, title, body);
+    }
+
+    void toUser(User u, NotificationType type, Order o, String title, String body) {
+        Notification n = new Notification();
+        n.setUser(u);
+        n.setType(type);
+        n.setTitle(clip(title, 120));
+        n.setBody(clip(body, 500));
+        n.setOrder(o);
+        notifications.save(n);
+    }
+
+    static String clip(String s, int max) { return s.length() <= max ? s : s.substring(0, max - 1) + "…"; }
 
     void toCustomer(Order o, NotificationType type, String title, String body) {
         Notification n = new Notification();
@@ -36,7 +58,8 @@ public class NotificationService {
                     ? new String[]{"Đã nhận thanh toán", "Đơn " + code + " đã được thanh toán, đang chờ cửa hàng xác nhận."} : null;
             case CONFIRMED -> new String[]{"Cửa hàng đã xác nhận đơn", "Đơn " + code + " đã được xác nhận và sẽ sớm được chuẩn bị."};
             case PREPARING -> new String[]{"Bếp đang chuẩn bị món", "Đơn " + code + " đang được chế biến."};
-            case DELIVERING -> new String[]{"Đơn hàng đang được giao", "Shipper của cửa hàng đang giao đơn " + code + " đến bạn."};
+            case DELIVERING -> new String[]{"Đơn hàng đang được giao", (o.getShipper() == null ? "Shipper của cửa hàng" : "Shipper " + o.getShipper().getFullName())
+                    + " đang giao đơn " + code + " đến bạn."};
             case DELIVERED -> new String[]{"Giao hàng thành công", "Đơn " + code + " đã giao. Chúc bạn ngon miệng! Hãy đánh giá món để cửa hàng phục vụ tốt hơn."};
             case CANCELLED -> new String[]{"Đơn hàng đã bị hủy", "Đơn " + code + " đã hủy" + (reason == null ? "." : ": " + reason)};
             default -> null;
@@ -50,7 +73,8 @@ public class NotificationService {
         return notifications.broadcastPromotion(p.getTitle(), body, p.getId(), java.time.LocalDateTime.now().minusHours(capHours));
     }
 
-    private static final java.util.List<NotificationType> ORDER_TYPES = java.util.List.of(NotificationType.ORDER, NotificationType.PAYMENT);
+    /** "Orders" tab and red badge: order progress, payments, feedback answers (customers) / new feedback (store). */
+    private static final java.util.List<NotificationType> ORDER_TYPES = java.util.List.of(NotificationType.ORDER, NotificationType.PAYMENT, NotificationType.FEEDBACK);
     private static final java.util.List<NotificationType> PROMO_TYPES = java.util.List.of(NotificationType.PROMOTION);
 
     /** @param category null = all, "ORDER" = order + payment, "PROMOTION" = promotions */
