@@ -63,7 +63,6 @@ export function PromoPopup({ promotions, visible, onClose, onOpen, onHide }: {
                   <Button title={p.targetType === 'VOUCHER' ? 'Lấy mã ưu đãi' : CTA[p.targetType]} onPress={() => (p.targetType === 'NONE' ? onClose() : onOpen(p))} />
                   <Pressable accessibilityRole="button" accessibilityLabel={`Không hiển thị lại quảng cáo ${p.title}`} onPress={() => onHide(p)} hitSlop={6}
                     style={({ pressed }) => [styles.mute, pressed && { opacity: 0.6 }]}>
-                    <Ionicons name="eye-off-outline" size={16} color={colors.muted} />
                     <Txt weight="semibold" size={13} color={colors.muted}>Không hiển thị lại quảng cáo này</Txt>
                   </Pressable>
                 </View>
@@ -106,7 +105,7 @@ const styles = StyleSheet.create({
   img: { width: '100%', height: 170 },
   code: { alignSelf: 'flex-start', borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.primary, backgroundColor: '#FFF7F2', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 6 },
   arrow: { position: 'absolute', top: 70, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },
-  mute: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 36 },
+  mute: { alignItems: 'center', justifyContent: 'center', minHeight: 36 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#D6CFC9' },
   dotOn: { width: 20, backgroundColor: colors.primary },

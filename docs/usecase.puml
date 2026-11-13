@@ -22,6 +22,7 @@ actor "Khách hàng" as KH
 actor "Nhân viên" as NV
 actor "Bếp" as BEP
 actor "Quản lý" as QL
+actor "Shipper" as SH
 actor "SePay\n(hệ thống ngân hàng)" as SP
 
 QL -up-|> NV
@@ -43,10 +44,12 @@ rectangle "Atlas Restaurant – đặt món giao tận nhà" {
   usecase "Đặt lại đơn cũ" as UC13
   usecase "Đánh giá món" as UC14
   usecase "Món yêu thích" as UC15
+  usecase "Gửi góp ý, gọi / nhắn hotline" as UC31
+  usecase "Ẩn quảng cáo pop-up" as UC32
 
   usecase "Xác nhận chuyển khoản tự động" as UC16
   usecase "Xác nhận / hủy đơn" as UC17
-  usecase "Giao hàng, thu tiền COD" as UC18
+  usecase "Nhận thông báo, trả lời góp ý" as UC18
   usecase "Bật / tắt nhận đơn" as UC19
   usecase "Xem phiếu chế biến" as UC20
   usecase "Cập nhật chế biến" as UC21
@@ -59,6 +62,9 @@ rectangle "Atlas Restaurant – đặt món giao tận nhà" {
   usecase "Quản lý nhân viên, khách hàng" as UC28
   usecase "Xem tổng quan, báo cáo" as UC29
   usecase "Cài đặt cửa hàng" as UC30
+  usecase "Nhận đơn đi giao, thu COD" as UC33
+  usecase "Xác nhận đã giao (chụp ảnh)" as UC34
+  usecase "Báo giao thất bại" as UC35
 }
 
 KH --> UC01
@@ -74,6 +80,8 @@ KH --> UC12
 KH --> UC13
 KH --> UC14
 KH --> UC15
+KH --> UC31
+KH --> UC32
 UC07 .> UC08 : <<extend>>
 UC09 .> UC08 : <<extend>>
 
@@ -92,6 +100,9 @@ UC27 <-- QL
 UC28 <-- QL
 UC29 <-- QL
 UC30 <-- QL
+UC33 <-- SH
+UC34 <-- SH
+UC35 <-- SH
 
 ' Cột trái: use-case của khách; cột phải: use-case của cửa hàng (liên kết ẩn chỉ để dàn trang)
 UC01 -[hidden]-> UC16
@@ -109,4 +120,7 @@ UC12 -[hidden]-> UC27
 UC13 -[hidden]-> UC28
 UC14 -[hidden]-> UC29
 UC15 -[hidden]-> UC30
+UC31 -[hidden]-> UC33
+UC32 -[hidden]-> UC34
+UC32 -[hidden]-> UC35
 @enduml

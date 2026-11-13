@@ -1,12 +1,12 @@
 // Atlas Restaurant – CSDL đặt món giao tận nhà (PostgreSQL)
 // Dán toàn bộ file này vào https://dbdiagram.io/d để xem ERD.
-// Nguồn: backend/src/main/resources/db/migration/V1__init.sql ... V5__account_lockout.sql
+// Nguồn: backend/src/main/resources/db/migration/V1__init.sql ... V8__customer_feedback.sql
 // Trong CSDL thật, các kiểu Enum dưới đây được cài bằng varchar + CHECK; ràng buộc CHECK và
 // unique index một phần được ghi trong note của từng bảng/cột.
 
 Project atlas_restaurant {
   database_type: 'PostgreSQL'
-  Note: '21 bảng, 30 khóa ngoại, chuẩn 3NF. Tổng tiền đơn, mã đơn, nội dung chuyển khoản, phí giao theo địa chỉ không được lưu mà tính khi cần; đơn chỉ lưu lại khoảng cách và phí đã áp dụng.'
+  Note: '23 bảng, 35 khóa ngoại, chuẩn 3NF. Tổng tiền đơn, mã đơn, nội dung chuyển khoản, phí giao theo địa chỉ không được lưu mà tính khi cần; đơn chỉ lưu lại khoảng cách và phí đã áp dụng.'
 }
 
 // ===================================================================== enums
@@ -15,6 +15,7 @@ Enum role {
   STAFF
   KITCHEN
   MANAGER
+  SHIPPER
 }
 
 Enum order_status {
@@ -53,10 +54,19 @@ Enum promotion_target {
   VOUCHER
 }
 
+Enum feedback_topic {
+  ORDER
+  FOOD
+  DELIVERY
+  APP
+  OTHER
+}
+
 Enum notification_type {
   ORDER
   PAYMENT
   PROMOTION
+  FEEDBACK
 }
 
 // ===================================================================== people
@@ -239,6 +249,7 @@ Table orders {
   id bigint [pk, increment]
   customer_id bigint [not null]
   voucher_id bigint
+  shipper_id bigint [note: 'Shipper đã nhận đơn đi giao (V7)']
   status order_status [not null]
   recipient_name varchar(100) [not null, note: 'Chụp lại từ sổ địa chỉ lúc đặt']
   recipient_phone varchar(15) [not null]
@@ -256,6 +267,7 @@ Table orders {
     (customer_id, created_at) [name: 'ix_orders_customer_created']
     (status, created_at) [name: 'ix_orders_status_created']
     voucher_id
+    (shipper_id, status) [name: 'ix_orders_shipper']
   }
   Note: 'Tạm tính và tổng tiền tính từ order_items, không lưu'
 }
@@ -294,6 +306,30 @@ Table order_status_history {
     (order_id, changed_at)
     changed_by
   }
+}
+
+Table delivery_proofs {
+  order_id bigint [pk, note: 'Mỗi đơn tối đa một ảnh xác nhận']
+  photo bytea [not null, note: 'CHECK 1..716800 byte (≤ 700 KB)']
+  content_type varchar(20) [not null, note: 'CHECK image/jpeg, image/png, image/webp']
+  taken_at timestamp [not null]
+  Note: 'Ảnh shipper chụp lúc trao hàng, bắt buộc để đơn sang DELIVERED; shipper là orders.shipper_id'
+}
+
+Table feedback {
+  id bigint [pk, increment]
+  customer_id bigint [not null]
+  order_id bigint [note: 'Đơn liên quan (không bắt buộc)']
+  topic feedback_topic [not null]
+  message varchar(1000) [not null]
+  reply varchar(1000)
+  replied_by bigint
+  replied_at timestamp
+  created_at timestamp [not null]
+  indexes {
+    (customer_id, created_at) [name: 'ix_feedback_customer']
+  }
+  Note: 'Đã trả lời = reply khác rỗng; reply, replied_by, replied_at cùng có hoặc cùng rỗng (CHECK)'
 }
 
 Table reviews {
@@ -420,3 +456,8 @@ Ref: notifications.user_id > users.id [delete: cascade]
 Ref: notifications.order_id > orders.id
 Ref: notifications.promotion_id > promotions.id [delete: set null]
 Ref: store_settings.updated_by > users.id
+Ref: orders.shipper_id > users.id
+Ref: delivery_proofs.order_id - orders.id [delete: cascade]
+Ref: feedback.customer_id > users.id [delete: cascade]
+Ref: feedback.order_id > orders.id
+Ref: feedback.replied_by > users.id
