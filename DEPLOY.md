@@ -1,6 +1,8 @@
 # Triển khai production
 
-Ứng dụng đặt món Atlas Restaurant chạy trên chính máy chủ này (163.61.182.201) tại **https://order.atlasplatform12.tech**. Jenkins tự test mọi nhánh, chạy **staging tạm** (dựng, test, xóa) khi có commit lên `develop` và deploy **production** khi có commit lên `main`.
+Ứng dụng đặt món Atlas Restaurant chạy trên máy chủ 163.61.182.201 tại **https://order.atlasplatform12.tech**. CI/CD chạy bằng **GitHub Actions** (`.github/workflows/ci-cd.yml`):
+- Mọi nhánh: chạy test.
+- Commit lên `develop`: chạy **staging tạm** trên máy ảo của GitHub (dựng, test, xóa), rồi đưa lên `main` và deploy **production** lên máy chủ qua SSH.
 
 ## Kiến trúc
 
@@ -9,6 +11,8 @@ Internet ──HTTPS──> nginx (host, certbot)
                      ├─ /api/  ──> 127.0.0.1:8084  backend  (Spring Boot, profile prod)
                      └─ /      ──> 127.0.0.1:8085  web      (nginx, bundle Expo web)
                                                   db       (PostgreSQL 16, không mở cổng, volume pgdata)
+
+GitHub Actions ──SSH (khóa chỉ chạy được deploy/ci-ssh-gate.sh)──> máy chủ ──> scripts/deploy.sh
 ```
 
 - Compose project: `restaurant-ordering-system` (`docker-compose.yml`). Image: `ordering-backend`, `ordering-web`.
@@ -17,68 +21,93 @@ Internet ──HTTPS──> nginx (host, certbot)
 
 | Đường dẫn trên host | Nội dung |
 |---|---|
-| `/home/coder/ordering-deploy` | Bản checkout `main` (production) mà Jenkins dùng để build và chạy. `.env` chỉ tồn tại trong lúc deploy |
-| `/home/coder/ordering-staging` | Bản checkout `develop` cho staging tạm. Không có `.env` lâu dài: script tự sinh rồi xóa |
+| `/home/coder/ordering-deploy` | Bản checkout `main` (production) dùng để build và chạy. `.env` chỉ tồn tại trong lúc deploy |
 | `/home/coder/ordering-backups` | Bản dump DB: trước mỗi lần deploy và hằng đêm, giữ 30 bản mới nhất |
-| `/home/coder/ordering-secrets/prod.env` | `.env` production gốc (quyền 600). `prod.env.b64` là bản base64 để dán vào Jenkins (credential `ordering-prod-env`) |
+| `/home/coder/ordering-secrets/prod.env` | `.env` production gốc (quyền 600). Không bao giờ rời máy chủ, không lưu trên GitHub |
+| `/home/coder/ordering-secrets/ci-ssh-gate.sh` | Bản cài của `deploy/ci-ssh-gate.sh`: lệnh duy nhất mà khóa SSH của GitHub Actions được chạy |
+| `~/.ssh/authorized_keys` | Dòng khóa `github-actions-ordering`, gắn `command="…/ci-ssh-gate.sh",restrict` |
 
 ## Quy trình nhánh
 
 ```
 feature/xxx ──PR──> develop ──(tự động)──> main
- (làm việc)        (CI + staging tạm)       (CI + production)
+ (làm việc)        (CI + staging tạm)       (production)
 ```
 
 1. Tách nhánh tính năng từ `develop`: `git checkout develop && git pull && git checkout -b feature/ten-tinh-nang`.
-2. Đẩy nhánh lên GitHub: Jenkins chạy **CI** (test + kiểm tra mobile). Chưa deploy gì.
-3. Mở PR vào `develop`, CI xanh thì merge. Jenkins dựng **staging tạm**, chạy bộ smoke test rồi xóa sạch (giải phóng tài nguyên).
-4. Staging test đạt thì Jenkins **tự đẩy commit đó lên `main`** (chỉ fast-forward), build `main` tự **deploy production**. Không cần PR hay merge tay. Nếu `main` có commit mà `develop` không có, Jenkins dừng lại và báo lỗi: merge `main` vào `develop` trước.
-5. Không commit thẳng vào `main`. Muốn bật *Branch protection* cho `main` thì phải cho phép tài khoản của credential `github-branch-source` đẩy thẳng (bypass), nếu không bước tự đẩy sẽ bị GitHub từ chối. Credential này cần token có quyền ghi repo (`contents: write`).
+2. Đẩy nhánh lên GitHub: GitHub Actions chạy **CI** (test + kiểm tra mobile). Chưa deploy gì.
+3. Mở PR vào `develop`, CI xanh thì merge. GitHub Actions dựng **staging tạm** trên máy ảo của GitHub, chạy bộ smoke test rồi bỏ máy ảo.
+4. Staging test đạt thì workflow **tự đẩy commit đó lên `main`** (chỉ fast-forward, bằng `GITHUB_TOKEN`), rồi **deploy production** ngay trong cùng lần chạy. Lần đẩy bằng `GITHUB_TOKEN` không tạo lần chạy mới, nên không bị deploy hai lần. Nếu `main` có commit mà `develop` không có, workflow dừng lại và báo lỗi: merge `main` vào `develop` trước.
+5. Không commit thẳng vào `main`. Nếu có đẩy thẳng, workflow vẫn chạy CI rồi deploy. Muốn bật *Branch protection* cho `main` thì phải cho GitHub Actions đẩy thẳng (bypass), nếu không bước tự đẩy sẽ bị từ chối.
 
-## Pipeline (`Jenkinsfile`, job multibranch `ordering`)
+Xem các lần chạy ở tab **Actions** của repo. Lịch sử deploy nằm ở môi trường **production** (mục *Deployments*).
 
-| Khi nào | Các bước |
-|---|---|
-| Mọi nhánh / PR | **CI**: `mvn verify` (26 bộ test, gồm test profile prod trên PostgreSQL thật), sau đó `tsc`, `expo lint`, `expo export --platform web` |
-| `develop` | CI + **Staging test** + **Promote to main** (đạt hết thì tự đẩy lên `main`) (`scripts/staging-test.sh`): dựng stack riêng bằng `docker-compose.yml` và Dockerfile của production, chạy 15 kiểm tra (health, web, thực đơn, báo giá giao hàng, đăng ký và đăng nhập, sai mật khẩu, phân quyền 401/403…), rồi xóa container, volume, image, `.env` và cache build không dùng quá 3 ngày. Không cần credential |
-| `main` | CI + **Deploy production** (`scripts/deploy.sh`, credential `ordering-prod-env`): backup DB → build image → chờ healthy → kiểm tra. Lỗi ở bất kỳ bước nào thì tự quay về image trước |
-| `main`, khi thư mục `mobile/` có thay đổi | Sau khi deploy xong: **Build Android APK**, gửi yêu cầu build lên EAS (không chờ, 10–30 phút), Telegram báo link theo dõi. Lỗi bước này chỉ cảnh báo, không làm hỏng deploy |
-| 3 giờ sáng (nhánh `main`) | Chỉ backup DB (`scripts/backup-db.sh nightly`) |
+## Pipeline (`.github/workflows/ci-cd.yml`)
+
+| Job | Khi nào | Làm gì |
+|---|---|---|
+| `plan` | mọi lần push / PR | Nếu chỉ đổi `docs/**` hoặc `*.md` thì bỏ qua test, staging và deploy (nhánh `develop` vẫn đẩy lên `main`) |
+| `backend` | mọi lần push / PR | `mvn verify`: các bộ test, gồm test profile prod trên PostgreSQL thật (embedded) |
+| `mobile` | mọi lần push / PR | `npm ci`, `tsc`, `expo lint`, `expo export --platform web` |
+| `staging` | push lên `develop` | `scripts/staging-test.sh` trên máy ảo GitHub: dựng stack bằng `docker-compose.yml` và Dockerfile của production, chạy 15 kiểm tra (health, web, thực đơn, báo giá giao hàng, đăng ký và đăng nhập, sai mật khẩu, phân quyền 401/403…), rồi xóa. Không cần secret |
+| `promote` | push lên `develop`, các job trên đạt | Đẩy commit lên `main` (fast-forward) |
+| `deploy` | sau `promote`, hoặc push thẳng lên `main` | SSH vào máy chủ chạy `deploy <sha>`. Trên máy chủ, `ci-ssh-gate.sh` kiểm tra commit có trên `main`, checkout, chép `prod.env` vào `.env` rồi chạy `scripts/deploy.sh`: backup DB → build image → chờ healthy → kiểm tra. Lỗi ở bất kỳ bước nào thì tự quay về image trước |
+| `apk` | sau `deploy`, khi thư mục `mobile/` có thay đổi | Gửi yêu cầu build Android APK lên EAS (không chờ, 10–30 phút). Lỗi bước này chỉ cảnh báo, không làm hỏng deploy |
+| `backup` | 3 giờ sáng (cron `0 20 * * *` UTC) | SSH chạy `backup` → `scripts/backup-db.sh nightly` |
+| `notify` | cuối mỗi lần chạy (không chạy cho PR) | Gửi Telegram: thất bại, đã deploy, chỉ đổi tài liệu, link APK |
+
+### Secret của repo (*Settings → Secrets and variables → Actions*)
+
+| Secret | Dùng cho | Bắt buộc |
+|---|---|---|
+| `DEPLOY_SSH_KEY` | Khóa riêng ed25519 của khóa `github-actions-ordering` | có (deploy, backup) |
+| `DEPLOY_KNOWN_HOSTS` | Kết quả `ssh-keyscan 163.61.182.201`, để chống giả mạo máy chủ | có (deploy, backup) |
+| `EXPO_TOKEN` | Build APK trên EAS | không: thiếu thì bỏ qua build APK |
+| `TELEGRAM_BOT_TOKEN` | Thông báo Telegram (chung bot với dự án `rsm`) | không: thiếu thì chỉ ghi log |
+
+`prod.env` không nằm trong secret của GitHub. Khóa SSH chỉ chạy được hai lệnh `deploy <sha>` và `backup`; `restrict` tắt shell, chuyển tiếp cổng và PTY.
 
 ### Staging tạm và production khác nhau thế nào
 
-Hai môi trường dùng chung máy chủ, `docker-compose.yml`, Dockerfile và Docker, nên image staging giống hệt production. Mọi thứ còn lại tách riêng:
+Hai môi trường dùng chung `docker-compose.yml` và Dockerfile, nên image staging được build giống hệt production. Mọi thứ còn lại tách riêng:
 
 | | Production (`main`) | Staging tạm (`develop`) |
 |---|---|---|
+| Chạy ở đâu | máy chủ 163.61.182.201 | máy ảo `ubuntu-latest` của GitHub, không tốn tài nguyên máy chủ |
 | Sống bao lâu | chạy liên tục | chỉ trong lúc test, xong là xóa |
 | Compose project / volume DB | `restaurant-ordering-system` | `ordering-staging`, DB trống mới mỗi lần |
 | Cổng (chỉ `127.0.0.1`) | backend 8084, web 8085 | backend 8184, web 8185 |
-| Secret (`.env`) | credential `ordering-prod-env` | sinh ngẫu nhiên mỗi lần, không lưu ở đâu |
+| Secret (`.env`) | `/home/coder/ordering-secrets/prod.env` | sinh ngẫu nhiên mỗi lần, không lưu ở đâu |
 | Dữ liệu | thật, backup trước mỗi lần deploy | thực đơn mẫu (`APP_SEED_DEMO=true`); quản lý là tài khoản `APP_ADMIN_*` sinh ngẫu nhiên |
 | SePay, SMTP | thật | không có |
 
 Muốn tự thử bằng tay: trên máy chủ chạy `scripts/staging-test.sh keep` (dựng và để chạy), thử ở `http://127.0.0.1:8185`, xong chạy `scripts/staging-test.sh down`.
-
-Thông báo Telegram dùng chung bot và chat với dự án `rsm` (credential `telegram-bot-token`).
 
 ## Cài đặt lần đầu
 
 ### 1. DNS
 Tạo bản ghi A `order.atlasplatform12.tech` → `163.61.182.201`. Kiểm tra bằng `getent hosts order.atlasplatform12.tech`.
 
-### 2. Jenkins (giao diện web, quyền admin)
-1. **Credential.** Vào *Manage Jenkins → Credentials → (global) → Add Credentials*.
-   - Kind: **Secret text**
-   - ID: `ordering-prod-env`
-   - Secret: nội dung file `/home/coder/ordering-secrets/prod.env.b64` (một dòng)
-2. **Job.** Vào *New Item → `ordering` → Multibranch Pipeline*.
-   - Branch Source GitHub: `https://github.com/Anpham120/restaurant-ordering-mobile`. Repo public nên không cần credential, nhưng chọn `github-branch-source` để tránh giới hạn số lần gọi API.
-   - Build Configuration: *by Jenkinsfile*, Script Path `Jenkinsfile`.
-   - Scan triggers: *Periodically if not otherwise run*, interval **1 minute**, giống job `rsm`.
-3. Lưu job. Jenkins quét nhánh, chạy build `main` (deploy production) và `develop` (staging test).
-4. Cho bước build APK: tạo token trên expo.dev (*Account settings → Access tokens*) rồi thêm credential Secret text, ID `expo-token`.
+### 2. GitHub Actions
+1. **Cổng vào máy chủ.** Cài script và tạo khóa SSH riêng cho GitHub Actions (trên máy chủ, user `coder`):
+   ```bash
+   install -m 700 deploy/ci-ssh-gate.sh /home/coder/ordering-secrets/ci-ssh-gate.sh
+   ssh-keygen -t ed25519 -N '' -C github-actions-ordering -f /tmp/gha-deploy
+   install -d -m 700 ~/.ssh
+   echo "command=\"/home/coder/ordering-secrets/ci-ssh-gate.sh\",restrict $(cat /tmp/gha-deploy.pub)" >> ~/.ssh/authorized_keys
+   chmod 600 ~/.ssh/authorized_keys
+   ```
+   Sửa `deploy/ci-ssh-gate.sh` thì phải cài lại bằng lệnh `install` ở trên: máy chủ không tự lấy bản mới.
+2. **Secret.** Đưa khóa riêng và known_hosts lên GitHub, rồi xóa khóa riêng khỏi máy chủ:
+   ```bash
+   gh secret set DEPLOY_SSH_KEY < /tmp/gha-deploy && rm -f /tmp/gha-deploy /tmp/gha-deploy.pub
+   ssh-keyscan -t ed25519 163.61.182.201 | gh secret set DEPLOY_KNOWN_HOSTS
+   gh secret set EXPO_TOKEN < /home/coder/ordering-secrets/expo-token.txt
+   gh secret set TELEGRAM_BOT_TOKEN        # dán token bot Telegram khi được hỏi
+   ```
+3. Cho bước build APK: tạo token trên expo.dev (*Account settings → Access tokens*), lưu vào `/home/coder/ordering-secrets/expo-token.txt`.
    Làm một lần trước đó, trên máy có đăng nhập Expo: `cd mobile && npx eas-cli@latest init` (tạo project, ghi `projectId` vào `app.json`, nhớ commit) và `npx eas-cli@latest build -p android --profile preview` (lần đầu, để EAS tạo keystore; chế độ `--non-interactive` không tạo được keystore).
+4. Push lên `develop`, xem tab **Actions**.
 
 ### 3. nginx + HTTPS (cần sudo)
 ```bash
@@ -98,7 +127,7 @@ Khách chọn "Chuyển khoản VietQR". App hiện mã QR có sẵn số tiền
    - URL: `https://order.atlasplatform12.tech/api/payments/sepay/webhook`
    - Sự kiện: tiền vào
    - Kiểu chứng thực: **API Key**
-3. Đặt `SEPAY_API_KEY=<key>` trong `prod.env`, chạy `base64 -w0 prod.env > prod.env.b64`, cập nhật credential `ordering-prod-env` trong Jenkins, rồi deploy lại.
+3. Đặt `SEPAY_API_KEY=<key>` trong `/home/coder/ordering-secrets/prod.env`, rồi deploy lại (*Actions → CI/CD → Re-run* lần chạy gần nhất của `main`, hoặc push một commit).
 4. Đăng nhập quản lý, vào *Cài đặt cửa hàng* và nhập mã ngân hàng (ví dụ `MB`, `VCB`), số tài khoản, tên chủ tài khoản. Chỉ khi đã nhập đủ, lựa chọn chuyển khoản mới hiện ra cho khách.
 
 Nếu khách chuyển sai nội dung, nhân viên vẫn xác nhận tay được: mở đơn → "Xác nhận đã nhận CK". Mọi giao dịch SePay báo về, kể cả giao dịch không khớp đơn nào, đều xem được ở *Quản lý → Thanh toán*. Đơn đã chuyển khoản mà sau đó bị hủy sẽ vào hàng "Chờ hoàn tiền".
@@ -118,7 +147,7 @@ Mã OTP đặt lại mật khẩu được gửi qua SMTP (cổng 587, STARTTLS)
    SMTP_PASSWORD=<SMTP key>
    MAIL_FROM=<địa chỉ gửi đã xác minh ở bước 1>
    ```
-4. Chạy `base64 -w0 prod.env > prod.env.b64`, cập nhật credential `ordering-prod-env` trong Jenkins, rồi deploy lại.
+4. Deploy lại (*Actions → CI/CD → Re-run* lần chạy gần nhất của `main`, hoặc push một commit).
 
 **Gmail:** `SMTP_HOST=smtp.gmail.com`, `SMTP_USERNAME` là địa chỉ Gmail, `SMTP_PASSWORD` là App Password (https://myaccount.google.com/apppasswords, cần bật xác minh 2 bước), `MAIL_FROM` có thể bỏ trống.
 
@@ -134,7 +163,7 @@ docker compose -p restaurant-ordering-system logs -f backend
 
 - **Tài khoản quản lý đầu tiên:** đăng nhập bằng số điện thoại `APP_ADMIN_PHONE` (mặc định `0900000000`), mật khẩu là `APP_ADMIN_PASSWORD` trong `prod.env`. Đăng nhập xong nên tạo tài khoản riêng cho từng nhân viên trong mục *Nhân viên*.
 - **Dữ liệu mẫu:** `APP_SEED_DEMO=true` nạp thực đơn 19 món kèm ảnh, và 2 mã giảm giá (`WELCOME10`, `FREESHIP`) khi DB còn trống. Không tạo tài khoản demo có mật khẩu công khai, vì đã có tài khoản quản lý.
-- **Đổi secret:** sửa `prod.env`, chạy `base64 -w0 prod.env > prod.env.b64`, cập nhật credential `ordering-prod-env`, rồi build lại `main` trong Jenkins. Riêng `POSTGRES_PASSWORD` chỉ có tác dụng khi volume DB được tạo lần đầu, nên muốn đổi thì phải đổi trong PostgreSQL trước.
+- **Đổi secret:** sửa `/home/coder/ordering-secrets/prod.env`, rồi deploy lại (*Actions → CI/CD → Re-run*). Riêng `POSTGRES_PASSWORD` chỉ có tác dụng khi volume DB được tạo lần đầu, nên muốn đổi thì phải đổi trong PostgreSQL trước.
 - **Khôi phục DB:**
   ```bash
   cd /home/coder/ordering-deploy && set -a && . /home/coder/ordering-secrets/prod.env && set +a

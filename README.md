@@ -15,7 +15,7 @@ Bản production: **https://order.atlasplatform12.tech**
 | `backend/` | REST API: Java 21, Spring Boot 3.4, JPA, Flyway, PostgreSQL (prod) / H2 (dev), JWT |
 | `mobile/` | App Expo SDK 58 / React Native 0.88 / TypeScript / Expo Router: app khách và web cửa hàng trong một mã nguồn |
 | `docs/` | Báo cáo BTL, slide, ERD, use-case, [DATABASE.md](docs/DATABASE.md) |
-| `deploy/`, `scripts/`, `docker-compose.yml`, `Jenkinsfile` | Triển khai production, xem [DEPLOY.md](DEPLOY.md) |
+| `deploy/`, `scripts/`, `docker-compose.yml`, `.github/workflows/ci-cd.yml` | Triển khai production, xem [DEPLOY.md](DEPLOY.md) |
 
 ## Chạy trên máy phát triển
 

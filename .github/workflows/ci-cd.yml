@@ -1,0 +1,253 @@
+# CI/CD for Atlas Restaurant (replaces the Jenkins multibranch job "ordering").
+# Branch model:  feature/* ──PR──> develop ──(automatic)──> main
+#   every push / PR      : CI = backend tests (incl. prod profile on PostgreSQL) + mobile typecheck, lint, web build
+#   develop              : CI + disposable STAGING on the GitHub runner (build, smoke-test, throw away)
+#                          + PROMOTE: fast-forward main to this commit + DEPLOY production + APK if mobile/ changed
+#   main (pushed by hand): CI + DEPLOY production + APK if mobile/ changed
+#   nightly 03:00 (VN)   : DB backup only
+# A push made with GITHUB_TOKEN starts no new run, so the develop run deploys the promoted commit itself.
+# Only docs/** or *.md changed: no tests, no staging, no deploy (develop still promotes so main keeps up).
+# Production runs on the server 163.61.182.201: the job connects over SSH with a key that can only run
+# deploy/ci-ssh-gate.sh ("deploy <sha>" or "backup"); the production .env never leaves the server.
+#
+# Repository secrets: DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS (required for deploy and backup),
+#                     EXPO_TOKEN (APK build), TELEGRAM_BOT_TOKEN (notifications). Missing optional ones are skipped.
+name: CI/CD
+
+on:
+  push:
+  pull_request:
+    branches: [develop, main]
+  schedule:
+    - cron: '0 20 * * *'   # 20:00 UTC = 03:00 Asia/Ho_Chi_Minh
+  workflow_dispatch:
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  DEPLOY_HOST: 163.61.182.201
+  DEPLOY_USER: coder
+  PUBLIC_URL: https://order.atlasplatform12.tech
+  TELEGRAM_CHAT_ID: '6822487436'
+
+jobs:
+  plan:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.diff.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          BEFORE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          # any doubt (new branch, history rewritten, nothing changed) -> run everything
+          docs_only=false
+          if [ -n "$BEFORE" ] && ! echo "$BEFORE" | grep -qE '^0+$' && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            files=$(git diff --name-only "$BEFORE" "$GITHUB_SHA")
+            if [ -n "$files" ] && ! echo "$files" | grep -qvE '^docs/|[.]md$'; then docs_only=true; fi
+          fi
+          echo "docs only: $docs_only"
+          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
+
+  backend:
+    needs: plan
+    if: needs.plan.outputs.docs_only != 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      # embedded PostgreSQL (PostgresProdProfileTest) refuses root; the GitHub runner user is not root
+      - run: mvn -B verify
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: backend/target/surefire-reports/
+          retention-days: 7
+
+  mobile:
+    needs: plan
+    if: needs.plan.outputs.docs_only != 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      CI: '1'
+      EXPO_PUBLIC_API_URL: https://order.atlasplatform12.tech
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsc --noEmit
+      - run: npx expo lint
+      - run: npx expo export --platform web
+
+  # Same compose file and Dockerfiles as production, own project/ports/empty DB/random secrets, on the runner.
+  staging:
+    needs: [plan, backend, mobile]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop' && needs.plan.outputs.docs_only != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: scripts/staging-test.sh
+
+  # Fast-forward only: if main has commits develop does not have, nothing is pushed and the run fails.
+  promote:
+    needs: [plan, backend, mobile, staging]
+    if: >-
+      !cancelled() && !contains(needs.*.result, 'failure')
+      && github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      previous_main: ${{ steps.push.outputs.previous_main }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: push
+        run: |
+          git fetch -q origin main
+          prev=$(git rev-parse FETCH_HEAD)
+          if ! git merge-base --is-ancestor "$prev" "$GITHUB_SHA"; then
+            echo "::error::main has commits that develop does not have: merge main into develop first"; exit 1
+          fi
+          git push -q origin "$GITHUB_SHA:refs/heads/main"
+          echo "previous_main=$prev" >> "$GITHUB_OUTPUT"
+          echo "main -> $GITHUB_SHA"
+
+  deploy:
+    needs: [plan, backend, mobile, staging, promote]
+    if: >-
+      !cancelled() && !contains(needs.*.result, 'failure') && needs.plan.outputs.docs_only != 'true'
+      && github.event_name == 'push'
+      && (github.ref == 'refs/heads/main' || (github.ref == 'refs/heads/develop' && needs.promote.result == 'success'))
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://order.atlasplatform12.tech
+    concurrency:
+      group: production
+      cancel-in-progress: false
+    steps:
+      - name: SSH key
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          if [ -z "$KEY" ] || [ -z "$KNOWN_HOSTS" ]; then
+            echo "::error::secrets DEPLOY_SSH_KEY and DEPLOY_KNOWN_HOSTS are required"; exit 1
+          fi
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+      # backup DB -> build images -> wait healthy -> check; rolls back to the previous images on failure
+      - name: Deploy on the server
+        run: ssh -i ~/.ssh/deploy -o BatchMode=yes -o ServerAliveInterval=30 "$DEPLOY_USER@$DEPLOY_HOST" "deploy $GITHUB_SHA"
+
+  # The deploy has already succeeded, so a failure here never fails the run.
+  apk:
+    needs: [plan, promote, deploy]
+    if: ${{ !cancelled() && needs.deploy.result == 'success' }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    outputs:
+      link: ${{ steps.build.outputs.link }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: changed
+        env:
+          BASE: ${{ needs.promote.outputs.previous_main || github.event.before }}
+        run: |
+          # backend-only releases need no new APK (the app just calls the API); the free EAS plan has a monthly quota
+          if [ -n "$BASE" ] && git cat-file -e "$BASE^{commit}" 2>/dev/null && git diff --quiet "$BASE" "$GITHUB_SHA" -- mobile/; then
+            echo "mobile/ unchanged: no APK"; echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.changed.outputs.build == 'true'
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - id: build
+        if: steps.changed.outputs.build == 'true'
+        working-directory: mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: '1'
+        run: |
+          [ -n "$EXPO_TOKEN" ] || { echo "no EXPO_TOKEN secret: APK build skipped"; exit 0; }
+          npm ci --no-audit --no-fund
+          out=$(npx --yes eas-cli@latest build -p android --profile preview --non-interactive --no-wait 2>&1) || { echo "$out"; exit 1; }
+          echo "$out"
+          link=$(echo "$out" | grep -oE 'https://expo\.dev/\S+/builds/\S+' | head -1)
+          echo "link=${link:-https://expo.dev}" >> "$GITHUB_OUTPUT"
+
+  backup:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST" backup
+
+  # Telegram message with commit and run link. A missing token or network error only logs.
+  notify:
+    needs: [plan, backend, mobile, staging, promote, deploy, apk, backup]
+    if: ${{ always() && github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          FAILED: ${{ contains(needs.*.result, 'failure') }}
+          DOCS_ONLY: ${{ needs.plan.outputs.docs_only }}
+          DEPLOYED: ${{ needs.deploy.result == 'success' }}
+          PROMOTED: ${{ needs.promote.result == 'success' }}
+          APK_LINK: ${{ needs.apk.outputs.link }}
+          SCHEDULED: ${{ github.event_name == 'schedule' }}
+          BRANCH: ${{ github.ref_name }}
+          COMMIT: ${{ github.event.head_commit.message || github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$FAILED" = true ]; then title="❌ [ordering] $BRANCH #$GITHUB_RUN_NUMBER THẤT BẠI"
+          elif [ "$SCHEDULED" = true ]; then exit 0
+          elif [ "$DOCS_ONLY" = true ]; then title="📄 [ordering] $BRANCH: chỉ đổi tài liệu, bỏ qua test và deploy"
+          elif [ "$DEPLOYED" = true ]; then title="✅ [ordering] Đã deploy PRODUCTION $PUBLIC_URL"
+          elif [ "$PROMOTED" = true ]; then title="✅ [ordering] Staging test đạt, đã đẩy lên main"
+          else exit 0; fi
+          [ -z "$APK_LINK" ] || title="$title"$'\n'"📱 Đã gửi build APK lên EAS: $APK_LINK"
+          [ -n "$TG_TOKEN" ] || { echo "no TELEGRAM_BOT_TOKEN secret: $title"; exit 0; }
+          text="$title"$'\n'"${GITHUB_SHA::7} ${COMMIT%%$'\n'*}"$'\n'"$RUN_URL"
+          curl -fsS -o /dev/null --max-time 10 "https://api.telegram.org/bot$TG_TOKEN/sendMessage" \
+            --data-urlencode chat_id="$TELEGRAM_CHAT_ID" --data-urlencode text="$text" || echo "Telegram not sent"

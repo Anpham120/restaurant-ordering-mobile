@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Disposable staging: build the stack from this checkout, smoke-test it, then remove everything.
-#   scripts/staging-test.sh        build -> test -> tear down (what Jenkins runs for the develop branch)
+#   scripts/staging-test.sh        build -> test -> tear down (what GitHub Actions runs for the develop branch)
 #   scripts/staging-test.sh keep   same, but leave the stack running for manual testing
 #   scripts/staging-test.sh down   tear down a stack left by "keep"
 # Nothing is shared with production: own Compose project (ordering-staging) so own empty database volume, own image
