@@ -22,6 +22,9 @@ interface SessionValue {
   clearNotice: () => void;
   /** Counts sign-ins and registrations of this run (not restored sessions): the promotion popup is shown once per sign-in. */
   welcomeSeq: number;
+  /** Campaigns muted only for this app run/login session; never persisted. */
+  hiddenPromos: ReadonlySet<number>;
+  hidePromo: (id: number) => void;
 }
 
 export const SESSION_EXPIRED = 'Phiên đăng nhập đã hết hiệu lực, vui lòng đăng nhập lại.';
@@ -45,14 +48,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [notice, setNotice] = useState<string | null>(null);
   // 1: opening the app is a visit too (promotion popup), every sign-in adds one
   const [welcomeSeq, setWelcomeSeq] = useState(1);
+  const [hiddenPromos, setHiddenPromos] = useState<ReadonlySet<number>>(() => new Set());
 
   const persist = useCallback((s: Stored | null) => {
     setAuthToken(s?.token ?? null);
     setState(s);
+    if (!s) setHiddenPromos(new Set());
     void (s ? AsyncStorage.setItem(KEY, JSON.stringify(s)) : AsyncStorage.removeItem(KEY)).catch(() => undefined);
   }, []);
 
   useEffect(() => {
+    // Discard the old device-wide preference; it must not affect any new session.
+    void AsyncStorage.removeItem('atlas.promo.hidden.v1').catch(() => undefined);
     let alive = true;
     (async () => {
       try {
@@ -89,15 +96,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     ready,
     user: state?.user ?? null,
     token: state?.token ?? null,
-    login: async (login, password) => { const u = accept(await api.login(login, password)); setWelcomeSeq((n) => n + 1); return u; },
-    register: async (b) => { const u = accept(await api.register(b)); setWelcomeSeq((n) => n + 1); return u; },
+    login: async (login, password) => { const u = accept(await api.login(login, password)); setHiddenPromos(new Set()); setWelcomeSeq((n) => n + 1); return u; },
+    register: async (b) => { const u = accept(await api.register(b)); setHiddenPromos(new Set()); setWelcomeSeq((n) => n + 1); return u; },
     logout: () => persist(null),
     setUser: (u) => { if (state) persist({ token: state.token, user: u }); },
     acceptAuth: accept,
     notice,
     clearNotice: () => setNotice(null),
     welcomeSeq,
-  }), [ready, state, accept, persist, notice, welcomeSeq]);
+    hiddenPromos,
+    hidePromo: (id) => setHiddenPromos((ids) => new Set(ids).add(id)),
+  }), [ready, state, accept, persist, notice, welcomeSeq, hiddenPromos]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -15,7 +15,7 @@ const CTA: Record<Promotion['targetType'], string> = { VOUCHER: 'Lấy mã', MEN
 /**
  * Pop-up with the newest running campaigns, shown once when the app opens and once after each sign-in. Swipe sideways to read all of them
  * (arrows and dots for mouse users); the campaigns stay in the banner on the home screen afterwards.
- * Each campaign can be muted for good ("Không hiển thị lại quảng cáo này"): it leaves the pop-up but stays in the banner.
+ * Each campaign can be muted for this login session: it leaves the pop-up but stays in the banner.
  */
 export function PromoPopup({ promotions, visible, onClose, onOpen, onHide }: {
   promotions: Promotion[]; visible: boolean; onClose: () => void; onOpen: (p: Promotion) => void; onHide: (p: Promotion) => void;
@@ -61,9 +61,9 @@ export function PromoPopup({ promotions, visible, onClose, onOpen, onHide }: {
                     <View style={styles.code}><Txt weight="extrabold" size={18} color={colors.primaryText} style={{ letterSpacing: 1 }}>{p.voucherCode}</Txt></View>
                   ) : null}
                   <Button title={p.targetType === 'VOUCHER' ? 'Lấy mã ưu đãi' : CTA[p.targetType]} onPress={() => (p.targetType === 'NONE' ? onClose() : onOpen(p))} />
-                  <Pressable accessibilityRole="button" accessibilityLabel={`Không hiển thị lại quảng cáo ${p.title}`} onPress={() => onHide(p)} hitSlop={6}
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Không hiển thị lại quảng cáo ${p.title} trong phiên này`} onPress={() => onHide(p)} hitSlop={6}
                     style={({ pressed }) => [styles.mute, pressed && { opacity: 0.6 }]}>
-                    <Txt weight="semibold" size={13} color={colors.muted}>Không hiển thị lại quảng cáo này</Txt>
+                    <Txt weight="semibold" size={13} color={colors.muted}>Không hiển thị lại trong phiên này</Txt>
                   </Pressable>
                 </View>
               ))}

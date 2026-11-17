@@ -25,6 +25,30 @@ In the output, you'll find options to open the app in a
 
 You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
+## Promotion popup behavior and checks
+
+The welcome popup appears on app start and after successful login/registration.
+X closes that welcome popup without muting a campaign. “Không hiển thị lại trong
+phiên này” mutes only that campaign until logout, expiration, another successful
+login/registration, or a fresh app run. Home-screen remounts and profile/token
+refreshes retain the choices. The home banner remains available.
+
+Muted IDs stay in `SessionProvider` memory. The old device-wide
+`atlas.promo.hidden.v1` preference is ignored and removed on startup.
+
+Run from `mobile/`:
+
+```bash
+npm test -- --runInBand
+npm run lint
+npx tsc --noEmit
+npx expo export --platform web
+```
+
+Before merging, also check on Android/iOS: mute a campaign, change tabs, log out
+and back in, then register a different customer on the same device. The popup
+must become eligible again at each new login/registration when live campaigns exist.
+
 ## Build APK (Android)
 
 The APK is built in the cloud with EAS Build and talks to the production API
