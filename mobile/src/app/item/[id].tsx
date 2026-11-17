@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -9,6 +9,7 @@ import { Button } from '@/components/button';
 import { PhoneFrame } from '@/components/phone';
 import { Txt } from '@/components/txt';
 import { Badge, ErrorBox, Field, FoodImage, Loading, Stars, Stepper } from '@/components/ui';
+import { track } from '@/lib/analytics';
 import { api, errorMessage, type MenuItemDetail, type OptionGroup } from '@/lib/api';
 import { useCart } from '@/lib/cart';
 import { dateTime, money } from '@/lib/format';
@@ -22,6 +23,9 @@ export default function ItemScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const itemId = Number(id);
   const { data, error, loading, reload, setData } = useLoad<MenuItemDetail>(() => api.item(itemId), [itemId]);
+  const viewed = data?.item.id;
+  // once per dish opened (not again when the favorite flag changes)
+  useEffect(() => { if (data && viewed) track.viewItem(data.item); }, [viewed]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <PhoneFrame bg={colors.white}>
       {loading && !data ? <Loading /> : error && !data ? <View style={{ padding: 16, paddingTop: 72 }}><ErrorBox message={error} onRetry={reload} /></View>

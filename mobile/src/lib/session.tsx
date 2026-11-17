@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import { track } from './analytics';
 import { api, setAuthToken, setMustChangePasswordHandler, setUnauthorizedHandler, type AuthResponse, type Role, type User } from './api';
 
 const KEY = 'atlas.session.v1';
@@ -90,14 +91,28 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return () => { setUnauthorizedHandler(null); setMustChangePasswordHandler(null); };
   }, [persist]);
 
+  // Analytics follows the signed-in user: customers are counted by account id (retention across devices),
+  // guests anonymously, back-office roles not at all.
+  const userId = state?.user.id;
+  const role = state?.user.role;
+  useEffect(() => {
+    if (ready) track.identify(userId && role ? { id: userId, role } : null);
+  }, [ready, userId, role]);
+
   const accept = useCallback((r: AuthResponse) => { persist({ token: r.token, user: r.user }); setNotice(null); return r.user; }, [persist]);
 
   const value = useMemo<SessionValue>(() => ({
     ready,
     user: state?.user ?? null,
     token: state?.token ?? null,
-    login: async (login, password) => { const u = accept(await api.login(login, password)); setHiddenPromos(new Set()); setWelcomeSeq((n) => n + 1); return u; },
-    register: async (b) => { const u = accept(await api.register(b)); setHiddenPromos(new Set()); setWelcomeSeq((n) => n + 1); return u; },
+    login: async (login, password) => {
+      const u = accept(await api.login(login, password)); track.identify(u); track.login();
+      setHiddenPromos(new Set()); setWelcomeSeq((n) => n + 1); return u;
+    },
+    register: async (b) => {
+      const u = accept(await api.register(b)); track.identify(u); track.signUp();
+      setHiddenPromos(new Set()); setWelcomeSeq((n) => n + 1); return u;
+    },
     logout: () => persist(null),
     setUser: (u) => { if (state) persist({ token: state.token, user: u }); },
     acceptAuth: accept,

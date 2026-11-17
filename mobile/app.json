@@ -12,6 +12,7 @@
     },
     "android": {
       "package": "tech.atlasplatform12.order",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#C2410C",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -49,7 +50,9 @@
           "photosPermission": false,
           "microphonePermission": false
         }
-      ]
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/analytics"
     ],
     "experiments": {
       "typedRoutes": false,

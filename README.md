@@ -69,6 +69,28 @@ Mã lỗi:
 
 Body lỗi luôn có dạng `{"status": ..., "error": "thông báo tiếng Việt"}`.
 
+## Đo lường giữ chân người dùng (Firebase Analytics)
+
+App gửi dữ liệu sử dụng lên **Google Analytics for Firebase**, project `atlas---restaurant`. Báo cáo **Retention** nằm trong Firebase console, mục *Analytics → Retention* (hoặc Google Analytics → *Reports → Retention*). Báo cáo chia khách thành từng nhóm theo tuần bắt đầu dùng, rồi cho biết bao nhiêu % quay lại ở tuần 1, 2, 3…
+
+- **Android:** dùng React Native Firebase (`@react-native-firebase/analytics`). Cấu hình lấy từ `mobile/google-services.json`, gắn qua `expo.android.googleServicesFile` trong `app.json`.
+- **Web:** dùng Firebase JS SDK, cấu hình đặt trong `mobile/src/lib/firebase-web-config.ts`. Nếu cấu hình là `null` thì bản web không gửi gì.
+- **Expo Go:** không có native module của Firebase, nên trên Expo Go analytics không làm gì. Muốn thử analytics trên điện thoại phải dùng APK build bằng EAS.
+
+| Sự kiện | Khi nào |
+|---|---|
+| `first_open`, `session_start`, `user_engagement` | Firebase tự ghi. Báo cáo Retention dựa trên các sự kiện này |
+| `screen_view` | Mỗi lần chuyển màn hình. Đường dẫn có id được gộp lại, ví dụ `/order/[id]` |
+| `sign_up`, `login` | Đăng ký và đăng nhập |
+| `view_item`, `add_to_cart`, `view_cart`, `purchase` | Phễu đặt hàng, giá trị tính bằng VND. `purchase` kèm mã đơn, phí giao, mã giảm giá và cách thanh toán |
+
+**Quyền riêng tư:**
+- **Chỉ đo khách:** chỉ đo khách hàng và khách chưa đăng nhập. Với tài khoản nhân viên, bếp, shipper, quản lý, app tắt thu thập, để số liệu retention không bị lẫn.
+- **User ID:** dùng id tài khoản khách (`setUserId`), để một khách dùng nhiều máy vẫn tính là một người. App không gửi tên, số điện thoại hay email.
+- **Không quảng cáo:** từ chối `ad_storage`, `ad_user_data`, `ad_personalization`, khai báo trong `mobile/firebase.json` và trong code. Analytics chỉ dùng để đo, không dùng cho quảng cáo.
+
+Code: `mobile/src/lib/analytics-events.ts` (sự kiện và quy tắc, có test), `analytics.native.ts` (Android), `analytics.ts` (web).
+
 ## Giới hạn hiện tại
 
 - Thanh toán online chỉ có chuyển khoản VietQR qua SePay, chưa có thẻ hay ví điện tử.

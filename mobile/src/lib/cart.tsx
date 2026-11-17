@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import { track } from './analytics';
 import { api, type Cart, type CartLine } from './api';
 import { useSession } from './session';
 
@@ -50,6 +51,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     add: async (id, q, note, optionIds = []) => {
       const c = await api.addToCart(id, q, note, optionIds);
       setCart(c);
+      const ids = [...optionIds].sort().join(',');
+      const line = c.lines.find((l) => l.menuItemId === id && l.options.map((o) => o.id).sort().join(',') === ids);
+      if (line) track.addToCart(line, q);
       return c;
     },
     updateLine: async (lineId, q, note) => {
