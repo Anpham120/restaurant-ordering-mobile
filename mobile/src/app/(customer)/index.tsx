@@ -68,7 +68,7 @@ export default function Home() {
   };
   // once per app start and once per sign-in, guests included: the newest running campaigns in a popup, swipeable;
   // they stay in the banner below afterwards
-  // campaigns muted with "Không hiển thị lại" never come back in the pop-up (they stay in the banner)
+  // muted campaigns stay out of the pop-up only for this login session (they stay in the banner)
   const muted = useHiddenPromos();
   const popupPromos = useMemo(() => [...(data?.promotions ?? [])].filter((p) => !muted.hidden.has(p.id)).sort((a, b) => b.id - a.id).slice(0, 5),
     [data?.promotions, muted.hidden]);
@@ -77,7 +77,7 @@ export default function Home() {
   const mutePromo = (p: Promotion) => {
     muted.hide(p.id);
     if (popupPromos.length <= 1) closePopup();
-    toast.show('Đã ẩn quảng cáo này. Ưu đãi vẫn xem được ở banner trang chủ', 'info');
+    toast.show('Đã ẩn quảng cáo trong phiên này. Ưu đãi vẫn xem được ở banner trang chủ', 'info');
   };
   const promoVoucher = promo ? data?.vouchers.find((v) => v.id === promo.voucherId) : undefined;
 

@@ -99,6 +99,7 @@ jobs:
           cache: npm
           cache-dependency-path: mobile/package-lock.json
       - run: npm ci --no-audit --no-fund
+      - run: npm test -- --runInBand
       - run: npx tsc --noEmit
       - run: npx expo lint
       - run: npx expo export --platform web
