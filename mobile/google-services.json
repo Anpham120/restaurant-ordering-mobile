@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "599973154783",
+    "project_id": "atlas---restaurant",
+    "storage_bucket": "atlas---restaurant.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:599973154783:android:fb34d5d3745957706cbe6a",
+        "android_client_info": {
+          "package_name": "tech.atlasplatform12.order"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCFWf-o-cSMoEBEx0lL4SMWT5tAeNNRJTk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

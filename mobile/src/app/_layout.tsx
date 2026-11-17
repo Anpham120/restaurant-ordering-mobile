@@ -5,7 +5,7 @@ import { BeVietnamPro_700Bold } from '@expo-google-fonts/be-vietnam-pro/700Bold'
 import { BeVietnamPro_800ExtraBold } from '@expo-google-fonts/be-vietnam-pro/800ExtraBold';
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
-import { router, Stack, useSegments } from 'expo-router';
+import { router, Stack, usePathname, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { View } from 'react-native';
@@ -13,6 +13,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { Loading } from '@/components/ui';
+import { track } from '@/lib/analytics';
 import { CartProvider } from '@/lib/cart';
 import { SessionProvider, useSession } from '@/lib/session';
 import { colors } from '@/lib/theme';
@@ -23,6 +24,9 @@ function Gate() {
   const segments = useSegments();
   const here = segments[0] ?? '';
   const mustChange = !!user?.mustChangePassword;
+  const pathname = usePathname();
+  // screen_view for every route change (after the session is known, so staff screens are not counted)
+  useEffect(() => { if (ready) track.screen(pathname); }, [ready, pathname]);
   useEffect(() => {
     if (!ready) return;
     // temporary password: the API only allows /me and /change-password, so nothing else can be opened

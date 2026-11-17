@@ -10,6 +10,7 @@ import { Sheet } from '@/components/modal';
 import { PhoneFrame, TopBar } from '@/components/phone';
 import { Txt } from '@/components/txt';
 import { Empty, ErrorBox, Field, FoodImage, Line, Loading, Notice, Stepper } from '@/components/ui';
+import { track } from '@/lib/analytics';
 import { api, errorMessage, type Address, type CheckoutPreview, type PaymentMethod } from '@/lib/api';
 import { useCart } from '@/lib/cart';
 import { km, money, optionText } from '@/lib/format';
@@ -49,6 +50,9 @@ function Checkout() {
   const chosen = list.find((a) => a.id === addressId) ?? list.find((a) => a.isDefault) ?? list[0] ?? null;
 
   useEffect(() => { void refresh(); }, [refresh]);
+  // view_cart once per visit, as soon as the cart has lines
+  const hasLines = cart.lines.length > 0;
+  useEffect(() => { if (hasLines) track.viewCart(cart.lines, cart.subtotal); }, [hasLines]); // eslint-disable-line react-hooks/exhaustive-deps
   // the hint from a promotion banner is used once
   useEffect(() => { if (voucherHint) setVoucherHint(null); }, [voucherHint, setVoucherHint]);
 
@@ -69,6 +73,7 @@ function Checkout() {
     setPlacing(true);
     try {
       const order = await api.placeOrder({ addressId: chosen.id, voucherCode: voucher, note: note.trim() || null, paymentMethod: method });
+      track.purchase(order);
       replace({ lines: [], itemCount: 0, subtotal: 0, hasProblems: false });
       if (order.status === 'AWAITING_PAYMENT') {
         toast.show('Đã tạo đơn, vui lòng chuyển khoản để hoàn tất', 'success');
