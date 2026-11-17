@@ -36,9 +36,9 @@ feature/xxx ──PR──> develop ──(tự động)──> main
 
 1. Tách nhánh tính năng từ `develop`: `git checkout develop && git pull && git checkout -b feature/ten-tinh-nang`.
 2. Đẩy nhánh lên GitHub: GitHub Actions chạy **CI** (test + kiểm tra mobile). Chưa deploy gì.
-3. Mở PR vào `develop`, CI xanh thì merge. GitHub Actions dựng **staging tạm** trên máy ảo của GitHub, chạy bộ smoke test rồi bỏ máy ảo.
+3. Mở PR vào `develop`, CI xanh thì merge. `develop` được bảo vệ: không push thẳng được, chỉ merge qua PR, và hai check `backend`, `mobile` phải đạt (PR chỉ đổi tài liệu thì hai job này được bỏ qua và vẫn tính là đạt). GitHub Actions dựng **staging tạm** trên máy ảo của GitHub, chạy bộ smoke test rồi bỏ máy ảo.
 4. Staging test đạt thì workflow **tự đẩy commit đó lên `main`** (chỉ fast-forward, bằng `GITHUB_TOKEN`), rồi **deploy production** ngay trong cùng lần chạy. Lần đẩy bằng `GITHUB_TOKEN` không tạo lần chạy mới, nên không bị deploy hai lần. Nếu `main` có commit mà `develop` không có, workflow dừng lại và báo lỗi: merge `main` vào `develop` trước.
-5. Không commit thẳng vào `main`. Nếu có đẩy thẳng, workflow vẫn chạy CI rồi deploy. Muốn bật *Branch protection* cho `main` thì phải cho GitHub Actions đẩy thẳng (bypass), nếu không bước tự đẩy sẽ bị từ chối.
+5. Không mở PR `develop` → `main` và không commit thẳng vào `main`: merge bằng PR tạo merge commit trên `main` mà `develop` không có, các lần promote sau sẽ thất bại. Nếu có đẩy thẳng, workflow vẫn chạy CI rồi deploy. Muốn bật *Branch protection* cho `main` thì phải cho GitHub Actions đẩy thẳng (bypass), nếu không bước tự đẩy sẽ bị từ chối.
 
 Xem các lần chạy ở tab **Actions** của repo. Lịch sử deploy nằm ở môi trường **production** (mục *Deployments*).
 
