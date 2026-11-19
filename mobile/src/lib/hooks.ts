@@ -13,17 +13,25 @@ export function useLoad<T>(fn: () => Promise<T>, deps: readonly unknown[] = [], 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const fnRef = useRef(fn);
+  const requestSeq = useRef(0);
+  const pending = useRef(false);
   useEffect(() => { fnRef.current = fn; });
 
   const load = useCallback(async () => {
+    const seq = ++requestSeq.current;
+    pending.current = true;
     try {
       const d = await fnRef.current();
+      if (seq !== requestSeq.current) return;
       setData(d);
       setError(null);
     } catch (e) {
-      setError(errorMessage(e));
+      if (seq === requestSeq.current) setError(errorMessage(e));
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) {
+        pending.current = false;
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -31,9 +39,11 @@ export function useLoad<T>(fn: () => Promise<T>, deps: readonly unknown[] = [], 
   useFocusEffect(
     useCallback(() => {
       void load();
-      if (!intervalMs) return undefined;
-      const t = setInterval(() => { void load(); }, intervalMs);
-      return () => clearInterval(t);
+      const t = intervalMs ? setInterval(() => { if (!pending.current) void load(); }, intervalMs) : null;
+      return () => {
+        requestSeq.current++; // responses from a previous focus/account must not replace the current data
+        if (t) clearInterval(t);
+      };
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [load, intervalMs, key]),
   );

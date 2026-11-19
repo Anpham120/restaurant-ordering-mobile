@@ -33,6 +33,10 @@ phiên này” mutes only that campaign until logout, expiration, another succes
 login/registration, or a fresh app run. Home-screen remounts and profile/token
 refreshes retain the choices. The home banner remains available.
 
+Viewing a category, dish, or voucher never removes a home banner or its pagination.
+Running voucher campaigns stay visible for information after the customer's own
+usage limit is reached; checkout still refuses another use of that voucher.
+
 Muted IDs stay in `SessionProvider` memory. The old device-wide
 `atlas.promo.hidden.v1` preference is ignored and removed on startup.
 

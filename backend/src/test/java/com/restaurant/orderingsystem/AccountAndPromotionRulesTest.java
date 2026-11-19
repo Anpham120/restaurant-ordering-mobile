@@ -128,7 +128,7 @@ class AccountAndPromotionRulesTest extends ApiTestBase {
     }
 
     @Test
-    void bannersAreFilteredPerCustomer() throws Exception {
+    void bannersKeepUsedVouchersVisibleWithoutAllowingReuse() throws Exception {
         String code = "B" + uniq().toUpperCase();
         long voucher = json(as(manager, post("/api/admin/vouchers"), "{\"code\":\"" + code + "\",\"discountType\":\"AMOUNT\",\"discountValue\":10000,\"perUserLimit\":1}")).get("id").asLong();
         long vPromo = json(as(manager, post("/api/admin/promotions"), "{\"title\":\"Mã " + code + "\",\"imageUrl\":\"https://example.com/v.jpg\","
@@ -140,8 +140,17 @@ class AccountAndPromotionRulesTest extends ApiTestBase {
         String other = register();
         as(customer, get("/api/promotions")).andExpect(jsonPath("$[?(@.id==" + vPromo + ")]").isNotEmpty());
         placeOrder(customer, code);                                                    // customer uses up the voucher
-        as(customer, get("/api/promotions")).andExpect(jsonPath("$[?(@.id==" + vPromo + ")]").isEmpty());
+        as(customer, get("/api/promotions")).andExpect(jsonPath("$[?(@.id==" + vPromo + ")]").isNotEmpty());
         as(other, get("/api/promotions")).andExpect(jsonPath("$[?(@.id==" + vPromo + ")]").isNotEmpty());
+
+        long nextAddress = address(customer);
+        cart(customer, pho, 2).andExpect(status().isOk());
+        as(customer, post("/api/me/checkout/preview"), "{\"addressId\":" + nextAddress + ",\"voucherCode\":\"" + code + "\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.discount").value(0))
+                .andExpect(jsonPath("$.voucherMessage", containsString("hết lượt")));
+        as(customer, post("/api/me/orders"), "{\"addressId\":" + nextAddress + ",\"voucherCode\":\"" + code + "\"}")
+                .andExpect(status().isBadRequest());
 
         as(null, get("/api/promotions")).andExpect(jsonPath("$[?(@.id==" + dPromo + ")]").isNotEmpty());
         as(kitchen, patch("/api/manage/menu-items/" + dish + "/availability"), "{\"available\":false}").andExpect(status().isOk());
