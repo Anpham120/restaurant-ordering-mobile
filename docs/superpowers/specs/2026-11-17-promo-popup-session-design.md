@@ -21,3 +21,11 @@ AsyncStorage key currently hides campaigns for subsequent logins and new account
 
 Use the existing Expo SDK 58 stack. Add regression tests using Expo's recommended
 Jest preset and React Native Testing Library; do not change runtime dependencies.
+
+## 2026-11-19 refinement
+
+The customer chose to keep running voucher banners visible for information after
+their personal voucher limit is reached. This requires a backend display-rule
+change; checkout must continue rejecting voucher reuse. Opening the advertised
+category, dish, or voucher must retain every home banner and its pagination.
+Late responses from an earlier account/focus must not overwrite newer screen data.
