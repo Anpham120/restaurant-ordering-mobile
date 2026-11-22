@@ -1,6 +1,6 @@
 /**
  * Tạo 2 phiếu khảo sát Google Forms cho đề tài Atlas Restaurant:
- *   1. Khảo sát nghiệp vụ (trước khi xây dựng: quy trình hiện tại, nhu cầu chức năng)
+ *   1. Khảo sát nghiệp vụ (phỏng vấn chủ nhà hàng: quy trình hiện tại, yêu cầu đối với hệ thống)
  *   2. Khảo sát trải nghiệm người dùng (sau khi dùng thử ứng dụng)
  *
  * Cách dùng:
@@ -26,172 +26,123 @@ function taoTatCa() {
 // ---------------------------------------------------------------------------------------------
 function khaoSatNghiepVu_() {
   return {
-    title: 'Phiếu khảo sát nghiệp vụ – Hệ thống đặt món giao tận nơi Atlas Restaurant',
+    title: 'Phiếu khảo sát nghiệp vụ – Hệ thống đặt món giao tận nhà Atlas Restaurant',
     description:
-      'Xin chào anh/chị! ' + NHOM + ' đang xây dựng ứng dụng đặt món giao tận nơi cho nhà hàng ' +
-      '(khách đặt món trên điện thoại, quầy xác nhận đơn, bếp chế biến, shipper giao và xác nhận bằng ảnh, ' +
-      'thanh toán khi nhận hàng hoặc chuyển khoản VietQR).\n\n' +
-      'Phiếu này tìm hiểu quy trình bán hàng giao tận nơi hiện tại và nhu cầu thực tế, để nhóm xác định đúng yêu cầu của hệ thống. ' +
-      'Thông tin chỉ dùng cho mục đích học tập và không được công khai. Thời gian trả lời khoảng 5–7 phút.',
-    thanks: 'Cảm ơn anh/chị đã dành thời gian tham gia khảo sát! Ý kiến của anh/chị giúp nhóm xây dựng hệ thống sát với thực tế hơn.',
+      'Kính gửi Anh/Chị chủ nhà hàng! ' + NHOM + ' đang xây dựng ứng dụng đặt món giao tận nhà cho nhà hàng: ' +
+      'khách đặt món trên điện thoại, nhân viên quầy xác nhận đơn, bếp chế biến, shipper giao hàng và xác nhận bằng ảnh, ' +
+      'thanh toán tiền mặt khi nhận hàng hoặc chuyển khoản VietQR.\n\n' +
+      'Phiếu này nhằm tìm hiểu quy trình bán hàng giao tận nhà hiện tại của nhà hàng và các yêu cầu đối với hệ thống. ' +
+      'Thông tin chỉ được sử dụng cho mục đích học tập và không công khai.',
+    thanks: 'Trân trọng cảm ơn Anh/Chị đã dành thời gian tham gia khảo sát!',
     pages: [
       {
-        key: 'info', title: 'Thông tin người tham gia',
+        key: 'a', title: 'Phần A. Thông tin chung về nhà hàng',
         questions: [
-          { type: 'text', title: 'Họ và tên', optional: true },
-          { type: 'text', title: 'Tên cửa hàng / nhà hàng anh/chị đang làm việc', optional: true, help: 'Khách hàng bỏ qua câu này.' },
-          {
-            type: 'mc', title: 'Loại hình kinh doanh của cửa hàng', optional: true, other: true, help: 'Khách hàng bỏ qua câu này.',
-            choices: ['Quán ăn nhỏ', 'Nhà hàng', 'Chuỗi nhà hàng nhiều chi nhánh', 'Quán cà phê, đồ uống', 'Bếp online (chỉ bán mang đi, giao hàng)'],
-          },
-          {
-            type: 'mc', title: 'Số đơn giao tận nơi trung bình mỗi ngày của cửa hàng', optional: true, help: 'Khách hàng bỏ qua câu này.',
-            choices: ['Dưới 10 đơn', '10 – 30 đơn', '30 – 60 đơn', '60 – 100 đơn', 'Trên 100 đơn'],
-          },
-          {
-            type: 'mc', title: 'Vai trò của anh/chị',
-            help: 'Phiếu sẽ chuyển tới phần câu hỏi dành riêng cho vai trò này.',
-            choices: ['Chủ cửa hàng / Quản lý', 'Nhân viên nhận đơn, thu ngân', 'Nhân viên bếp', 'Nhân viên giao hàng (shipper)', 'Khách hàng thường đặt món giao tận nơi'],
-            branch: {
-              'Chủ cửa hàng / Quản lý': 'ql',
-              'Nhân viên nhận đơn, thu ngân': 'nv',
-              'Nhân viên bếp': 'bep',
-              'Nhân viên giao hàng (shipper)': 'ship',
-              'Khách hàng thường đặt món giao tận nơi': 'kh',
-            },
-          },
+          { type: 'text', title: 'Họ và tên người được khảo sát' },
+          { type: 'text', title: 'Chức vụ' },
+          { type: 'text', title: 'Tên nhà hàng' },
+          { type: 'text', title: 'Địa chỉ nhà hàng' },
+          { type: 'mc', title: 'Thời gian nhà hàng đã hoạt động', choices: ['Dưới 1 năm', '1 – 3 năm', '3 – 5 năm', 'Trên 5 năm'] },
+          { type: 'mc', title: 'Loại hình kinh doanh', other: true, choices: ['Quán ăn nhỏ', 'Nhà hàng', 'Chuỗi nhà hàng nhiều chi nhánh', 'Quán cà phê, đồ uống', 'Bếp online (chỉ bán mang đi, giao hàng)'] },
+          { type: 'text', title: 'Số lượng nhân sự theo từng bộ phận' },
+          { type: 'mc', title: 'Số đơn giao tận nhà trung bình mỗi ngày', choices: ['Dưới 30 đơn', '30 – 60 đơn', '60 – 100 đơn', 'Trên 100 đơn'] },
+          { type: 'text', title: 'Giờ nhận đơn giao tận nhà và khung giờ cao điểm' },
         ],
       },
       {
-        key: 'ql', title: 'Dành cho chủ cửa hàng / quản lý', next: 'chung',
+        key: 'b', title: 'Phần B. Quy trình nhận và xử lý đơn hàng hiện tại',
         questions: [
           {
-            type: 'cb', title: 'Hiện cửa hàng nhận đơn giao tận nơi qua những kênh nào?', other: true,
-            choices: ['Gọi điện thoại', 'Nhắn tin Zalo / Messenger', 'Fanpage Facebook', 'Ứng dụng trung gian (GrabFood, ShopeeFood, BeFood…)', 'Website / ứng dụng riêng của cửa hàng'],
+            type: 'cb', title: 'Nhà hàng đang nhận đơn giao tận nhà qua những kênh nào?', other: true,
+            choices: ['Gọi điện thoại', 'Nhắn tin Zalo / Messenger', 'Fanpage Facebook', 'Ứng dụng trung gian (GrabFood, ShopeeFood, Be…)', 'Website / ứng dụng riêng của nhà hàng'],
           },
+          { type: 'text', title: 'Tỷ trọng đơn hàng theo từng kênh (ước tính)' },
           {
-            type: 'mc', title: 'Chiết khấu phải trả cho ứng dụng trung gian ảnh hưởng thế nào tới cửa hàng?',
-            choices: ['Rất lớn, ảnh hưởng nhiều tới lợi nhuận', 'Có ảnh hưởng nhưng chấp nhận được', 'Không đáng kể', 'Cửa hàng không dùng ứng dụng trung gian'],
+            type: 'mc', title: 'Chiết khấu trả cho ứng dụng trung gian ảnh hưởng thế nào tới nhà hàng?',
+            choices: ['Rất lớn, ảnh hưởng nhiều tới lợi nhuận', 'Có ảnh hưởng nhưng chấp nhận được', 'Không đáng kể', 'Nhà hàng không dùng ứng dụng trung gian'],
           },
+          { type: 'para', title: 'Anh/Chị mô tả các bước xử lý một đơn giao tận nhà hiện nay, từ lúc khách đặt đến lúc giao xong' },
+          { type: 'mc', title: 'Thời gian trung bình từ lúc khách đặt đến lúc nhận được món', choices: ['Dưới 30 phút', '30 – 45 phút', '45 – 60 phút', 'Trên 60 phút'] },
           {
-            type: 'mc', title: 'Thực đơn, giá bán và tình trạng còn/hết món đang được quản lý bằng cách nào?', other: true,
-            choices: ['Sổ sách, giấy tờ', 'Excel / Google Sheets', 'Phần mềm bán hàng (POS)', 'Không quản lý cụ thể'],
-          },
-          {
-            type: 'cb', title: 'Những khó khăn lớn nhất khi quản lý bán hàng giao tận nơi', other: true,
+            type: 'cb', title: 'Những khó khăn nhà hàng đang gặp khi bán hàng giao tận nhà', other: true,
             choices: [
               'Đơn đến từ nhiều kênh, dễ sót đơn',
-              'Ghi nhầm món, nhầm tùy chọn (size, topping, ít cay…)',
+              'Ghi nhầm món, nhầm tùy chọn (size, topping, mức đường…)',
               'Khó đối soát tiền khách chuyển khoản',
-              'Không biết đơn đang ở bước nào (bếp, đang giao…)',
+              'Khách gọi hỏi đơn đang ở bước nào',
               'Shipper báo đã giao nhưng khách nói chưa nhận',
               'Khách hủy đơn, "bom" hàng',
               'Khó thống kê doanh thu, món bán chạy',
               'Khó triển khai khuyến mãi, mã giảm giá',
-              'Khó phân quyền, quản lý nhân viên',
             ],
           },
-          {
-            type: 'cb', title: 'Cửa hàng thường dùng hình thức khuyến mãi nào?', other: true,
-            choices: ['Giảm theo phần trăm', 'Giảm một số tiền cố định', 'Miễn / giảm phí giao hàng', 'Ưu đãi cho khách mới', 'Áp dụng cho đơn từ một giá trị tối thiểu', 'Không chạy khuyến mãi'],
-          },
-          {
-            type: 'cb', title: 'Anh/chị muốn hệ thống có những báo cáo nào?', other: true,
-            choices: ['Doanh thu theo ngày / tuần / tháng', 'Món bán chạy', 'Số đơn theo trạng thái (hoàn thành, hủy, giao thất bại)', 'Doanh thu theo hình thức thanh toán', 'Hiệu quả của mã giảm giá', 'Đánh giá, góp ý của khách hàng'],
-          },
-          {
-            type: 'mc', title: 'Anh/chị muốn việc "đã giao hàng" được xác nhận bằng cách nào?', other: true,
-            choices: ['Shipper chụp ảnh tại nơi giao', 'Khách bấm "Đã nhận hàng" trên ứng dụng', 'Shipper gọi điện báo cửa hàng', 'Không cần xác nhận'],
-          },
+          { type: 'para', title: 'Một sự cố cụ thể nhà hàng gặp gần đây', optional: true },
         ],
       },
       {
-        key: 'nv', title: 'Dành cho nhân viên nhận đơn, thu ngân', next: 'chung',
+        key: 'c', title: 'Phần C. Thực đơn và chế biến',
         questions: [
-          { type: 'mc', title: 'Số đơn giao tận nơi anh/chị xử lý trong một ca', choices: ['Dưới 10 đơn', '10 – 30 đơn', '30 – 60 đơn', 'Trên 60 đơn'] },
-          { type: 'mc', title: 'Thời gian trung bình để nhận và ghi lại một đơn', choices: ['Dưới 1 phút', '1 – 3 phút', '3 – 5 phút', 'Trên 5 phút'] },
+          { type: 'text', title: 'Quy mô thực đơn (số món, các nhóm món)' },
           {
-            type: 'cb', title: 'Khách thường thanh toán đơn giao tận nơi bằng hình thức nào?', other: true,
-            choices: ['Tiền mặt khi nhận hàng (COD)', 'Chuyển khoản ngân hàng / quét mã QR', 'Ví điện tử (MoMo, ZaloPay…)', 'Thẻ ngân hàng'],
+            type: 'cb', title: 'Các tùy chọn khách thường yêu cầu khi gọi món', other: true,
+            choices: ['Cỡ phần (thường, lớn)', 'Thêm topping, thêm thịt', 'Mức đường, mức đá cho đồ uống', 'Mức cay', 'Ghi chú riêng (không hành, ít rau…)'],
           },
+          { type: 'mc', title: 'Thực đơn, giá bán và tình trạng còn/hết món đang được quản lý bằng cách nào?', other: true, choices: ['Sổ sách, giấy tờ', 'Excel / Google Sheets', 'Phần mềm bán hàng (POS)', 'Không quản lý cụ thể'] },
+          { type: 'mc', title: 'Khi một món hết nguyên liệu, khách được báo bằng cách nào?', other: true, choices: ['Gọi điện báo khách sau khi đã nhận đơn', 'Báo ngay khi khách gọi đặt', 'Không có quy trình cụ thể'] },
+          { type: 'mc', title: 'Bếp nhận đơn từ quầy bằng cách nào?', other: true, choices: ['Phiếu in hoặc viết tay', 'Nhân viên đọc to', 'Màn hình / máy tính bảng', 'Tin nhắn Zalo'] },
           {
-            type: 'mc', title: 'Anh/chị xác nhận khách đã chuyển khoản bằng cách nào?', other: true,
-            choices: ['Xem thông báo biến động số dư', 'Khách gửi ảnh chụp màn hình chuyển khoản', 'Đối chiếu sao kê cuối ngày', 'Chủ cửa hàng tự kiểm tra'],
-          },
-          {
-            type: 'mc', title: 'Khi một món hết nguyên liệu, khách được báo bằng cách nào?', other: true,
-            choices: ['Gọi điện báo khách sau khi đã nhận đơn', 'Báo ngay khi khách gọi đặt', 'Ghi chú nội bộ, không báo trước', 'Không có quy trình cụ thể'],
-          },
-          {
-            type: 'cb', title: 'Những việc tốn nhiều thời gian nhất của anh/chị', other: true,
-            choices: ['Ghi lại đơn và tùy chọn món', 'Chuyển đơn cho bếp', 'Trả lời khách hỏi đơn đang ở đâu', 'Đối soát tiền chuyển khoản', 'Liên hệ, điều phối shipper', 'Xử lý hủy đơn, đổi món'],
-          },
-        ],
-      },
-      {
-        key: 'bep', title: 'Dành cho nhân viên bếp', next: 'chung',
-        questions: [
-          {
-            type: 'mc', title: 'Bếp nhận đơn từ quầy bằng cách nào?', other: true,
-            choices: ['Phiếu in hoặc viết tay', 'Nhân viên đọc to', 'Màn hình / máy tính bảng', 'Tin nhắn Zalo'],
-          },
-          {
-            type: 'cb', title: 'Những sai sót thường xảy ra trong bếp', other: true,
-            choices: ['Làm nhầm món, nhầm tùy chọn', 'Bỏ sót ghi chú của khách', 'Làm sai thứ tự đơn', 'Không biết đơn đã bị hủy', 'Không báo kịp khi hết nguyên liệu', 'Không gặp sai sót đáng kể'],
+            type: 'cb', title: 'Những sai sót thường xảy ra ở khâu chế biến', other: true,
+            choices: ['Làm nhầm món, nhầm tùy chọn', 'Bỏ sót ghi chú của khách', 'Làm sai thứ tự đơn', 'Không biết đơn đã bị hủy', 'Không báo kịp khi hết nguyên liệu'],
           },
           {
             type: 'cb', title: 'Màn hình bếp cần hiển thị những thông tin nào?', other: true,
-            choices: ['Mã đơn và giờ đặt', 'Món, số lượng, tùy chọn', 'Ghi chú của khách', 'Thời gian chờ của từng đơn', 'Nút báo "đã làm xong"', 'Nút báo hết món'],
+            choices: ['Mã đơn và giờ đặt', 'Món, số lượng, tùy chọn', 'Ghi chú của khách', 'Thời gian chờ của từng đơn', 'Nút chuyển đơn sang "đang chuẩn bị", "đã xong"', 'Nút báo hết món'],
           },
-          { type: 'scale', title: 'Mức độ quan trọng của việc đơn được xếp theo thứ tự đến trước – làm trước', min: 1, max: 5, minLabel: 'Không quan trọng', maxLabel: 'Rất quan trọng' },
+          { type: 'text', title: 'Thời gian chế biến trung bình một đơn' },
         ],
       },
       {
-        key: 'ship', title: 'Dành cho nhân viên giao hàng (shipper)', next: 'chung',
+        key: 'd', title: 'Phần D. Giao hàng',
         questions: [
-          { type: 'mc', title: 'Hình thức làm việc của anh/chị', other: true, choices: ['Shipper riêng của cửa hàng', 'Shipper tự do nhận chuyến', 'Tài xế ứng dụng trung gian'] },
-          { type: 'mc', title: 'Số đơn anh/chị giao trung bình mỗi ngày', choices: ['Dưới 10 đơn', '10 – 20 đơn', '20 – 40 đơn', 'Trên 40 đơn'] },
-          {
-            type: 'mc', title: 'Anh/chị nhận thông tin đơn (địa chỉ, số điện thoại, số tiền cần thu) bằng cách nào?', other: true,
-            choices: ['Phiếu giấy', 'Tin nhắn Zalo / SMS', 'Gọi điện', 'Ứng dụng'],
-          },
-          {
-            type: 'cb', title: 'Những khó khăn khi giao hàng', other: true,
-            choices: ['Địa chỉ không rõ ràng', 'Khách không nghe máy', 'Khách "bom" hàng', 'Nhầm số tiền cần thu (COD)', 'Không có bằng chứng đã giao', 'Không biết đơn nào đã sẵn sàng để lấy'],
-          },
-          { type: 'mc', title: 'Anh/chị có sẵn sàng chụp ảnh tại nơi giao làm bằng chứng giao hàng không?', choices: ['Sẵn sàng', 'Đồng ý nếu thao tác nhanh', 'Không muốn'] },
-          {
-            type: 'mc', title: 'Khi giao không thành công, anh/chị thường xử lý thế nào?', other: true,
-            choices: ['Gọi báo cửa hàng', 'Mang hàng về cửa hàng', 'Chờ và liên hệ lại khách'],
-          },
+          { type: 'mc', title: 'Nhà hàng giao hàng bằng đội ngũ nào?', other: true, choices: ['Shipper riêng của nhà hàng', 'Thuê dịch vụ giao hàng theo chuyến', 'Chỉ giao qua ứng dụng trung gian'] },
+          { type: 'text', title: 'Phạm vi giao hàng' },
+          { type: 'text', title: 'Cách tính phí giao hàng' },
+          { type: 'text', title: 'Giá trị đơn hàng tối thiểu' },
+          { type: 'mc', title: 'Nhà hàng muốn việc "đã giao hàng" được xác nhận bằng cách nào?', other: true, choices: ['Shipper chụp ảnh tại nơi giao', 'Khách bấm "Đã nhận hàng" trên ứng dụng', 'Shipper gọi điện báo nhà hàng', 'Không cần xác nhận'] },
+          { type: 'para', title: 'Lý do lựa chọn cách xác nhận trên' },
+          { type: 'mc', title: 'Khi giao không thành công, nhà hàng xử lý thế nào?', other: true, choices: ['Shipper báo lý do, mang hàng về nhà hàng', 'Shipper chờ và liên hệ lại khách', 'Không có quy trình cụ thể'] },
+          { type: 'mc', title: 'Tỷ lệ đơn khách "bom" hàng hoặc giao không thành công', choices: ['Dưới 2%', '2 – 5%', '5 – 10%', 'Trên 10%'] },
         ],
       },
       {
-        key: 'kh', title: 'Dành cho khách hàng', next: 'chung',
+        key: 'e', title: 'Phần E. Thanh toán',
         questions: [
-          { type: 'mc', title: 'Anh/chị đặt món giao tận nơi thường xuyên như thế nào?', choices: ['Hằng ngày', '2 – 3 lần mỗi tuần', 'Vài lần mỗi tháng', 'Hiếm khi'] },
-          {
-            type: 'cb', title: 'Anh/chị thường đặt món qua kênh nào?', other: true,
-            choices: ['GrabFood', 'ShopeeFood', 'BeFood', 'Gọi điện trực tiếp cho quán', 'Nhắn tin Zalo / Facebook của quán', 'Website / ứng dụng riêng của quán'],
-          },
-          {
-            type: 'cb', title: 'Yếu tố quan trọng nhất khi anh/chị chọn đặt món (chọn tối đa 3)', max: 3,
-            choices: ['Giá món', 'Phí giao hàng', 'Thời gian giao', 'Hình ảnh, mô tả món rõ ràng', 'Đánh giá của khách khác', 'Khuyến mãi, mã giảm giá', 'Theo dõi được trạng thái đơn', 'Thanh toán tiện lợi'],
-          },
-          { type: 'mc', title: 'Hình thức thanh toán anh/chị ưa thích', other: true, choices: ['Tiền mặt khi nhận hàng (COD)', 'Chuyển khoản bằng mã QR', 'Ví điện tử', 'Thẻ ngân hàng'] },
-          {
-            type: 'cb', title: 'Điều anh/chị chưa hài lòng khi đặt món giao tận nơi', other: true,
-            choices: ['Không biết đơn đang ở đâu', 'Giao chậm', 'Món sai hoặc thiếu', 'Giá trên ứng dụng trung gian cao hơn tại quán', 'Gọi điện đặt món hay bị ghi nhầm', 'Khó áp dụng mã giảm giá', 'Không có hóa đơn'],
-          },
-          { type: 'scale', title: 'Nếu quán có ứng dụng đặt món riêng, anh/chị có sẵn sàng sử dụng không?', min: 1, max: 5, minLabel: 'Chắc chắn không', maxLabel: 'Chắc chắn có' },
+          { type: 'cb', title: 'Khách đang thanh toán đơn giao tận nhà bằng hình thức nào?', other: true, choices: ['Tiền mặt khi nhận hàng (COD)', 'Chuyển khoản ngân hàng / quét mã QR', 'Ví điện tử (MoMo, ZaloPay…)', 'Thẻ ngân hàng'] },
+          { type: 'text', title: 'Tỷ lệ giữa các hình thức thanh toán (ước tính)' },
+          { type: 'mc', title: 'Nhà hàng xác nhận khách đã chuyển khoản bằng cách nào?', other: true, choices: ['Xem thông báo biến động số dư', 'Khách gửi ảnh chụp màn hình chuyển khoản', 'Đối chiếu sao kê cuối ngày'] },
+          { type: 'cb', title: 'Hình thức thanh toán nhà hàng muốn hệ thống hỗ trợ', other: true, choices: ['Tiền mặt khi nhận hàng (COD)', 'Chuyển khoản bằng mã VietQR, tự động xác nhận khi tiền về', 'Ví điện tử', 'Thẻ ngân hàng'] },
+          { type: 'text', title: 'Thời gian giữ đơn chờ khách chuyển khoản' },
         ],
       },
       {
-        key: 'chung', title: 'Mức độ cần thiết của các chức năng',
-        description: 'Phần này dành cho tất cả người tham gia.',
+        key: 'f', title: 'Phần F. Khuyến mãi, khách hàng và quản lý',
+        questions: [
+          { type: 'cb', title: 'Nhà hàng thường dùng hình thức khuyến mãi nào?', other: true, choices: ['Giảm theo phần trăm, có mức giảm tối đa', 'Giảm một số tiền cố định', 'Miễn / giảm phí giao hàng', 'Ưu đãi cho khách đặt lần đầu', 'Áp dụng cho đơn từ một giá trị tối thiểu'] },
+          { type: 'para', title: 'Chương trình khuyến mãi nhà hàng dự kiến chạy khi đưa ứng dụng vào sử dụng' },
+          {
+            type: 'cb', title: 'Nhà hàng cần những báo cáo nào?', other: true,
+            choices: ['Doanh thu theo ngày / tuần / tháng', 'Món bán chạy', 'Số đơn theo trạng thái (hoàn thành, hủy, giao thất bại)', 'Doanh thu theo hình thức thanh toán', 'Hiệu quả của mã giảm giá', 'Tỷ lệ khách quay lại đặt hàng', 'Đánh giá, góp ý của khách hàng'],
+          },
+          { type: 'mc', title: 'Nhà hàng có muốn khách đánh giá món và gửi góp ý trên ứng dụng không?', choices: ['Có, và nhà hàng trả lời góp ý ngay trên ứng dụng', 'Có, chỉ cần xem đánh giá', 'Không cần'] },
+          { type: 'cb', title: 'Những bộ phận cần tài khoản riêng trên hệ thống', other: true, choices: ['Nhân viên quầy', 'Nhân viên bếp', 'Shipper', 'Quản lý'] },
+          { type: 'para', title: 'Yêu cầu về quản lý tài khoản nhân viên và bảo mật' },
+        ],
+      },
+      {
+        key: 'g', title: 'Phần G. Yêu cầu chức năng đối với hệ thống',
         questions: [
           {
-            type: 'grid', title: 'Theo anh/chị, mỗi chức năng sau cần thiết ở mức nào?', cols: CAN_THIET,
+            type: 'grid', title: 'Mức độ cần thiết của từng chức năng đối với nhà hàng', cols: CAN_THIET,
             rows: [
               'Xem thực đơn có hình ảnh, giá và tùy chọn món',
               'Đăng ký, đăng nhập bằng số điện thoại',
@@ -209,9 +160,11 @@ function khaoSatNghiepVu_() {
               'Quản lý thực đơn, nhân viên, mã giảm giá',
             ],
           },
-          { type: 'cb', title: 'Anh/chị sẽ dùng ứng dụng trên thiết bị nào?', choices: ['Điện thoại Android', 'iPhone', 'Máy tính bảng', 'Máy tính'] },
-          { type: 'para', title: 'Chức năng khác anh/chị mong muốn hệ thống có', optional: true },
-          { type: 'para', title: 'Ý kiến đóng góp khác', optional: true },
+          { type: 'text', title: 'Thiết bị sử dụng ở từng bộ phận' },
+          { type: 'mc', title: 'Yêu cầu về phát hành ứng dụng', other: true, choices: ['Phát hành ngay trên CH Play và App Store', 'Giai đoạn đầu dùng ứng dụng Android cài trực tiếp và bản web, phát hành lên kho sau', 'Chỉ cần bản web'] },
+          { type: 'para', title: 'Chức năng khác nhà hàng mong muốn', optional: true },
+          { type: 'para', title: 'Kỳ vọng của nhà hàng khi đưa hệ thống vào sử dụng' },
+          { type: 'para', title: 'Ý kiến khác', optional: true },
         ],
       },
     ],

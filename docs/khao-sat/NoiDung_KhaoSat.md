@@ -4,27 +4,38 @@ Nội dung sinh tự động từ `TaoForm_KhaoSat.gs` (cùng nguồn với Goog
 
 ---
 
-## 1. Phiếu khảo sát nghiệp vụ – Hệ thống đặt món giao tận nơi Atlas Restaurant
+## 1. Phiếu khảo sát nghiệp vụ – Hệ thống đặt món giao tận nhà Atlas Restaurant
 
-Xin chào anh/chị! Nhóm thực hiện đề tài Atlas Restaurant đang xây dựng ứng dụng đặt món giao tận nơi cho nhà hàng (khách đặt món trên điện thoại, quầy xác nhận đơn, bếp chế biến, shipper giao và xác nhận bằng ảnh, thanh toán khi nhận hàng hoặc chuyển khoản VietQR).
+Kính gửi Anh/Chị chủ nhà hàng! Nhóm thực hiện đề tài Atlas Restaurant đang xây dựng ứng dụng đặt món giao tận nhà cho nhà hàng: khách đặt món trên điện thoại, nhân viên quầy xác nhận đơn, bếp chế biến, shipper giao hàng và xác nhận bằng ảnh, thanh toán tiền mặt khi nhận hàng hoặc chuyển khoản VietQR.
 
-Phiếu này tìm hiểu quy trình bán hàng giao tận nơi hiện tại và nhu cầu thực tế, để nhóm xác định đúng yêu cầu của hệ thống. Thông tin chỉ dùng cho mục đích học tập và không được công khai. Thời gian trả lời khoảng 5–7 phút.
+Phiếu này nhằm tìm hiểu quy trình bán hàng giao tận nhà hiện tại của nhà hàng và các yêu cầu đối với hệ thống. Thông tin chỉ được sử dụng cho mục đích học tập và không công khai.
 
-### Phần 1. Thông tin người tham gia
+### Phần 1. Phần A. Thông tin chung về nhà hàng
 
-**Câu 1. Họ và tên** _(trả lời ngắn)_
-
-……………………………………………………
-
-**Câu 2. Tên cửa hàng / nhà hàng anh/chị đang làm việc** _(trả lời ngắn)_
-
-_Khách hàng bỏ qua câu này._
+**Câu 1. Họ và tên người được khảo sát** * _(trả lời ngắn)_
 
 ……………………………………………………
 
-**Câu 3. Loại hình kinh doanh của cửa hàng** _(chọn 1)_
+**Câu 2. Chức vụ** * _(trả lời ngắn)_
 
-_Khách hàng bỏ qua câu này._
+……………………………………………………
+
+**Câu 3. Tên nhà hàng** * _(trả lời ngắn)_
+
+……………………………………………………
+
+**Câu 4. Địa chỉ nhà hàng** * _(trả lời ngắn)_
+
+……………………………………………………
+
+**Câu 5. Thời gian nhà hàng đã hoạt động** * _(chọn 1)_
+
+- ☐ Dưới 1 năm
+- ☐ 1 – 3 năm
+- ☐ 3 – 5 năm
+- ☐ Trên 5 năm
+
+**Câu 6. Loại hình kinh doanh** * _(chọn 1)_
 
 - ☐ Quán ăn nhỏ
 - ☐ Nhà hàng
@@ -33,45 +44,90 @@ _Khách hàng bỏ qua câu này._
 - ☐ Bếp online (chỉ bán mang đi, giao hàng)
 - ☐ Khác: ……………………
 
-**Câu 4. Số đơn giao tận nơi trung bình mỗi ngày của cửa hàng** _(chọn 1)_
+**Câu 7. Số lượng nhân sự theo từng bộ phận** * _(trả lời ngắn)_
 
-_Khách hàng bỏ qua câu này._
+……………………………………………………
 
-- ☐ Dưới 10 đơn
-- ☐ 10 – 30 đơn
+**Câu 8. Số đơn giao tận nhà trung bình mỗi ngày** * _(chọn 1)_
+
+- ☐ Dưới 30 đơn
 - ☐ 30 – 60 đơn
 - ☐ 60 – 100 đơn
 - ☐ Trên 100 đơn
 
-**Câu 5. Vai trò của anh/chị** * _(chọn 1)_
+**Câu 9. Giờ nhận đơn giao tận nhà và khung giờ cao điểm** * _(trả lời ngắn)_
 
-_Phiếu sẽ chuyển tới phần câu hỏi dành riêng cho vai trò này._
+……………………………………………………
 
-- ☐ Chủ cửa hàng / Quản lý → Phần 2
-- ☐ Nhân viên nhận đơn, thu ngân → Phần 3
-- ☐ Nhân viên bếp → Phần 4
-- ☐ Nhân viên giao hàng (shipper) → Phần 5
-- ☐ Khách hàng thường đặt món giao tận nơi → Phần 6
+### Phần 2. Phần B. Quy trình nhận và xử lý đơn hàng hiện tại
 
-### Phần 2. Dành cho chủ cửa hàng / quản lý
-
-**Câu 6. Hiện cửa hàng nhận đơn giao tận nơi qua những kênh nào?** * _(chọn nhiều)_
+**Câu 10. Nhà hàng đang nhận đơn giao tận nhà qua những kênh nào?** * _(chọn nhiều)_
 
 - ☐ Gọi điện thoại
 - ☐ Nhắn tin Zalo / Messenger
 - ☐ Fanpage Facebook
-- ☐ Ứng dụng trung gian (GrabFood, ShopeeFood, BeFood…)
-- ☐ Website / ứng dụng riêng của cửa hàng
+- ☐ Ứng dụng trung gian (GrabFood, ShopeeFood, Be…)
+- ☐ Website / ứng dụng riêng của nhà hàng
 - ☐ Khác: ……………………
 
-**Câu 7. Chiết khấu phải trả cho ứng dụng trung gian ảnh hưởng thế nào tới cửa hàng?** * _(chọn 1)_
+**Câu 11. Tỷ trọng đơn hàng theo từng kênh (ước tính)** * _(trả lời ngắn)_
+
+……………………………………………………
+
+**Câu 12. Chiết khấu trả cho ứng dụng trung gian ảnh hưởng thế nào tới nhà hàng?** * _(chọn 1)_
 
 - ☐ Rất lớn, ảnh hưởng nhiều tới lợi nhuận
 - ☐ Có ảnh hưởng nhưng chấp nhận được
 - ☐ Không đáng kể
-- ☐ Cửa hàng không dùng ứng dụng trung gian
+- ☐ Nhà hàng không dùng ứng dụng trung gian
 
-**Câu 8. Thực đơn, giá bán và tình trạng còn/hết món đang được quản lý bằng cách nào?** * _(chọn 1)_
+**Câu 13. Anh/Chị mô tả các bước xử lý một đơn giao tận nhà hiện nay, từ lúc khách đặt đến lúc giao xong** * _(trả lời dài)_
+
+……………………………………………………
+
+……………………………………………………
+
+**Câu 14. Thời gian trung bình từ lúc khách đặt đến lúc nhận được món** * _(chọn 1)_
+
+- ☐ Dưới 30 phút
+- ☐ 30 – 45 phút
+- ☐ 45 – 60 phút
+- ☐ Trên 60 phút
+
+**Câu 15. Những khó khăn nhà hàng đang gặp khi bán hàng giao tận nhà** * _(chọn nhiều)_
+
+- ☐ Đơn đến từ nhiều kênh, dễ sót đơn
+- ☐ Ghi nhầm món, nhầm tùy chọn (size, topping, mức đường…)
+- ☐ Khó đối soát tiền khách chuyển khoản
+- ☐ Khách gọi hỏi đơn đang ở bước nào
+- ☐ Shipper báo đã giao nhưng khách nói chưa nhận
+- ☐ Khách hủy đơn, "bom" hàng
+- ☐ Khó thống kê doanh thu, món bán chạy
+- ☐ Khó triển khai khuyến mãi, mã giảm giá
+- ☐ Khác: ……………………
+
+**Câu 16. Một sự cố cụ thể nhà hàng gặp gần đây** _(trả lời dài)_
+
+……………………………………………………
+
+……………………………………………………
+
+### Phần 3. Phần C. Thực đơn và chế biến
+
+**Câu 17. Quy mô thực đơn (số món, các nhóm món)** * _(trả lời ngắn)_
+
+……………………………………………………
+
+**Câu 18. Các tùy chọn khách thường yêu cầu khi gọi món** * _(chọn nhiều)_
+
+- ☐ Cỡ phần (thường, lớn)
+- ☐ Thêm topping, thêm thịt
+- ☐ Mức đường, mức đá cho đồ uống
+- ☐ Mức cay
+- ☐ Ghi chú riêng (không hành, ít rau…)
+- ☐ Khác: ……………………
+
+**Câu 19. Thực đơn, giá bán và tình trạng còn/hết món đang được quản lý bằng cách nào?** * _(chọn 1)_
 
 - ☐ Sổ sách, giấy tờ
 - ☐ Excel / Google Sheets
@@ -79,104 +135,14 @@ _Phiếu sẽ chuyển tới phần câu hỏi dành riêng cho vai trò này._
 - ☐ Không quản lý cụ thể
 - ☐ Khác: ……………………
 
-**Câu 9. Những khó khăn lớn nhất khi quản lý bán hàng giao tận nơi** * _(chọn nhiều)_
-
-- ☐ Đơn đến từ nhiều kênh, dễ sót đơn
-- ☐ Ghi nhầm món, nhầm tùy chọn (size, topping, ít cay…)
-- ☐ Khó đối soát tiền khách chuyển khoản
-- ☐ Không biết đơn đang ở bước nào (bếp, đang giao…)
-- ☐ Shipper báo đã giao nhưng khách nói chưa nhận
-- ☐ Khách hủy đơn, "bom" hàng
-- ☐ Khó thống kê doanh thu, món bán chạy
-- ☐ Khó triển khai khuyến mãi, mã giảm giá
-- ☐ Khó phân quyền, quản lý nhân viên
-- ☐ Khác: ……………………
-
-**Câu 10. Cửa hàng thường dùng hình thức khuyến mãi nào?** * _(chọn nhiều)_
-
-- ☐ Giảm theo phần trăm
-- ☐ Giảm một số tiền cố định
-- ☐ Miễn / giảm phí giao hàng
-- ☐ Ưu đãi cho khách mới
-- ☐ Áp dụng cho đơn từ một giá trị tối thiểu
-- ☐ Không chạy khuyến mãi
-- ☐ Khác: ……………………
-
-**Câu 11. Anh/chị muốn hệ thống có những báo cáo nào?** * _(chọn nhiều)_
-
-- ☐ Doanh thu theo ngày / tuần / tháng
-- ☐ Món bán chạy
-- ☐ Số đơn theo trạng thái (hoàn thành, hủy, giao thất bại)
-- ☐ Doanh thu theo hình thức thanh toán
-- ☐ Hiệu quả của mã giảm giá
-- ☐ Đánh giá, góp ý của khách hàng
-- ☐ Khác: ……………………
-
-**Câu 12. Anh/chị muốn việc "đã giao hàng" được xác nhận bằng cách nào?** * _(chọn 1)_
-
-- ☐ Shipper chụp ảnh tại nơi giao
-- ☐ Khách bấm "Đã nhận hàng" trên ứng dụng
-- ☐ Shipper gọi điện báo cửa hàng
-- ☐ Không cần xác nhận
-- ☐ Khác: ……………………
-
-_Hết phần này → chuyển tới Phần 7._
-
-### Phần 3. Dành cho nhân viên nhận đơn, thu ngân
-
-**Câu 13. Số đơn giao tận nơi anh/chị xử lý trong một ca** * _(chọn 1)_
-
-- ☐ Dưới 10 đơn
-- ☐ 10 – 30 đơn
-- ☐ 30 – 60 đơn
-- ☐ Trên 60 đơn
-
-**Câu 14. Thời gian trung bình để nhận và ghi lại một đơn** * _(chọn 1)_
-
-- ☐ Dưới 1 phút
-- ☐ 1 – 3 phút
-- ☐ 3 – 5 phút
-- ☐ Trên 5 phút
-
-**Câu 15. Khách thường thanh toán đơn giao tận nơi bằng hình thức nào?** * _(chọn nhiều)_
-
-- ☐ Tiền mặt khi nhận hàng (COD)
-- ☐ Chuyển khoản ngân hàng / quét mã QR
-- ☐ Ví điện tử (MoMo, ZaloPay…)
-- ☐ Thẻ ngân hàng
-- ☐ Khác: ……………………
-
-**Câu 16. Anh/chị xác nhận khách đã chuyển khoản bằng cách nào?** * _(chọn 1)_
-
-- ☐ Xem thông báo biến động số dư
-- ☐ Khách gửi ảnh chụp màn hình chuyển khoản
-- ☐ Đối chiếu sao kê cuối ngày
-- ☐ Chủ cửa hàng tự kiểm tra
-- ☐ Khác: ……………………
-
-**Câu 17. Khi một món hết nguyên liệu, khách được báo bằng cách nào?** * _(chọn 1)_
+**Câu 20. Khi một món hết nguyên liệu, khách được báo bằng cách nào?** * _(chọn 1)_
 
 - ☐ Gọi điện báo khách sau khi đã nhận đơn
 - ☐ Báo ngay khi khách gọi đặt
-- ☐ Ghi chú nội bộ, không báo trước
 - ☐ Không có quy trình cụ thể
 - ☐ Khác: ……………………
 
-**Câu 18. Những việc tốn nhiều thời gian nhất của anh/chị** * _(chọn nhiều)_
-
-- ☐ Ghi lại đơn và tùy chọn món
-- ☐ Chuyển đơn cho bếp
-- ☐ Trả lời khách hỏi đơn đang ở đâu
-- ☐ Đối soát tiền chuyển khoản
-- ☐ Liên hệ, điều phối shipper
-- ☐ Xử lý hủy đơn, đổi món
-- ☐ Khác: ……………………
-
-_Hết phần này → chuyển tới Phần 7._
-
-### Phần 4. Dành cho nhân viên bếp
-
-**Câu 19. Bếp nhận đơn từ quầy bằng cách nào?** * _(chọn 1)_
+**Câu 21. Bếp nhận đơn từ quầy bằng cách nào?** * _(chọn 1)_
 
 - ☐ Phiếu in hoặc viết tay
 - ☐ Nhân viên đọc to
@@ -184,141 +150,162 @@ _Hết phần này → chuyển tới Phần 7._
 - ☐ Tin nhắn Zalo
 - ☐ Khác: ……………………
 
-**Câu 20. Những sai sót thường xảy ra trong bếp** * _(chọn nhiều)_
+**Câu 22. Những sai sót thường xảy ra ở khâu chế biến** * _(chọn nhiều)_
 
 - ☐ Làm nhầm món, nhầm tùy chọn
 - ☐ Bỏ sót ghi chú của khách
 - ☐ Làm sai thứ tự đơn
 - ☐ Không biết đơn đã bị hủy
 - ☐ Không báo kịp khi hết nguyên liệu
-- ☐ Không gặp sai sót đáng kể
 - ☐ Khác: ……………………
 
-**Câu 21. Màn hình bếp cần hiển thị những thông tin nào?** * _(chọn nhiều)_
+**Câu 23. Màn hình bếp cần hiển thị những thông tin nào?** * _(chọn nhiều)_
 
 - ☐ Mã đơn và giờ đặt
 - ☐ Món, số lượng, tùy chọn
 - ☐ Ghi chú của khách
 - ☐ Thời gian chờ của từng đơn
-- ☐ Nút báo "đã làm xong"
+- ☐ Nút chuyển đơn sang "đang chuẩn bị", "đã xong"
 - ☐ Nút báo hết món
 - ☐ Khác: ……………………
 
-**Câu 22. Mức độ quan trọng của việc đơn được xếp theo thứ tự đến trước – làm trước** * _(thang điểm, tối đa 5)_
+**Câu 24. Thời gian chế biến trung bình một đơn** * _(trả lời ngắn)_
 
-Không quan trọng ☐ 1  ☐ 2  ☐ 3  ☐ 4  ☐ 5 Rất quan trọng
+……………………………………………………
 
-_Hết phần này → chuyển tới Phần 7._
+### Phần 4. Phần D. Giao hàng
 
-### Phần 5. Dành cho nhân viên giao hàng (shipper)
+**Câu 25. Nhà hàng giao hàng bằng đội ngũ nào?** * _(chọn 1)_
 
-**Câu 23. Hình thức làm việc của anh/chị** * _(chọn 1)_
-
-- ☐ Shipper riêng của cửa hàng
-- ☐ Shipper tự do nhận chuyến
-- ☐ Tài xế ứng dụng trung gian
+- ☐ Shipper riêng của nhà hàng
+- ☐ Thuê dịch vụ giao hàng theo chuyến
+- ☐ Chỉ giao qua ứng dụng trung gian
 - ☐ Khác: ……………………
 
-**Câu 24. Số đơn anh/chị giao trung bình mỗi ngày** * _(chọn 1)_
+**Câu 26. Phạm vi giao hàng** * _(trả lời ngắn)_
 
-- ☐ Dưới 10 đơn
-- ☐ 10 – 20 đơn
-- ☐ 20 – 40 đơn
-- ☐ Trên 40 đơn
+……………………………………………………
 
-**Câu 25. Anh/chị nhận thông tin đơn (địa chỉ, số điện thoại, số tiền cần thu) bằng cách nào?** * _(chọn 1)_
+**Câu 27. Cách tính phí giao hàng** * _(trả lời ngắn)_
 
-- ☐ Phiếu giấy
-- ☐ Tin nhắn Zalo / SMS
-- ☐ Gọi điện
-- ☐ Ứng dụng
+……………………………………………………
+
+**Câu 28. Giá trị đơn hàng tối thiểu** * _(trả lời ngắn)_
+
+……………………………………………………
+
+**Câu 29. Nhà hàng muốn việc "đã giao hàng" được xác nhận bằng cách nào?** * _(chọn 1)_
+
+- ☐ Shipper chụp ảnh tại nơi giao
+- ☐ Khách bấm "Đã nhận hàng" trên ứng dụng
+- ☐ Shipper gọi điện báo nhà hàng
+- ☐ Không cần xác nhận
 - ☐ Khác: ……………………
 
-**Câu 26. Những khó khăn khi giao hàng** * _(chọn nhiều)_
+**Câu 30. Lý do lựa chọn cách xác nhận trên** * _(trả lời dài)_
 
-- ☐ Địa chỉ không rõ ràng
-- ☐ Khách không nghe máy
-- ☐ Khách "bom" hàng
-- ☐ Nhầm số tiền cần thu (COD)
-- ☐ Không có bằng chứng đã giao
-- ☐ Không biết đơn nào đã sẵn sàng để lấy
+……………………………………………………
+
+……………………………………………………
+
+**Câu 31. Khi giao không thành công, nhà hàng xử lý thế nào?** * _(chọn 1)_
+
+- ☐ Shipper báo lý do, mang hàng về nhà hàng
+- ☐ Shipper chờ và liên hệ lại khách
+- ☐ Không có quy trình cụ thể
 - ☐ Khác: ……………………
 
-**Câu 27. Anh/chị có sẵn sàng chụp ảnh tại nơi giao làm bằng chứng giao hàng không?** * _(chọn 1)_
+**Câu 32. Tỷ lệ đơn khách "bom" hàng hoặc giao không thành công** * _(chọn 1)_
 
-- ☐ Sẵn sàng
-- ☐ Đồng ý nếu thao tác nhanh
-- ☐ Không muốn
+- ☐ Dưới 2%
+- ☐ 2 – 5%
+- ☐ 5 – 10%
+- ☐ Trên 10%
 
-**Câu 28. Khi giao không thành công, anh/chị thường xử lý thế nào?** * _(chọn 1)_
+### Phần 5. Phần E. Thanh toán
 
-- ☐ Gọi báo cửa hàng
-- ☐ Mang hàng về cửa hàng
-- ☐ Chờ và liên hệ lại khách
-- ☐ Khác: ……………………
-
-_Hết phần này → chuyển tới Phần 7._
-
-### Phần 6. Dành cho khách hàng
-
-**Câu 29. Anh/chị đặt món giao tận nơi thường xuyên như thế nào?** * _(chọn 1)_
-
-- ☐ Hằng ngày
-- ☐ 2 – 3 lần mỗi tuần
-- ☐ Vài lần mỗi tháng
-- ☐ Hiếm khi
-
-**Câu 30. Anh/chị thường đặt món qua kênh nào?** * _(chọn nhiều)_
-
-- ☐ GrabFood
-- ☐ ShopeeFood
-- ☐ BeFood
-- ☐ Gọi điện trực tiếp cho quán
-- ☐ Nhắn tin Zalo / Facebook của quán
-- ☐ Website / ứng dụng riêng của quán
-- ☐ Khác: ……………………
-
-**Câu 31. Yếu tố quan trọng nhất khi anh/chị chọn đặt món (chọn tối đa 3)** * _(chọn nhiều, tối đa 3)_
-
-- ☐ Giá món
-- ☐ Phí giao hàng
-- ☐ Thời gian giao
-- ☐ Hình ảnh, mô tả món rõ ràng
-- ☐ Đánh giá của khách khác
-- ☐ Khuyến mãi, mã giảm giá
-- ☐ Theo dõi được trạng thái đơn
-- ☐ Thanh toán tiện lợi
-
-**Câu 32. Hình thức thanh toán anh/chị ưa thích** * _(chọn 1)_
+**Câu 33. Khách đang thanh toán đơn giao tận nhà bằng hình thức nào?** * _(chọn nhiều)_
 
 - ☐ Tiền mặt khi nhận hàng (COD)
-- ☐ Chuyển khoản bằng mã QR
+- ☐ Chuyển khoản ngân hàng / quét mã QR
+- ☐ Ví điện tử (MoMo, ZaloPay…)
+- ☐ Thẻ ngân hàng
+- ☐ Khác: ……………………
+
+**Câu 34. Tỷ lệ giữa các hình thức thanh toán (ước tính)** * _(trả lời ngắn)_
+
+……………………………………………………
+
+**Câu 35. Nhà hàng xác nhận khách đã chuyển khoản bằng cách nào?** * _(chọn 1)_
+
+- ☐ Xem thông báo biến động số dư
+- ☐ Khách gửi ảnh chụp màn hình chuyển khoản
+- ☐ Đối chiếu sao kê cuối ngày
+- ☐ Khác: ……………………
+
+**Câu 36. Hình thức thanh toán nhà hàng muốn hệ thống hỗ trợ** * _(chọn nhiều)_
+
+- ☐ Tiền mặt khi nhận hàng (COD)
+- ☐ Chuyển khoản bằng mã VietQR, tự động xác nhận khi tiền về
 - ☐ Ví điện tử
 - ☐ Thẻ ngân hàng
 - ☐ Khác: ……………………
 
-**Câu 33. Điều anh/chị chưa hài lòng khi đặt món giao tận nơi** * _(chọn nhiều)_
+**Câu 37. Thời gian giữ đơn chờ khách chuyển khoản** * _(trả lời ngắn)_
 
-- ☐ Không biết đơn đang ở đâu
-- ☐ Giao chậm
-- ☐ Món sai hoặc thiếu
-- ☐ Giá trên ứng dụng trung gian cao hơn tại quán
-- ☐ Gọi điện đặt món hay bị ghi nhầm
-- ☐ Khó áp dụng mã giảm giá
-- ☐ Không có hóa đơn
+……………………………………………………
+
+### Phần 6. Phần F. Khuyến mãi, khách hàng và quản lý
+
+**Câu 38. Nhà hàng thường dùng hình thức khuyến mãi nào?** * _(chọn nhiều)_
+
+- ☐ Giảm theo phần trăm, có mức giảm tối đa
+- ☐ Giảm một số tiền cố định
+- ☐ Miễn / giảm phí giao hàng
+- ☐ Ưu đãi cho khách đặt lần đầu
+- ☐ Áp dụng cho đơn từ một giá trị tối thiểu
 - ☐ Khác: ……………………
 
-**Câu 34. Nếu quán có ứng dụng đặt món riêng, anh/chị có sẵn sàng sử dụng không?** * _(thang điểm, tối đa 5)_
+**Câu 39. Chương trình khuyến mãi nhà hàng dự kiến chạy khi đưa ứng dụng vào sử dụng** * _(trả lời dài)_
 
-Chắc chắn không ☐ 1  ☐ 2  ☐ 3  ☐ 4  ☐ 5 Chắc chắn có
+……………………………………………………
 
-_Hết phần này → chuyển tới Phần 7._
+……………………………………………………
 
-### Phần 7. Mức độ cần thiết của các chức năng
+**Câu 40. Nhà hàng cần những báo cáo nào?** * _(chọn nhiều)_
 
-_Phần này dành cho tất cả người tham gia._
+- ☐ Doanh thu theo ngày / tuần / tháng
+- ☐ Món bán chạy
+- ☐ Số đơn theo trạng thái (hoàn thành, hủy, giao thất bại)
+- ☐ Doanh thu theo hình thức thanh toán
+- ☐ Hiệu quả của mã giảm giá
+- ☐ Tỷ lệ khách quay lại đặt hàng
+- ☐ Đánh giá, góp ý của khách hàng
+- ☐ Khác: ……………………
 
-**Câu 35. Theo anh/chị, mỗi chức năng sau cần thiết ở mức nào?** * _(bảng đánh giá)_
+**Câu 41. Nhà hàng có muốn khách đánh giá món và gửi góp ý trên ứng dụng không?** * _(chọn 1)_
+
+- ☐ Có, và nhà hàng trả lời góp ý ngay trên ứng dụng
+- ☐ Có, chỉ cần xem đánh giá
+- ☐ Không cần
+
+**Câu 42. Những bộ phận cần tài khoản riêng trên hệ thống** * _(chọn nhiều)_
+
+- ☐ Nhân viên quầy
+- ☐ Nhân viên bếp
+- ☐ Shipper
+- ☐ Quản lý
+- ☐ Khác: ……………………
+
+**Câu 43. Yêu cầu về quản lý tài khoản nhân viên và bảo mật** * _(trả lời dài)_
+
+……………………………………………………
+
+……………………………………………………
+
+### Phần 7. Phần G. Yêu cầu chức năng đối với hệ thống
+
+**Câu 44. Mức độ cần thiết của từng chức năng đối với nhà hàng** * _(bảng đánh giá)_
 
 | | Không cần thiết | Ít cần thiết | Cần thiết | Rất cần thiết |
 |---|:-:|:-:|:-:|:-:|
@@ -337,20 +324,30 @@ _Phần này dành cho tất cả người tham gia._
 | Báo cáo doanh thu, món bán chạy | ☐ | ☐ | ☐ | ☐ |
 | Quản lý thực đơn, nhân viên, mã giảm giá | ☐ | ☐ | ☐ | ☐ |
 
-**Câu 36. Anh/chị sẽ dùng ứng dụng trên thiết bị nào?** * _(chọn nhiều)_
+**Câu 45. Thiết bị sử dụng ở từng bộ phận** * _(trả lời ngắn)_
 
-- ☐ Điện thoại Android
-- ☐ iPhone
-- ☐ Máy tính bảng
-- ☐ Máy tính
+……………………………………………………
 
-**Câu 37. Chức năng khác anh/chị mong muốn hệ thống có** _(trả lời dài)_
+**Câu 46. Yêu cầu về phát hành ứng dụng** * _(chọn 1)_
+
+- ☐ Phát hành ngay trên CH Play và App Store
+- ☐ Giai đoạn đầu dùng ứng dụng Android cài trực tiếp và bản web, phát hành lên kho sau
+- ☐ Chỉ cần bản web
+- ☐ Khác: ……………………
+
+**Câu 47. Chức năng khác nhà hàng mong muốn** _(trả lời dài)_
 
 ……………………………………………………
 
 ……………………………………………………
 
-**Câu 38. Ý kiến đóng góp khác** _(trả lời dài)_
+**Câu 48. Kỳ vọng của nhà hàng khi đưa hệ thống vào sử dụng** * _(trả lời dài)_
+
+……………………………………………………
+
+……………………………………………………
+
+**Câu 49. Ý kiến khác** _(trả lời dài)_
 
 ……………………………………………………
 
