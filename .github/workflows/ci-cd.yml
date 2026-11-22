@@ -1,6 +1,8 @@
 # CI/CD for Atlas Restaurant (replaces the Jenkins multibranch job "ordering").
-# Branch model:  feature/* ──PR──> develop ──(automatic)──> main
+# Branch model:  feature/* ──(automatic)──> develop ──(automatic)──> main   (no manual approval)
 #   every push / PR      : CI = backend tests (incl. prod profile on PostgreSQL) + mobile typecheck, lint, web build
+#   other branch push    : CI passes -> INTEGRATE: fast-forward develop to this commit, then the same run continues
+#                          like a develop push (the branch must contain the latest develop: rebase/merge it first)
 #   develop              : CI + disposable STAGING on the GitHub runner (build, smoke-test, throw away)
 #                          + PROMOTE: fast-forward main to this commit + DEPLOY production + APK if mobile/ changed
 #   main (pushed by hand): CI + DEPLOY production + APK if mobile/ changed
@@ -104,10 +106,40 @@ jobs:
       - run: npx expo lint
       - run: npx expo export --platform web
 
+  # A pushed working branch that passed CI goes to develop by itself. Fast-forward only, so develop receives exactly
+  # the commit CI just tested; a branch behind develop fails here (update it from develop and push again).
+  # The push uses GITHUB_TOKEN and starts no new run: staging, promote and deploy follow in this run.
+  integrate:
+    needs: [plan, backend, mobile]
+    if: >-
+      !cancelled() && !contains(needs.*.result, 'failure')
+      && github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')
+      && github.ref != 'refs/heads/develop' && github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - run: |
+          git fetch -q origin develop
+          dev=$(git rev-parse FETCH_HEAD)
+          if [ "$dev" = "$GITHUB_SHA" ] || git merge-base --is-ancestor "$GITHUB_SHA" "$dev"; then
+            echo "already on develop"; exit 0
+          fi
+          if ! git merge-base --is-ancestor "$dev" "$GITHUB_SHA"; then
+            echo "::error::$GITHUB_REF_NAME is behind develop: run 'git pull --rebase origin develop' (or merge develop) and push again"; exit 1
+          fi
+          git push -q origin "$GITHUB_SHA:refs/heads/develop"
+          echo "develop -> $GITHUB_SHA"
+
   # Same compose file and Dockerfiles as production, own project/ports/empty DB/random secrets, on the runner.
   staging:
-    needs: [plan, backend, mobile]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop' && needs.plan.outputs.docs_only != 'true'
+    needs: [plan, backend, mobile, integrate]
+    if: >-
+      !cancelled() && !contains(needs.*.result, 'failure') && needs.plan.outputs.docs_only != 'true'
+      && github.event_name == 'push' && (github.ref == 'refs/heads/develop' || needs.integrate.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -115,10 +147,10 @@ jobs:
 
   # Fast-forward only: if main has commits develop does not have, nothing is pushed and the run fails.
   promote:
-    needs: [plan, backend, mobile, staging]
+    needs: [plan, backend, mobile, integrate, staging]
     if: >-
       !cancelled() && !contains(needs.*.result, 'failure')
-      && github.event_name == 'push' && github.ref == 'refs/heads/develop'
+      && github.event_name == 'push' && (github.ref == 'refs/heads/develop' || needs.integrate.result == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -140,11 +172,11 @@ jobs:
           echo "main -> $GITHUB_SHA"
 
   deploy:
-    needs: [plan, backend, mobile, staging, promote]
+    needs: [plan, backend, mobile, integrate, staging, promote]
     if: >-
       !cancelled() && !contains(needs.*.result, 'failure') && needs.plan.outputs.docs_only != 'true'
       && github.event_name == 'push'
-      && (github.ref == 'refs/heads/main' || (github.ref == 'refs/heads/develop' && needs.promote.result == 'success'))
+      && (github.ref == 'refs/heads/main' || needs.promote.result == 'success')
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -225,7 +257,7 @@ jobs:
 
   # Telegram message with commit and run link. A missing token or network error only logs.
   notify:
-    needs: [plan, backend, mobile, staging, promote, deploy, apk, backup]
+    needs: [plan, backend, mobile, integrate, staging, promote, deploy, apk, backup]
     if: ${{ always() && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     steps:

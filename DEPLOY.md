@@ -30,13 +30,16 @@ GitHub Actions ──SSH (khóa chỉ chạy được deploy/ci-ssh-gate.sh)─�
 ## Quy trình nhánh
 
 ```
-feature/xxx ──PR──> develop ──(tự động)──> main
- (làm việc)        (CI + staging tạm)       (production)
+feature/xxx ──(tự động)──> develop ──(tự động)──> main
+ (làm việc)   CI đạt        (staging tạm)          (production)
 ```
 
-1. Tách nhánh tính năng từ `develop`: `git checkout develop && git pull && git checkout -b feature/ten-tinh-nang`.
-2. Đẩy nhánh lên GitHub: GitHub Actions chạy **CI** (test + kiểm tra mobile). Chưa deploy gì.
-3. Mở PR vào `develop`, CI xanh thì merge. `develop` được bảo vệ: không push thẳng được, chỉ merge qua PR, và hai check `backend`, `mobile` phải đạt (PR chỉ đổi tài liệu thì hai job này được bỏ qua và vẫn tính là đạt). GitHub Actions dựng **staging tạm** trên máy ảo của GitHub, chạy bộ smoke test rồi bỏ máy ảo.
+Không có bước duyệt tay: push nhánh làm việc là đủ.
+
+1. Tách nhánh từ `develop` mới nhất: `git checkout develop && git pull && git checkout -b feature/ten-tinh-nang`.
+2. Push nhánh lên GitHub. GitHub Actions chạy **CI** (test backend, kiểm tra và build mobile).
+3. CI đạt thì job `integrate` **tự đưa commit đó vào `develop`** (chỉ fast-forward: `develop` nhận đúng commit CI vừa test). Nếu nhánh đang thiếu commit mới của `develop`, job báo lỗi: chạy `git pull --rebase origin develop` rồi push lại. Push thẳng lên `develop` cũng chạy như vậy. `develop` chỉ chặn force push và xóa nhánh. Tiếp theo GitHub Actions dựng **staging tạm** trên máy ảo của GitHub, chạy bộ smoke test rồi bỏ máy ảo. Commit làm hỏng CI hoặc staging không bao giờ lên `main` hay production.
+   PR vẫn dùng được để xem trước và chạy CI; PR từ fork của người ngoài repo không tự vào `develop`, cần người có quyền ghi bấm merge. Khi dự án lớn hơn, bật lại *Require a pull request* (và review) cho `develop` trong Settings → Branches.
 4. Staging test đạt thì workflow **tự đẩy commit đó lên `main`** (chỉ fast-forward, bằng `GITHUB_TOKEN`), rồi **deploy production** ngay trong cùng lần chạy. Lần đẩy bằng `GITHUB_TOKEN` không tạo lần chạy mới, nên không bị deploy hai lần. Nếu `main` có commit mà `develop` không có, workflow dừng lại và báo lỗi: merge `main` vào `develop` trước.
 5. Không mở PR `develop` → `main` và không commit thẳng vào `main`: merge bằng PR tạo merge commit trên `main` mà `develop` không có, các lần promote sau sẽ thất bại. Nếu có đẩy thẳng, workflow vẫn chạy CI rồi deploy. Muốn bật *Branch protection* cho `main` thì phải cho GitHub Actions đẩy thẳng (bypass), nếu không bước tự đẩy sẽ bị từ chối.
 
@@ -49,8 +52,9 @@ Xem các lần chạy ở tab **Actions** của repo. Lịch sử deploy nằm �
 | `plan` | mọi lần push / PR | Nếu chỉ đổi `docs/**` hoặc `*.md` thì bỏ qua test, staging và deploy (nhánh `develop` vẫn đẩy lên `main`) |
 | `backend` | mọi lần push / PR | `mvn verify`: các bộ test, gồm test profile prod trên PostgreSQL thật (embedded) |
 | `mobile` | mọi lần push / PR | `npm ci`, `tsc`, `expo lint`, `expo export --platform web` |
-| `staging` | push lên `develop` | `scripts/staging-test.sh` trên máy ảo GitHub: dựng stack bằng `docker-compose.yml` và Dockerfile của production, chạy 15 kiểm tra (health, web, thực đơn, báo giá giao hàng, đăng ký và đăng nhập, sai mật khẩu, phân quyền 401/403…), rồi xóa. Không cần secret |
-| `promote` | push lên `develop`, các job trên đạt | Đẩy commit lên `main` (fast-forward) |
+| `integrate` | push nhánh khác `develop`, `main`, CI đạt | Fast-forward `develop` tới commit vừa test; các job sau chạy tiếp trong cùng lần chạy |
+| `staging` | push lên `develop` hoặc sau `integrate` | `scripts/staging-test.sh` trên máy ảo GitHub: dựng stack bằng `docker-compose.yml` và Dockerfile của production, chạy 15 kiểm tra (health, web, thực đơn, báo giá giao hàng, đăng ký và đăng nhập, sai mật khẩu, phân quyền 401/403…), rồi xóa. Không cần secret |
+| `promote` | push lên `develop` hoặc sau `integrate`, các job trên đạt | Đẩy commit lên `main` (fast-forward) |
 | `deploy` | sau `promote`, hoặc push thẳng lên `main` | SSH vào máy chủ chạy `deploy <sha>`. Trên máy chủ, `ci-ssh-gate.sh` kiểm tra commit có trên `main`, checkout, chép `prod.env` vào `.env` rồi chạy `scripts/deploy.sh`: backup DB → build image → chờ healthy → kiểm tra. Lỗi ở bất kỳ bước nào thì tự quay về image trước |
 | `apk` | sau `deploy`, khi thư mục `mobile/` có thay đổi | Gửi yêu cầu build Android APK lên EAS (không chờ, 10–30 phút). Lỗi bước này chỉ cảnh báo, không làm hỏng deploy |
 | `backup` | 3 giờ sáng (cron `0 20 * * *` UTC) | SSH chạy `backup` → `scripts/backup-db.sh nightly` |
