@@ -4,7 +4,6 @@ import com.restaurant.orderingsystem.dto.Dtos.*;
 import com.restaurant.orderingsystem.entity.*;
 import com.restaurant.orderingsystem.exception.ApiException;
 import com.restaurant.orderingsystem.repository.*;
-import com.restaurant.orderingsystem.security.Caller;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,7 +19,7 @@ import java.util.List;
 /**
  * Restaurant campaigns shown as home-screen banners, built not to annoy:
  * <ul>
- *   <li>banners are filtered per customer – never a voucher they can no longer use, a sold-out dish or an empty category;
+ *   <li>banners show running campaigns – never an expired voucher, a sold-out dish or an empty category;
  *       at most {@value #MAX_BANNERS} banners;</li>
  *   <li>announcing sends at most one promotional notification per customer per {@code app.promotions.cap-hours} hours,
  *       skips customers who opted out, and is postponed to the morning when requested during quiet hours.</li>
@@ -49,12 +48,11 @@ public class PromotionService {
     // ---------------------------------------------------------------- banners
     @Transactional(readOnly = true)
     public List<PromotionResponse> live() {
-        Long customer = Caller.user().filter(u -> u.role() == Role.CUSTOMER).map(u -> u.id()).orElse(null);
-        return promotions.findLive(LocalDateTime.now()).stream().filter(p -> useful(p, customer)).limit(MAX_BANNERS).map(this::toResponse).toList();
+        return promotions.findLive(LocalDateTime.now()).stream().filter(this::useful).limit(MAX_BANNERS).map(this::toResponse).toList();
     }
 
-    /** A banner is worth showing only if what it advertises can be ordered or used right now (by this customer). */
-    private boolean useful(Promotion p, Long customerId) {
+    /** Keep campaign information visible after personal voucher use; checkout still enforces usage limits. */
+    private boolean useful(Promotion p) {
         return switch (p.getTargetType()) {
             case NONE -> true;
             case MENU_ITEM -> p.getMenuItem().isActive() && p.getMenuItem().isAvailable();
@@ -65,9 +63,7 @@ public class PromotionService {
                 LocalDateTime now = LocalDateTime.now();
                 boolean usable = v.isActive() && (v.getStartAt() == null || !v.getStartAt().isAfter(now)) && (v.getEndAt() == null || !v.getEndAt().isBefore(now))
                         && (v.getUsageLimit() == null || orders.countByVoucherIdAndStatusNot(v.getId(), OrderStatus.CANCELLED) < v.getUsageLimit());
-                boolean usedUp = customerId != null && v.getPerUserLimit() != null
-                        && orders.countByVoucherIdAndCustomerIdAndStatusNot(v.getId(), customerId, OrderStatus.CANCELLED) >= v.getPerUserLimit();
-                yield usable && !usedUp;
+                yield usable;
             }
         };
     }
